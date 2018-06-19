@@ -7,7 +7,7 @@ from ..event import ZKRealtimeEvent
 
 with patch('ctypes.WinDLL', create=True):
     from ..lib import ControlOperation, RelayGroup
-    from ..lib import ZKAccess
+    from ..lib import ZKAccess, ZK100, ZK200, ZK400
 
 
 class TestZKAccess:
@@ -24,6 +24,16 @@ class TestZKAccess:
 
     def test_connstr_prop(self):
         assert self.obj.connstr is None
+
+    def test_device_model_prop(self):
+        dllpath = 'somedll'
+        with patch('ctypes.WinDLL', create=True) as m:
+            obj = ZKAccess(dllpath, device_model=ZK200)
+
+            assert obj.device_model == ZK200
+
+    def test_device_model_prop_default(self):
+        assert self.obj.device_model == ZK400
 
     def test_connstr_prop_set_on_connect(self):
         test_connstr = 'protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd='
@@ -127,7 +137,7 @@ class TestZKAccess:
     @pytest.mark.parametrize('group', (RelayGroup.lock, RelayGroup.aux))
     def test_enable_relay(self, group):
         self.obj.zk_control_device = Mock()
-        door = 2
+        door = 1
         timeout = 5
 
         self.obj.enable_relay(group, door, timeout)
@@ -140,30 +150,37 @@ class TestZKAccess:
             0
         )
 
-    @pytest.mark.parametrize('parameters', ((0, -1), (5, 256)))
-    def test_enable_relay_error(self, parameters):
+    @pytest.mark.parametrize('door,timeout', ((0, -1), (0, 256)))
+    def test_enable_relay_error(self, door, timeout):
         self.obj.zk_control_device = Mock()
-        door = parameters[0]
-        timeout = parameters[1]
 
         with pytest.raises(ValueError):
             self.obj.enable_relay(RelayGroup.lock, door, timeout)
 
-    @pytest.mark.parametrize('l', itertools.product((0, 1), repeat=8))
-    def test_enable_relay_list(self, l):
+    @pytest.mark.parametrize('device_model', (ZK400, ZK200, ZK100))
+    @pytest.mark.parametrize('timeout', (-1, 256))
+    def test_enable_relay_error_by_model(self, device_model, timeout):
         self.obj.zk_control_device = Mock()
+        self.obj._device_model = device_model
+        door = device_model.relays + 1
+
+        with pytest.raises(ValueError):
+            self.obj.enable_relay(RelayGroup.lock, door, timeout)
+
+    @pytest.mark.parametrize('device_model', (ZK400, ZK200, ZK100))
+    @pytest.mark.parametrize('pattern', ((0, 0), (1, 0), (0, 1), (1, 1)))
+    def test_enable_relay_list(self, device_model, pattern):
+        self.obj.zk_control_device = Mock()
+        self.obj._device_model = device_model
         timeout = 5
+        l = pattern * (device_model.relays // 2)
 
         self.obj.enable_relay_list(l, timeout)
 
-        relay_pattern = '12341234'
-        grp_pattern = '22221111'
-
         calls = []
-
-        for i in range(8):
-            door = int(relay_pattern[i])
-            group = int(grp_pattern[i])
+        for i in range(device_model.relays):
+            door = int(device_model.relays_def[i])
+            group = int(device_model.groups_def[i])
             if l[i]:
                 calls.append(
                     call(
@@ -177,14 +194,21 @@ class TestZKAccess:
         self.obj.zk_control_device.assert_has_calls(calls, any_order=True)
 
     @pytest.mark.parametrize('timeout', (-1, 256))
-    @pytest.mark.parametrize('l', (
-        (0, 0, 0, 0, 0, 0, 0),
-        (0, 0, 0, 0, 0, 0, 0, 0, 0),
-        (1, 1, 1, 1, 1, 1, 1),
-        (1, 1, 1, 1, 1, 1, 1, 1, 1),
-    ))
-    def test_enable_relay_list_error(self, l, timeout):
+    @pytest.mark.xfail
+    def test_enable_relay_list_error(self, timeout):
         self.obj.control_device = Mock()
+        l = (0, ) * 8
+
+        with pytest.raises(ValueError):
+            self.obj.enable_relay_list(l, timeout)
+
+    @pytest.mark.parametrize('device_model', (ZK400, ZK200, ZK100))
+    @pytest.mark.parametrize('length_offset', (1, -1))
+    def test_enable_relay_list_error_by_model(self, device_model, length_offset):
+        self.obj.control_device = Mock()
+        self.obj._device_model = device_model
+        l = (0, ) * (8 + length_offset)
+        timeout = 5
 
         with pytest.raises(ValueError):
             self.obj.enable_relay_list(l, timeout)

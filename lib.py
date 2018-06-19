@@ -19,7 +19,39 @@ class RelayGroup:
     aux = 2
 
 
+class ZK400:
+    """ZKAccess C3-400"""
+    relays = 8
+    relays_def = (
+        1, 2, 3, 4,
+        1, 2, 3, 4
+    )
+    groups_def = (
+        RelayGroup.aux,  RelayGroup.aux,  RelayGroup.aux,  RelayGroup.aux,
+        RelayGroup.lock, RelayGroup.lock, RelayGroup.lock, RelayGroup.lock
+    )
+
+
+class ZK200:
+    """ZKAccess C3-200"""
+    relays = 4
+    relays_def = (1, 2, 1, 2)
+    groups_def = (RelayGroup.aux,  RelayGroup.aux, RelayGroup.lock, RelayGroup.lock)
+
+
+class ZK100:
+    """ZKAccess C3-100"""
+    relays = 2
+    relays_def = (1, 2)
+    groups_def = (RelayGroup.aux, RelayGroup.lock)
+
+
 class ZKAccess:
+    @property
+    def device_model(self):
+        """Device model class. Read only"""
+        return self._device_model
+
     @property
     def connstr(self):
         """Device connection string. Read only."""
@@ -35,14 +67,16 @@ class ZKAccess:
         """Device handle. Has 'None' value if it's not connected to device. Read only."""
         return self._handle
 
-    def __init__(self, dllpath, connstr=None):
+    def __init__(self, dllpath, connstr=None, device_model=ZK400):
         """
         Constructor. Takes path to DLL and device connection string.
         :param dllpath: Required. Full path to plcommpro.dll
         :param connstr: Optional. Device connection string. Connect will be performed if this specified.
+        :param device_model: Optional. Device model class. Default is ZK400
         """
         self._handle = None
         self._connstr = None
+        self._device_model = device_model
 
         self._dll_object = ctypes.WinDLL(dllpath)
 
@@ -102,7 +136,7 @@ class ZKAccess:
         :raises RuntimeError: operation failed
         :return:
         """
-        if number < 1 or number > 4:
+        if number < 1 or number > self.device_model.relays:
             raise ValueError("Incorrect relay number: {}".format(number))
         if timeout < 0 or timeout > 255:
             raise ValueError("Incorrect timeout: {}".format(timeout))
@@ -127,18 +161,17 @@ class ZKAccess:
         :raises RuntimeError: operation failed
         :return:
         """
-        relays = (1, 2, 3, 4, 1, 2, 3, 4)  # TODO: move to another class ZK400
-        groups = (2, 2, 2, 2, 1, 1, 1, 1)  #
         # TODO: timeout check
-        if len(l) != 8:  # TODO: change according to relays/groups
-            raise ValueError('Relay list length is not 8')
+        if len(l) != self.device_model.relays:
+            raise ValueError("Relay list length '{}' is not equal to relays count '{}'"
+                             .format(len(l), self.device_model.relays))
 
-        for i in range(8):
+        for i in range(self.device_model.relays):
             if l[i]:
                 self.zk_control_device(
                     ControlOperation.output,
-                    relays[i],
-                    groups[i],
+                    self.device_model.relays_def[i],
+                    self.device_model.groups_def[i],
                     timeout,
                     0
                 )

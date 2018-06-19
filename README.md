@@ -24,6 +24,7 @@ On *nix systems you can use Wine.
 # Usage
 
 Turn on the relay:
+
 ```
 from pyzkaccess import ZKAccess, RelayGroup
 
@@ -33,6 +34,7 @@ with ZKAccess('plcommpro.dll', connstr) as zk:
 ```
 
 Read aux input state:
+
 ```
 import time
 from pyzkaccess import ZKAccess
@@ -48,6 +50,16 @@ with ZKAccess('plcommpro.dll', connstr) as zk:
                 print("Auxiliary input on door {} released at {}".format(e.door, e.time))
 
         time.sleep(1)
+```
+
+The default model is C3-400. How to use another model, e.g. C3-200:
+
+```
+from pyzkaccess import ZKAccess, ZK200
+
+connstr = 'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
+with ZKAccess('plcommpro.dll', connstr, device_model=ZK200) as zk:
+    ...
 ```
 
 # Author
