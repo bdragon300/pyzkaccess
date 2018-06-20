@@ -3,11 +3,11 @@ from unittest.mock import patch, Mock, call
 
 import pytest
 
-from ..pyzkaccess import ZKRealtimeEvent
+from pyzkaccess import ZKRealtimeEvent
 
 with patch('ctypes.WinDLL', create=True):
-    from ..pyzkaccess import ControlOperation, RelayGroup
-    from ..pyzkaccess import ZKAccess, ZK100, ZK200, ZK400
+    from pyzkaccess import ControlOperation, RelayGroup
+    from pyzkaccess import ZKAccess, ZK100, ZK200, ZK400
 
 
 class TestZKAccess:
