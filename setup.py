@@ -5,7 +5,7 @@ from distutils.core import setup
 setup(
     name='pyzkaccess',
     version='0.1',
-    packages=['', 'tests'],
+    packages=[''],
     url='https://github.com/bdragon300/pyzkaccess',
     license='Apache 2.0',
     author='Igor Derkach',
