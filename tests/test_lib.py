@@ -194,7 +194,6 @@ class TestZKAccess:
         self.obj.zk_control_device.assert_has_calls(calls, any_order=True)
 
     @pytest.mark.parametrize('timeout', (-1, 256))
-    @pytest.mark.xfail
     def test_enable_relay_list_error(self, timeout):
         self.obj.control_device = Mock()
         l = (0, ) * 8

@@ -161,7 +161,8 @@ class ZKAccess:
         :raises RuntimeError: operation failed
         :return:
         """
-        # TODO: timeout check
+        if timeout < 0 or timeout > 255:
+            raise ValueError("Incorrect timeout: {}".format(timeout))
         if len(l) != self.device_model.relays:
             raise ValueError("Relay list length '{}' is not equal to relays count '{}'"
                              .format(len(l), self.device_model.relays))
