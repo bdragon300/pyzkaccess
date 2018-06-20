@@ -6,8 +6,8 @@ import pytest
 from ..event import ZKRealtimeEvent
 
 with patch('ctypes.WinDLL', create=True):
-    from ..lib import ControlOperation, RelayGroup
-    from ..lib import ZKAccess, ZK100, ZK200, ZK400
+    from ..pyzkaccess import ControlOperation, RelayGroup
+    from ..pyzkaccess import ZKAccess, ZK100, ZK200, ZK400
 
 
 class TestZKAccess:
