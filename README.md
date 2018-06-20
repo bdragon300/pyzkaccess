@@ -28,7 +28,7 @@ Turn on the relay:
 ```
 from pyzkaccess import ZKAccess, RelayGroup
 
-connstr = 'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
+connstr = b'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
 with ZKAccess('plcommpro.dll', connstr) as zk:
     zk.enable_relay(RelayGroup.lock, 1, 16)  # Turn on the first relay in 'lock' group for 16 seconds
 ```
@@ -39,7 +39,7 @@ Read aux input state:
 import time
 from pyzkaccess import ZKAccess
 
-connstr = 'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
+connstr = b'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
 with ZKAccess('plcommpro.dll', connstr) as zk:
     while (1):
         events = zk.read_events()
@@ -57,7 +57,7 @@ The default model is C3-400. How to use another model, e.g. C3-200:
 ```
 from pyzkaccess import ZKAccess, ZK200
 
-connstr = 'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
+connstr = b'protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd='
 with ZKAccess('plcommpro.dll', connstr, device_model=ZK200) as zk:
     ...
 ```
