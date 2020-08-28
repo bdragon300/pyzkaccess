@@ -1,6 +1,6 @@
 import ctypes
 from datetime import datetime
-from typing import Optional
+from typing import Iterable
 
 from .enum import ControlOperation, RelayGroup
 
@@ -89,9 +89,11 @@ class ZKAccess:
         return self._handle
 
     @property
-    def relays(self) -> 'RelaySet':
+    def relays(self) -> 'RelayList':
         """Set of all relays"""
-        return RelaySet(self)
+        mdl = self.device_model
+        relays = [Relay(self, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
+        return RelayList(relays, zk=self)
 
     def __del__(self):
         if self._handle:
@@ -252,60 +254,65 @@ class Relay:
         self.group = group
         self.number = number
 
-    def enable(self, timeout: int) -> None:
+    def switch_on(self, timeout: int) -> None:
         """
-        Enable current relay
+        Switch on a relay
         :param timeout: Timeout in seconds while relay will be enabled.
          Number between 0 and 255
         :return:
         """
         self.zk.enable_relay(self.group, self.number, timeout)
 
+    def __str__(self):
+        return "Relay.{}({})".format(self.group.name, self.number)
 
-class RelaySet:
+    def __repr__(self):
+        return "Relay(RelayGroup.{}, {})".format(self.group.name, self.number)
+
+
+class RelayList(list):
     """Collection of relay objects which is used to perform group
     operations over multiple relays
     """
-    def __init__(self, zk: ZKAccess, relays_mask: Optional[tuple] = None):
+    def __init__(self, relays: Iterable[Relay] = (), *, zk: ZKAccess):
         """
         :param zk: ZKAccess object
-        :param relays_mask: mask of active relays. Default is all active
+        :param relays: relays objects
         """
+        super().__init__(relays)
         self.zk = zk
-        self.active_mask = relays_mask if relays_mask is not None else (1,) * zk.device_model.relays
+        self.relays = relays
 
-    def enable(self, timeout: int) -> None:
-        self.zk.enable_relay_list(self.active_mask, timeout)
+    def switch_on(self, timeout: int) -> None:
+        """
+        Switch on all relays in set
+        :param timeout: Timeout in seconds while relay will be enabled.
+         Number between 0 and 255
+        :return:
+        """
+        if timeout < 0 or timeout > 255:
+            raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
+
+        for relay in self.relays:
+            self.zk.zk_control_device(ControlOperation.output,
+                                      relay.number,
+                                      relay.group.value,
+                                      timeout,
+                                      0)
 
     @property
-    def aux(self) -> 'RelaySet':
-        """Return set with active relays in aux group"""
-        mask = tuple(int(self.zk.device_model.groups_def[i] == RelayGroup.aux)
-                     for i in range(self.zk.device_model.relays))
-        return self.__class__(self.zk, mask)
+    def aux(self) -> 'RelayList':
+        """Return relays only from aux group"""
+        relays = [x for x in self.relays if x.group == RelayGroup.aux]
+        return self.__class__(relays, zk=self.zk)
 
     @property
-    def lock(self) -> 'RelaySet':
-        """Return set with active relays in lock group"""
-        mask = tuple(int(self.zk.device_model.groups_def[i] == RelayGroup.lock)
-                     for i in range(self.zk.device_model.relays))
-        return self.__class__(self.zk, mask)
-
-    def __getitem__(self, item):
-        mdl = self.zk.device_model
-        # Apply slicing over active relays only (those ones which have
-        # 1 in appropriate mask value)
-        return [Relay(self.zk, g, n)
-                for m, g, n in zip(self.active_mask, mdl.groups_def, mdl.relays_def)
-                if m][item]
-
-    def __len__(self):
-        return sum(1 for x in self.active_mask if x)
+    def lock(self) -> 'RelayList':
+        """Return relays only from lock group"""
+        relays = [x for x in self.relays if x.group == RelayGroup.lock]
+        return self.__class__(relays, zk=self.zk)
 
 
-#
-# Device event
-#
 class ZKRealtimeEvent:
     """
     Represents one realtime event occured on the device
