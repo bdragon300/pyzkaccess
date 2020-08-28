@@ -134,6 +134,10 @@ class ZKAccess:
         self._dll_object.Disconnect(self._handle)
         self._handle = None
 
+    def restart(self) -> None:
+        """Restart a device"""
+        self.zk_control_device(ControlOperation.restart, 0, 0, 0, 0)
+
     def enable_relay(self, group: RelayGroup, number: int, timeout: int):
         """
         Enable a relay for the given time. If a relay is already
