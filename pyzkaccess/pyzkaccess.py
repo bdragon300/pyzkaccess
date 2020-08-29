@@ -88,10 +88,12 @@ class ZKSDK:
             options_str
         )
         if res < 0:
-            raise RuntimeError('ControlDevice failed, params: ({}), returned: {}'.format(
-                ','.join((str(self.handle), str(operation), str(p1), str(p2), str(p3), str(p4), str(options_str))),
+            fmt = (
+                ','.join((str(self.handle), str(operation), str(p1),
+                          str(p2), str(p3), str(p4), str(options_str))),
                 str(res)
-            ))
+            )
+            raise RuntimeError('ControlDevice failed, params: ({}), returned: {}'.format(*fmt))
 
         return res
 
@@ -283,7 +285,8 @@ class RelayList(list):
 class ZKRealtimeEvent:
     """
     Represents one realtime event occured on the device
-    Since the device returns event as string we need to parse it to the structured view. This class does this.
+    Since the device returns event as string we need to parse it to the
+    structured view. This class does this.
     """
     __slots__ = (
         'time',
