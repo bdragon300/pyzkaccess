@@ -1,6 +1,6 @@
 import ctypes
 from datetime import datetime
-from typing import Iterable
+from typing import Iterable, Union
 
 from .enum import ControlOperation, RelayGroup
 
@@ -43,168 +43,29 @@ class ZK100(ZKModel):
     groups_def = (RelayGroup.aux, RelayGroup.lock)
 
 
-class ZKAccess:
-    """Main class to work with a device.
-    Holds a connection and provides interface to PULL SDK functions
-    """
-    def __init__(self,
-                 dllpath: str = 'plcommpro.dll',
-                 connstr: bytes = None,
-                 device_model: ZKModel = ZK400):
-        """
-        :param dllpath: Full path to plcommpro.dll
-        :param connstr: Device connection string. If given then
-         automatically connect to a device
-        :param device_model: Device model class. Default is C3-400
-        """
-        self._handle = None
-        self._connstr = None
-        self._device_model = device_model
-
-        self._dll_object = ctypes.WinDLL(dllpath)
-
-        if connstr:
-            self.connect(connstr)
+class ZKSDK:
+    def __init__(self, dllpath: str):
+        self.dll = ctypes.WinDLL(dllpath)
+        self.handle = None
 
     @property
-    def device_model(self) -> ZKModel:
-        """Device model class. Read only"""
-        return self._device_model
+    def is_connected(self):
+        return bool(self.handle is not None)
 
-    @property
-    def connstr(self) -> str:
-        """Device connection string. Read only."""
-        return self._connstr
-
-    @property
-    def dll_object(self) -> ctypes.WinDLL:
-        """DLL object (`ctypes.WinDLL`). Read only."""
-        return self._dll_object
-
-    @property
-    def handle(self):
-        """Device handle. `None` if we are disconnected from a
-        device. Read only.
-        """
-        return self._handle
-
-    @property
-    def relays(self) -> 'RelayList':
-        """Set of all relays"""
-        mdl = self.device_model
-        relays = [Relay(self, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
-        return RelayList(relays, zk=self)
-
-    def __del__(self):
-        if self._handle:
-            self.disconnect()
-
-    def __enter__(self):
-        if not self._handle:
-            self.connect(self.connstr)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._handle:
-            self.disconnect()
-
-    def connect(self, connstr) -> None:
-        """
-        Connect to a device using connection string, ex:
-        'protocol=TCP,ipaddress=192.168.22.201,port=4370,timeout=4000,passwd='
-        :param connstr: device connection string
-        :raises RuntimeError: if we are already connected
-        :raises ConnectionError: connection attempt was failed
-        :return:
-        """
-        if self._handle:
-            raise RuntimeError('Already connected')
-
-        self._connstr = connstr
-        self._handle = self._dll_object.Connect(connstr)
-        if self._handle == 0:
-            self._handle = None
+    def connect(self, connstr: bytes):
+        self.handle = self.dll.Connect(connstr)
+        if self.handle == 0:
+            self.handle = None
             raise ConnectionError("Unable to connect device using connstr '{}'".format(connstr))
 
-    def disconnect(self) -> None:
-        """Disconnect from a device"""
-        if not self._handle:
+    def disconnect(self):
+        if not self.handle:
             return
 
-        self._dll_object.Disconnect(self._handle)
-        self._handle = None
+        self.dll.Disconnect(self.handle)
+        self.handle = None
 
-    def restart(self) -> None:
-        """Restart a device"""
-        self.zk_control_device(ControlOperation.restart, 0, 0, 0, 0)
-
-    def enable_relay(self, group: RelayGroup, number: int, timeout: int):
-        """
-        Enable a relay for the given time. If a relay is already
-        enabled, its timeout will be refreshed
-        :param group: Relay group to enable
-        :param number: Relay number in group
-        :param timeout: Timeout in seconds while relay will be enabled.
-         Number between 0 and 255
-        :raises ValueError: invalid parameter
-        :raises RuntimeError: operation failed
-        :return:
-        """
-        if number < 1 or number > self.device_model.relays:
-            raise ValueError("Incorrect relay number: {}".format(number))
-        if timeout < 0 or timeout > 255:
-            raise ValueError("Incorrect timeout: {}".format(timeout))
-
-        return self.zk_control_device(
-            ControlOperation.output,
-            number,
-            group,
-            timeout,
-            0
-        )
-
-    def enable_relay_list(self, l, timeout):
-        """
-        Enable relays by mask for the given time. Receives list with
-        desired relays state: non-zero means enabled, zero means
-        disabled. This action overwrites previous relays state.
-
-        E.g. [1, 0, 0, 0, 0, 0, 1, 0] means 1, 7 relays get turned
-        on in order as they placed on the device. Other ones get
-        turned off.
-        :param l: list with relays states
-        :param timeout: Seconds the relay will be enabled. Number between 0 and 255
-        :raises RuntimeError: operation failed
-        :return:
-        """
-        if timeout < 0 or timeout > 255:
-            raise ValueError("Incorrect timeout: {}".format(timeout))
-        if len(l) != self.device_model.relays:
-            raise ValueError("Relay list length '{}' is not equal to relays count '{}'"
-                             .format(len(l), self.device_model.relays))
-
-        for i in range(self.device_model.relays):
-            if l[i]:
-                self.zk_control_device(
-                    ControlOperation.output,
-                    self.device_model.relays_def[i],
-                    self.device_model.groups_def[i].value,
-                    timeout,
-                    0
-                )
-
-    def read_events(self, buffer_size=4096):
-        """
-        Read events from the device
-        :param buffer_size:
-        :return:
-        """
-        raw = self.zk_get_rt_log(buffer_size)
-        *events_s, empty = raw.split('\r\n')
-
-        return (ZKRealtimeEvent(s) for s in events_s)
-
-    def zk_control_device(self, operation, p1, p2, p3, p4, options_str=''):
+    def control_device(self, operation, p1, p2, p3, p4, options_str='') -> int:
         """
         Device control machinery method. Read PULL SDK docs for
          parameters meaning
@@ -217,7 +78,7 @@ class ZKAccess:
         :raises RuntimeError: if operation was failed
         :return: dll function result code, 0 or positive number
         """
-        res = self.dll_object.ControlDevice(
+        res = self.dll.ControlDevice(
             self.handle,
             operation,
             p1,
@@ -234,7 +95,7 @@ class ZKAccess:
 
         return res
 
-    def zk_get_rt_log(self, buffer_size):
+    def get_rt_log(self, buffer_size) -> str:
         """
         Machinery method for retrieving events from device.
         :param buffer_size: Required. Buffer size in bytes that filled
@@ -244,28 +105,125 @@ class ZKAccess:
         """
         buf = ctypes.create_string_buffer(buffer_size)
 
-        res = self.dll_object.GetRTLog(self.handle, buf, buffer_size)
+        res = self.dll.GetRTLog(self.handle, buf, buffer_size)
         if res < 0:
             raise RuntimeError('GetRTLog failed, returned: {}'.format(str(res)))
 
         return buf.value.decode('utf-8')
 
+    def __del__(self):
+        self.disconnect()
+
+
+class ZKAccess:
+    """Main class to work with a device.
+    Holds a connection and provides interface to PULL SDK functions
+    """
+    def __init__(self,
+                 dllpath: str = 'plcommpro.dll',
+                 connstr: bytes = None,
+                 device_model: ZKModel = ZK400):
+        """
+        :param dllpath: Full path to plcommpro.dll
+        :param connstr: Device connection string. If given then
+         automatically connect to a device
+        :param device_model: Device model class. Default is C3-400
+        """
+        self.connstr = connstr
+        self.device_model = device_model
+        self.sdk = ZKSDK(dllpath)
+
+        if connstr:
+            self.connect(connstr)
+
+    @property
+    def dll_object(self) -> ctypes.WinDLL:
+        """DLL object (`ctypes.WinDLL`). Read only."""
+        return self.sdk.dll
+
+    @property
+    def handle(self):
+        """Device handle. `None` if there is no active connection.
+        Read only.
+        """
+        return self.sdk.handle
+
+    @property
+    def relays(self) -> 'RelayList':
+        """Set of all relays"""
+        mdl = self.device_model
+        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
+        return RelayList(sdk=self.sdk, relays=relays)
+
+    def __enter__(self):
+        if not self.sdk.is_connected:
+            self.connect(self.connstr)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.sdk.is_connected:
+            self.disconnect()
+
+    def connect(self, connstr: bytes) -> None:
+        """
+        Connect to a device using connection string, ex:
+        'protocol=TCP,ipaddress=192.168.22.201,port=4370,timeout=4000,passwd='
+        :param connstr: device connection string
+        :raises RuntimeError: if we are already connected
+        :raises ConnectionError: connection attempt was failed
+        :return:
+        """
+        if self.sdk.is_connected:
+            raise RuntimeError('Already connected')
+
+        self.connstr = connstr
+        self.sdk.connect(connstr)
+
+    def disconnect(self) -> None:
+        """Disconnect from a device"""
+        self.sdk.disconnect()
+
+    def restart(self) -> None:
+        """Restart a device"""
+        self.sdk.control_device(ControlOperation.restart, 0, 0, 0, 0)
+
+    def read_events(self, buffer_size=4096):
+        """
+        Read events from the device
+        :param buffer_size:
+        :return:
+        """
+        raw = self.sdk.get_rt_log(buffer_size)
+        *events_s, empty = raw.split('\r\n')
+
+        return (ZKRealtimeEvent(s) for s in events_s)
+
 
 class Relay:
     """Concrete relay"""
-    def __init__(self, zk: ZKAccess, group: RelayGroup, number: int):
-        self.zk = zk
+    def __init__(self, sdk: ZKSDK, group: RelayGroup, number: int):
+        self.sdk = sdk
         self.group = group
         self.number = number
 
     def switch_on(self, timeout: int) -> None:
         """
-        Switch on a relay
+        Switch on a relay for the given time. If a relay is already
+        switched on then its timeout will be refreshed
         :param timeout: Timeout in seconds while relay will be enabled.
          Number between 0 and 255
         :return:
         """
-        self.zk.enable_relay(self.group, self.number, timeout)
+        if timeout < 0 or timeout > 255:
+            raise ValueError("Incorrect timeout: {}".format(timeout))
+
+        self.sdk.control_device(
+            ControlOperation.output,
+            self.number,
+            self.group.value,
+            timeout,
+            0
+        )
 
     def __str__(self):
         return "Relay.{}({})".format(self.group.name, self.number)
@@ -278,14 +236,12 @@ class RelayList(list):
     """Collection of relay objects which is used to perform group
     operations over multiple relays
     """
-    def __init__(self, relays: Iterable[Relay] = (), *, zk: ZKAccess):
+    def __init__(self, sdk: ZKSDK, relays: Iterable[Relay] = ()):
         """
-        :param zk: ZKAccess object
-        :param relays: relays objects
+        :param sdk: ZKAccess object
         """
         super().__init__(relays)
-        self.zk = zk
-        self.relays = relays
+        self.sdk = sdk
 
     def switch_on(self, timeout: int) -> None:
         """
@@ -297,24 +253,31 @@ class RelayList(list):
         if timeout < 0 or timeout > 255:
             raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
 
-        for relay in self.relays:
-            self.zk.zk_control_device(ControlOperation.output,
-                                      relay.number,
-                                      relay.group.value,
-                                      timeout,
-                                      0)
+        if timeout < 0 or timeout > 255:
+            raise ValueError("Incorrect timeout: {}".format(timeout))
+
+        for relay in self:
+            self.sdk.control_device(ControlOperation.output,
+                                    relay.number,
+                                    relay.group.value,
+                                    timeout,
+                                    0)
 
     @property
     def aux(self) -> 'RelayList':
         """Return relays only from aux group"""
-        relays = [x for x in self.relays if x.group == RelayGroup.aux]
-        return self.__class__(relays, zk=self.zk)
+        relays = [x for x in self if x.group == RelayGroup.aux]
+        return self.__class__(sdk=self.sdk, relays=relays)
 
     @property
     def lock(self) -> 'RelayList':
         """Return relays only from lock group"""
-        relays = [x for x in self.relays if x.group == RelayGroup.lock]
-        return self.__class__(relays, zk=self.zk)
+        relays = [x for x in self if x.group == RelayGroup.lock]
+        return self.__class__(sdk=self.sdk, relays=relays)
+
+    def by_mask(self, mask: Iterable[Union[int, bool]]):
+        relays = [x for x, m in zip(self, mask) if m]
+        return self.__class__(sdk=self.sdk, relays=relays)
 
 
 class ZKRealtimeEvent:

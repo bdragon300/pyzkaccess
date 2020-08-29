@@ -161,7 +161,7 @@ class TestZKAccess:
     @pytest.mark.parametrize('timeout', (-1, 256))
     def test_enable_relay_error_by_model(self, device_model, timeout):
         self.obj.zk_control_device = Mock()
-        self.obj._device_model = device_model
+        self.obj.device_model = device_model
         door = device_model.relays + 1
 
         with pytest.raises(ValueError):
@@ -171,7 +171,7 @@ class TestZKAccess:
     @pytest.mark.parametrize('pattern', ((0, 0), (1, 0), (0, 1), (1, 1)))
     def test_enable_relay_list(self, device_model, pattern):
         self.obj.zk_control_device = Mock()
-        self.obj._device_model = device_model
+        self.obj.device_model = device_model
         timeout = 5
         l = pattern * (device_model.relays // 2)
 
@@ -205,7 +205,7 @@ class TestZKAccess:
     @pytest.mark.parametrize('length_offset', (1, -1))
     def test_enable_relay_list_error_by_model(self, device_model, length_offset):
         self.obj.control_device = Mock()
-        self.obj._device_model = device_model
+        self.obj.device_model = device_model
         l = (0, ) * (8 + length_offset)
         timeout = 5
 
