@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock, call
 
 import pytest
 
-from pyzkaccess import ZKRealtimeEvent
+from pyzkaccess import Event
 
 with patch('ctypes.WinDLL', create=True):
     from pyzkaccess import ControlOperation, RelayGroup
@@ -227,7 +227,7 @@ class TestZKAccess:
         self.obj.zk_get_rt_log = Mock()
         self.obj.zk_get_rt_log.return_value = test_data
         *events_strs, empty = test_data.split('\r\n')
-        check_data = [ZKRealtimeEvent(s) for s in events_strs]
+        check_data = [Event(s) for s in events_strs]
         buf_size = 4096
 
         res = self.obj.read_events(buf_size)
@@ -290,20 +290,20 @@ class TestZKAccess:
 class TestZKRealtimeEvent:
     @pytest.fixture(autouse=True)
     def setUp(self):
-        self.obj = ZKRealtimeEvent()
+        self.obj = Event()
 
     def test_constructor_without_parse(self):
-        obj = Mock(spec=ZKRealtimeEvent)
+        obj = Mock(spec=Event)
 
-        ZKRealtimeEvent.__init__(obj)
+        Event.__init__(obj)
 
         assert obj.parse.call_count == 0
 
     def test_constructor_with_parse(self):
         test_data = '2017-02-09 12:37:34,0,0,1,221,2,200'
-        obj = Mock(spec=ZKRealtimeEvent)
+        obj = Mock(spec=Event)
 
-        ZKRealtimeEvent.__init__(obj, test_data)
+        Event.__init__(obj, test_data)
 
         obj.parse.assert_called_with(test_data)
 

@@ -1,6 +1,9 @@
 import ctypes
-from datetime import datetime
-from typing import Iterable, Union
+import time
+from collections import deque
+from datetime import datetime, timedelta
+from typing import Iterable, Union, Optional
+from functools import cached_property
 
 from .enum import ControlOperation, RelayGroup
 
@@ -97,7 +100,7 @@ class ZKSDK:
 
         return res
 
-    def get_rt_log(self, buffer_size) -> str:
+    def get_rt_log(self, buffer_size: int) -> str:
         """
         Machinery method for retrieving events from device.
         :param buffer_size: Required. Buffer size in bytes that filled
@@ -134,9 +137,22 @@ class ZKAccess:
         self.connstr = connstr
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
+        self.buffer_size = 4096
+        self.log_capacity = None
 
         if connstr:
             self.connect(connstr)
+
+    @property
+    def relays(self) -> 'RelayList':
+        """Set of all relays"""
+        mdl = self.device_model
+        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
+        return RelayList(sdk=self.sdk, relays=relays)
+
+    @cached_property
+    def event_log(self) -> 'EventLog':
+        return EventLog(self.sdk, self.buffer_size, self.log_capacity)
 
     @property
     def dll_object(self) -> ctypes.WinDLL:
@@ -149,22 +165,6 @@ class ZKAccess:
         Read only.
         """
         return self.sdk.handle
-
-    @property
-    def relays(self) -> 'RelayList':
-        """Set of all relays"""
-        mdl = self.device_model
-        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
-        return RelayList(sdk=self.sdk, relays=relays)
-
-    def __enter__(self):
-        if not self.sdk.is_connected:
-            self.connect(self.connstr)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.sdk.is_connected:
-            self.disconnect()
 
     def connect(self, connstr: bytes) -> None:
         """
@@ -189,16 +189,14 @@ class ZKAccess:
         """Restart a device"""
         self.sdk.control_device(ControlOperation.restart, 0, 0, 0, 0)
 
-    def read_events(self, buffer_size=4096):
-        """
-        Read events from the device
-        :param buffer_size:
-        :return:
-        """
-        raw = self.sdk.get_rt_log(buffer_size)
-        *events_s, empty = raw.split('\r\n')
+    def __enter__(self):
+        if not self.sdk.is_connected:
+            self.connect(self.connstr)
+        return self
 
-        return (ZKRealtimeEvent(s) for s in events_s)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.sdk.is_connected:
+            self.disconnect()
 
 
 class Relay:
@@ -282,7 +280,7 @@ class RelayList(list):
         return self.__class__(sdk=self.sdk, relays=relays)
 
 
-class ZKRealtimeEvent:
+class Event:
     """
     Represents one realtime event occured on the device
     Since the device returns event as string we need to parse it to the
@@ -322,3 +320,44 @@ class ZKRealtimeEvent:
         items[0] = datetime.strptime(items[0], '%Y-%m-%d %H:%M:%S')
         for i in range(len(self.__slots__)):
             setattr(self, self.__slots__[i], items[i])
+
+
+class EventLog(deque):
+    def __init__(self,
+                 sdk: ZKSDK,
+                 buffer_size: int,
+                 maxlen: Optional[int] = None):
+        super().__init__((), maxlen=maxlen)
+        self.sdk = sdk
+        self.buffer_size = buffer_size
+        self.unread_index = 0
+
+    @property
+    def has_unread(self):
+        return self.unread_index < len(self)
+
+    def poll(self, timeout: int = 60) -> Optional[Iterable[Event]]:
+        for i in range(timeout):
+            unread = self.get_unread()
+            if unread:
+                return unread
+            time.sleep(1)
+
+    def get_unread(self) -> Iterable[Event]:
+        unread_index = self.unread_index
+        self.unread_index = len(self)
+        return self[unread_index:]
+
+    def refresh(self) -> int:
+        new_events = list(self._pull_new())
+        if new_events:
+            self.extend(new_events)
+            self.unread_index = min(self.unread_index - len(new_events), 0)
+
+        return min(len(self), len(new_events))
+
+    def _pull_new(self):
+        raw = self.sdk.get_rt_log(self.buffer_size)
+        *events_s, empty = raw.split('\r\n')
+
+        return (Event(s) for s in events_s)
