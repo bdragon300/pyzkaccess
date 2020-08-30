@@ -3,7 +3,6 @@ import time
 from collections import deque
 from datetime import datetime, timedelta
 from typing import Iterable, Union, Optional
-from functools import cached_property
 
 from .enum import ControlOperation, RelayGroup
 
@@ -59,6 +58,7 @@ class ZKSDK:
         self.handle = self.dll.Connect(connstr)
         if self.handle == 0:
             self.handle = None
+            # FIXME: return errors description everywhere
             raise ConnectionError("Unable to connect device using connstr '{}'".format(connstr))
 
     def disconnect(self):
@@ -124,6 +124,8 @@ class ZKAccess:
     """Main class to work with a device.
     Holds a connection and provides interface to PULL SDK functions
     """
+    buffer_size = 4096
+
     def __init__(self,
                  dllpath: str = 'plcommpro.dll',
                  connstr: bytes = None,
@@ -137,7 +139,6 @@ class ZKAccess:
         self.connstr = connstr
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
-        self.buffer_size = 4096
         self.log_capacity = None
 
         if connstr:
@@ -150,7 +151,8 @@ class ZKAccess:
         relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
         return RelayList(sdk=self.sdk, relays=relays)
 
-    @cached_property
+    # FIXME: make cached_property
+    @property
     def event_log(self) -> 'EventLog':
         return EventLog(self.sdk, self.buffer_size, self.log_capacity)
 
@@ -187,7 +189,7 @@ class ZKAccess:
 
     def restart(self) -> None:
         """Restart a device"""
-        self.sdk.control_device(ControlOperation.restart, 0, 0, 0, 0)
+        self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
 
     def __enter__(self):
         if not self.sdk.is_connected:
@@ -218,7 +220,7 @@ class Relay:
             raise ValueError("Incorrect timeout: {}".format(timeout))
 
         self.sdk.control_device(
-            ControlOperation.output,
+            ControlOperation.output.value,
             self.number,
             self.group.value,
             timeout,
@@ -257,12 +259,12 @@ class RelayList(list):
             raise ValueError("Incorrect timeout: {}".format(timeout))
 
         for relay in self:
-            self.sdk.control_device(ControlOperation.output,
+            self.sdk.control_device(ControlOperation.output.value,
                                     relay.number,
                                     relay.group.value,
                                     timeout,
                                     0)
-
+    # FIXME: add __getitem__
     @property
     def aux(self) -> 'RelayList':
         """Return relays only from aux group"""
