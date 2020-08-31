@@ -342,14 +342,6 @@ class EventLog(deque):
     def has_unread(self):
         return self.unread_index < len(self)
 
-    def poll(self, timeout: int = 60) -> Optional[Iterable[Event]]:
-        for _ in range(timeout):
-            self.refresh()
-            unread = list(self.unread)
-            if unread:
-                return unread
-            time.sleep(1)
-
     @property
     def unread(self) -> Iterable[Event]:
         unread_index = self.unread_index
@@ -370,6 +362,14 @@ class EventLog(deque):
             new_events = [e for e in self._pull_events() if e.event_type != '255']
 
         return min(len(self), events_added)
+
+    def poll(self, timeout: int = 60) -> Optional[Iterable[Event]]:
+        for _ in range(timeout):
+            self.refresh()
+            unread = list(self.unread)
+            if unread:
+                return unread
+            time.sleep(1)
 
     def _pull_events(self) -> Iterable[Event]:
         events = self.sdk.get_rt_log(self.buffer_size)
