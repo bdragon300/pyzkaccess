@@ -1,4 +1,4 @@
-from pyzkaccess import RelayGroup
+from .relay import RelayGroup
 
 
 class ZKModel:
