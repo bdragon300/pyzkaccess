@@ -385,3 +385,12 @@ class EventLog(deque):
         if stop is not None and stop < 0:
             stop = len(self) - stop
         return itertools.islice(seq, start, stop, step)
+
+    def __str__(self):
+        items_str = ', '.join(str(x) for x in self[:3])
+        if len(self) > 6:
+            items_str += ', ..., ' + ', '.join(str(x) for x in self[3:])
+        return 'EventLog({})'.format(items_str)
+
+    def __repr__(self):
+        return self.__str__()
