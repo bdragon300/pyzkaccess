@@ -1,48 +1,11 @@
 import ctypes
 import time
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Iterable, Union, Optional
 
+from .device import ZKModel, ZK400, ZKDevice
 from .enum import ControlOperation, RelayGroup
-
-
-class ZKModel:
-    """Base class for concrete ZK model"""
-    name = None
-    relays = None
-    relays_def = None
-    groups_def = None
-
-
-class ZK400(ZKModel):
-    """ZKAccess C3-400 model"""
-    name = 'C3-400'
-    relays = 8
-    relays_def = (
-        1, 2, 3, 4,
-        1, 2, 3, 4
-    )
-    groups_def = (
-        RelayGroup.aux, RelayGroup.aux, RelayGroup.aux, RelayGroup.aux,
-        RelayGroup.lock, RelayGroup.lock, RelayGroup.lock, RelayGroup.lock
-    )
-
-
-class ZK200(ZKModel):
-    """ZKAccess C3-200"""
-    name = 'C3-200'
-    relays = 4
-    relays_def = (1, 2, 1, 2)
-    groups_def = (RelayGroup.aux, RelayGroup.aux, RelayGroup.lock, RelayGroup.lock)
-
-
-class ZK100(ZKModel):
-    """ZKAccess C3-100"""
-    name = 'C3-100'
-    relays = 2
-    relays_def = (1, 2)
-    groups_def = (RelayGroup.aux, RelayGroup.lock)
 
 
 class ZKSDK:
@@ -116,6 +79,17 @@ class ZKSDK:
 
         return buf.value.decode('utf-8')
 
+    def search_device(self, broadcast_address: str, buffer_size: int) -> str:
+        buf = ctypes.create_string_buffer(buffer_size)
+        broadcast_address = broadcast_address.encode()
+        protocol = b'UDP'  # Only UDP works, see SDK docs
+
+        res = self.dll.SearchDevice(protocol, broadcast_address, buf)
+        if res < 0:
+            raise RuntimeError('SearchDevice failed, returned: {}'.format(str(res)))
+
+        return buf.value.decode('utf-8')
+
     def __del__(self):
         self.disconnect()
 
@@ -127,22 +101,35 @@ class ZKAccess:
     buffer_size = 4096
 
     def __init__(self,
-                 dllpath: str = 'plcommpro.dll',
-                 connstr: bytes = None,
-                 device_model: ZKModel = ZK400):
+                 connstr: Optional[bytes] = None,
+                 device: Optional[ZKDevice] = None,
+                 device_model: ZKModel = ZK400,
+                 dllpath: str = 'plcommpro.dll'):
         """
-        :param dllpath: Full path to plcommpro.dll
         :param connstr: Device connection string. If given then
          automatically connect to a device
+        :param dllpath: Full path to plcommpro.dll
         :param device_model: Device model class. Default is C3-400
         """
         self.connstr = connstr
+        self.device = device
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
         self.log_capacity = None
 
-        if connstr:
-            self.connect(connstr)
+        if connstr is None and device is None:
+            raise ValueError('Please specify either connstr or device')
+
+        if device:
+            if not connstr:
+                self.connstr = \
+                    'protocol=TCP,ipaddress={},port=4370,timeout=4000,passwd='.format(device.ip)
+                self.connstr = self.connstr.encode()
+            if not device_model:
+                self.device_model = device.model
+
+        if self.connstr:
+            self.connect(self.connstr)
 
     @property
     def relays(self) -> 'RelayList':
@@ -190,6 +177,16 @@ class ZKAccess:
     def restart(self) -> None:
         """Restart a device"""
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
+
+    @classmethod
+    def search_devices(cls,
+                       broadcast_address: str = '255.255.255.255',
+                       dllpath: str = 'plcommpro.dll') -> Iterable[ZKDevice]:
+        sdk = ZKSDK(dllpath)
+        raw = sdk.search_device(broadcast_address, cls.buffer_size)
+        *lines, _ = raw.split("\r\n")
+
+        return (ZKDevice(line) for line in lines)
 
     def __enter__(self):
         if not self.sdk.is_connected:

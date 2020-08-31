@@ -3,11 +3,12 @@ from unittest.mock import patch, Mock, call
 
 import pytest
 
-from pyzkaccess import Event
+from pyzkaccess import Event, ZK400
 
 with patch('ctypes.WinDLL', create=True):
     from pyzkaccess import ControlOperation, RelayGroup
-    from pyzkaccess import ZKAccess, ZK100, ZK200, ZK400
+    from pyzkaccess import ZKAccess
+    from pyzkaccess.device import ZK200, ZK100
 
 
 class TestZKAccess:
