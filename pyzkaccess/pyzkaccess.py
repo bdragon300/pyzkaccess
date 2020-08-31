@@ -6,6 +6,7 @@ from typing import Iterable, Union, Optional
 
 from .device import ZKModel, ZK400, ZKDevice
 from .enum import ControlOperation, RelayGroup
+import itertools
 
 
 class ZKSDK:
@@ -368,3 +369,18 @@ class EventLog(deque):
         *events_s, empty = raw.split('\r\n')
 
         return (Event(s) for s in events_s)
+
+    def __getitem__(self, item) -> Union[Iterable[Event], Event]:
+        if not isinstance(item, slice):
+            return super().__getitem__(item)
+
+        seq = self
+        start, stop, step = item.start, item.stop, item.step
+        if step is not None and step < 0:
+            seq = reversed(seq)
+            step = -step
+        if start is not None and start < 0:
+            start = len(self) - start
+        if stop is not None and stop < 0:
+            stop = len(self) - stop
+        return itertools.islice(seq, start, stop, step)
