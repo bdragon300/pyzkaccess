@@ -343,8 +343,9 @@ class EventLog(deque):
         return self.unread_index < len(self)
 
     def poll(self, timeout: int = 60) -> Optional[Iterable[Event]]:
-        for i in range(timeout):
-            unread = self.unread
+        for _ in range(timeout):
+            self.refresh()
+            unread = list(self.unread)
             if unread:
                 return unread
             time.sleep(1)
