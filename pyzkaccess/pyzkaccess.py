@@ -99,13 +99,14 @@ class ZKAccess:
     """Main class to work with a device.
     Holds a connection and provides interface to PULL SDK functions
     """
-    buffer_size = 4096
+    buffer_size = 8192
 
     def __init__(self,
                  connstr: Optional[bytes] = None,
                  device: Optional[ZKDevice] = None,
                  device_model: ZKModel = ZK400,
-                 dllpath: str = 'plcommpro.dll'):
+                 dllpath: str = 'plcommpro.dll',
+                 log_capacity: Optional[int] = None):
         """
         :param connstr: Device connection string. If given then
          automatically connect to a device
@@ -116,7 +117,7 @@ class ZKAccess:
         self.device = device
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
-        self.log_capacity = None
+        self.event_log = EventLog(self.sdk, self.buffer_size, maxlen=log_capacity)
 
         if connstr is None and device is None:
             raise ValueError('Please specify either connstr or device')
@@ -138,11 +139,6 @@ class ZKAccess:
         mdl = self.device_model
         relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
         return RelayList(sdk=self.sdk, relays=relays)
-
-    # FIXME: make cached_property
-    @property
-    def event_log(self) -> 'EventLog':
-        return EventLog(self.sdk, self.buffer_size, self.log_capacity)
 
     @property
     def dll_object(self) -> ctypes.WinDLL:
@@ -359,8 +355,10 @@ class EventLog(deque):
     def refresh(self) -> int:
         new_events = list(self._pull_new())
         if new_events:
+            old_len = len(self)
             self.extend(new_events)
-            self.unread_index = min(self.unread_index - len(new_events), 0)
+            offset = (len(self) - old_len) - len(new_events)
+            self.unread_index = max(self.unread_index + offset , 0)
 
         return min(len(self), len(new_events))
 
