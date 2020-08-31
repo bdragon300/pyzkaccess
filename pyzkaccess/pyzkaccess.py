@@ -2,6 +2,7 @@ import ctypes
 import itertools
 import time
 from collections import deque
+from copy import deepcopy
 from datetime import datetime
 from typing import Iterable, Union, Optional, List
 
@@ -121,7 +122,7 @@ class ZKAccess:
         self.device = device
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
-        self.event_log = EventLog(self.sdk, self.buffer_size, maxlen=log_capacity)
+        self._event_log = EventLog(self.sdk, self.buffer_size, maxlen=log_capacity)
 
         if connstr is None and device is None:
             raise ValueError('Please specify either connstr or device')
@@ -143,6 +144,10 @@ class ZKAccess:
         mdl = self.device_model
         relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
         return RelayList(sdk=self.sdk, relays=relays)
+
+    @property
+    def event_log(self) -> 'EventLog':
+        return self._event_log
 
     @property
     def dll_object(self) -> ctypes.WinDLL:
@@ -328,71 +333,106 @@ class Event:
         return self.__str__()
 
 
-class EventLog(deque):
+class EventLog:
     polling_interval = 1
 
     def __init__(self,
                  sdk: ZKSDK,
                  buffer_size: int,
-                 maxlen: Optional[int] = None):
-        super().__init__((), maxlen=maxlen)
+                 maxlen: Optional[int] = None,
+                 include_filters: Optional[dict] = None,
+                 exclude_filters: Optional[dict] = None,
+                 _data: Optional[deque] = None):
         self.sdk = sdk
         self.buffer_size = buffer_size
-        self.unread_index = 0
-
-    @property
-    def has_unread(self):
-        return self.unread_index < len(self)
-
-    @property
-    def unread(self) -> Iterable[Event]:
-        unread_index = self.unread_index
-        self.unread_index = len(self)
-        return self[unread_index:]
+        self.data = _data or deque(maxlen=maxlen)
+        self.include_filters = include_filters or {}
+        self.exclude_filters = exclude_filters or {}
+        self._filtered_len = None
 
     def refresh(self) -> int:
         # ZKAccess always returns single event with code "255"
         # on every log query if no other events occured. So, skip it
         new_events = [e for e in self._pull_events() if e.event_type != '255']
-        events_added = 0
+        count = 0
         while new_events:
-            events_added += len(new_events)
-            old_len = len(self)
-            self.extend(new_events)
-            offset = (len(self) - old_len) - len(new_events)
-            self.unread_index = max(self.unread_index + offset , 0)
+            self.data.extend(new_events)
+            count += sum(1 for _ in self._filtered_events(new_events))
             new_events = [e for e in self._pull_events() if e.event_type != '255']
 
-        return min(len(self), events_added)
+        return min(len(self.data), count)
 
     def poll(self, timeout: int = 60) -> List[Event]:
         for _ in range(timeout):
-            self.refresh()
-            unread = list(self.unread)
-            if unread:
-                return unread
+            count = self.refresh()
+            if count:
+                reversed_events = self._filtered_events(reversed(self.data))
+                res = list(itertools.islice(reversed_events, None, count))[::-1]
+                return res
             time.sleep(self.polling_interval)
 
         return []
+
+    @staticmethod
+    def merge_filters(initial: dict, fltr: dict) -> dict:
+        seq_types = (tuple, list)
+        res = deepcopy(initial)
+        for key, value in fltr.items():
+            if key in res:
+                if isinstance(value, seq_types):
+                    res[key].extend(value)
+                else:
+                    res[key].append(value)
+            else:
+                res[key] = [value]
+
+        return res
+
+    def _filtered_events(self, data: Iterable[Event]) -> Iterable[Event]:
+        if not self.include_filters and not self.exclude_filters:
+            yield from data
+            return
+
+        for event in data:
+            # ZKAccess always returns single event with code "255"
+            # on every log query if no other events occured. So, skip it
+            if event.event_type == '255':
+                continue
+
+            for field, fltr in self.exclude_filters.items():
+                if getattr(event, field) in fltr:
+                    continue
+
+            if not self.include_filters:
+                yield event
+            else:
+                for field, fltr in self.include_filters.items():
+                    if getattr(event, field) in fltr:
+                        yield event
 
     def _pull_events(self) -> Iterable[Event]:
         events = self.sdk.get_rt_log(self.buffer_size)
         return (Event(s) for s in events)
 
     def __getitem__(self, item) -> Union[Iterable[Event], Event]:
+        seq = self._filtered_events(self.data)
         if not isinstance(item, slice):
-            return super().__getitem__(item)
+            try:
+                return itertools.islice(seq, item, item + 1)
+            except StopIteration:
+                raise IndexError('Index is out of range')
 
-        seq = self
         start, stop, step = item.start, item.stop, item.step
-        if step is not None and step < 0:
-            seq = reversed(seq)
-            step = -step
-        if start is not None and start < 0:
-            start = len(self) + start
-        if stop is not None and stop < 0:
-            stop = len(self) + stop
         return itertools.islice(seq, start, stop, step)
+
+    def __len__(self) -> int:
+        if not self.include_filters and not self.exclude_filters:
+            return len(self.data)
+
+        return sum(1 for _ in self._filtered_events(self.data))
+
+    def __iter__(self):
+        return iter(self._filtered_events(self.data))
 
     def __str__(self):
         items_str = ', '.join(str(x) for x in self[:3])
