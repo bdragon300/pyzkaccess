@@ -64,7 +64,7 @@ class ZKSDK:
 
         return res
 
-    def get_rt_log(self, buffer_size: int) -> str:
+    def get_rt_log(self, buffer_size: int) -> Iterable[str]:
         """
         Machinery method for retrieving events from device.
         :param buffer_size: Required. Buffer size in bytes that filled
@@ -78,7 +78,9 @@ class ZKSDK:
         if res < 0:
             raise RuntimeError('GetRTLog failed, returned: {}'.format(str(res)))
 
-        return buf.value.decode('utf-8')
+        raw = buf.value.decode('utf-8')
+        *lines, _ = raw.split('\r\n')
+        return lines
 
     def search_device(self, broadcast_address: str, buffer_size: int) -> str:
         buf = ctypes.create_string_buffer(buffer_size)
@@ -99,7 +101,7 @@ class ZKAccess:
     """Main class to work with a device.
     Holds a connection and provides interface to PULL SDK functions
     """
-    buffer_size = 8192
+    buffer_size = 4096
 
     def __init__(self,
                  connstr: Optional[bytes] = None,
@@ -357,19 +359,20 @@ class EventLog(deque):
         # ZKAccess always returns single event with code "255"
         # if no other events occured. So, skip it
         new_events = [e for e in self._pull_events() if e.event_type != '255']
-        if new_events:
+        events_added = 0
+        while new_events:
+            events_added += len(new_events)
             old_len = len(self)
             self.extend(new_events)
             offset = (len(self) - old_len) - len(new_events)
             self.unread_index = max(self.unread_index + offset , 0)
+            new_events = [e for e in self._pull_events() if e.event_type != '255']
 
-        return min(len(self), len(new_events))
+        return min(len(self), events_added)
 
     def _pull_events(self) -> Iterable[Event]:
-        raw = self.sdk.get_rt_log(self.buffer_size)
-        *events_s, empty = raw.split('\r\n')
-
-        return (Event(s) for s in events_s)
+        events = self.sdk.get_rt_log(self.buffer_size)
+        return (Event(s) for s in events)
 
     def __getitem__(self, item) -> Union[Iterable[Event], Event]:
         if not isinstance(item, slice):
