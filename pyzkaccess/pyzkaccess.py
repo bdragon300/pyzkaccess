@@ -3,7 +3,7 @@ import itertools
 import time
 from collections import deque
 from datetime import datetime
-from typing import Iterable, Union, Optional
+from typing import Iterable, Union, Optional, List
 
 from .device import ZKModel, ZK400, ZKDevice
 from .enum import ControlOperation, RelayGroup
@@ -363,14 +363,15 @@ class EventLog(deque):
 
         return min(len(self), events_added)
 
-    def poll(self, timeout: int = 60) -> Optional[Iterable[Event]]:
+    def poll(self, timeout: int = 60) -> List[Event]:
         for _ in range(timeout):
             self.refresh()
             unread = list(self.unread)
             if unread:
                 return unread
             time.sleep(1)  # FIXME: add polling interval setting
-        # FIXME: return type should be list
+
+        return []
 
     def _pull_events(self) -> Iterable[Event]:
         events = self.sdk.get_rt_log(self.buffer_size)
