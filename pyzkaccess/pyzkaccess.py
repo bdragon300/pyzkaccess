@@ -146,6 +146,14 @@ class ZKAccess:
         return RelayList(sdk=self.sdk, relays=relays)
 
     @property
+    def readers(self) -> 'ReaderList':
+        readers = [Reader(self.sdk, self._event_log, x)
+                   for x in self.device_model.readers_def]
+        return ReaderList(sdk=self.sdk,
+                          event_log=self._event_log,
+                          readers=readers)
+
+    @property
     def event_log(self) -> 'EventLog':
         return self._event_log
 
@@ -348,7 +356,6 @@ class EventLog:
         self.data = _data or deque(maxlen=maxlen)
         self.include_filters = include_filters or {}
         self.exclude_filters = exclude_filters or {}
-        self._filtered_len = None
 
     def refresh(self) -> int:
         # ZKAccess always returns single event with code "255"
@@ -378,15 +385,35 @@ class EventLog:
         seq_types = (tuple, list)
         res = deepcopy(initial)
         for key, value in fltr.items():
+            if not isinstance(value, seq_types):
+                value = [value]
+
             if key in res:
-                if isinstance(value, seq_types):
-                    res[key].extend(value)
-                else:
-                    res[key].append(value)
+                res[key].extend(value)
             else:
-                res[key] = [value]
+                res[key] = value
 
         return res
+
+    def include(self, **filters):
+        include_filters = self.merge_filters(self.include_filters, filters)
+        obj = self.__class__(self.sdk,
+                             self.buffer_size,
+                             self.data.maxlen,
+                             include_filters,
+                             self.exclude_filters,
+                             _data=self.data)
+        return obj
+
+    def exclude(self, **filters):
+        exclude_filters = self.merge_filters(self.exclude_filters, filters)
+        obj = self.__class__(self.sdk,
+                             self.buffer_size,
+                             self.data.maxlen,
+                             self.include_filters,
+                             exclude_filters,
+                             _data=self.data)
+        return obj
 
     def _filtered_events(self, data: Iterable[Event]) -> Iterable[Event]:
         if not self.include_filters and not self.exclude_filters:
@@ -442,3 +469,37 @@ class EventLog:
 
     def __repr__(self):
         return self.__str__()
+
+
+class Reader:
+    def __init__(self, sdk: ZKSDK, event_log: EventLog, number: int):
+        self.sdk = sdk
+        self.event_log = event_log
+        self.number = number
+
+    def poll(self, timeout: int = 60):
+        return self.event_log.include(door=[str(self.number)]).poll(timeout)
+
+    def __str__(self):
+        return "Reader[{}]".format(self.number)
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class ReaderList(list):
+    def __init__(self, sdk: ZKSDK, event_log: EventLog, readers: Iterable[Reader] = ()):
+        super().__init__(readers)
+        self.sdk = sdk
+        self.event_log = event_log
+
+    def __getitem__(self, item):
+        readers = super().__getitem__(item)
+        if isinstance(item, slice):
+            return self.__class__(self.sdk, self.event_log, readers=readers)
+        else:
+            return readers
+
+    def poll(self, timeout: int = 60):
+        doors = [str(x.number) for x in self]
+        return self.event_log.include(door=doors).poll(timeout)

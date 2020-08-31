@@ -7,6 +7,7 @@ class ZKModel:
     relays = None
     relays_def = None
     groups_def = None
+    readers_def = None
 
 
 class ZK400(ZKModel):
@@ -21,6 +22,7 @@ class ZK400(ZKModel):
         RelayGroup.aux, RelayGroup.aux, RelayGroup.aux, RelayGroup.aux,
         RelayGroup.lock, RelayGroup.lock, RelayGroup.lock, RelayGroup.lock
     )
+    readers_def = (1, 2, 3, 4)
 
 
 class ZK200(ZKModel):
@@ -29,6 +31,7 @@ class ZK200(ZKModel):
     relays = 4
     relays_def = (1, 2, 1, 2)
     groups_def = (RelayGroup.aux, RelayGroup.aux, RelayGroup.lock, RelayGroup.lock)
+    readers_def = (1, 2)
 
 
 class ZK100(ZKModel):
@@ -37,6 +40,7 @@ class ZK100(ZKModel):
     relays = 2
     relays_def = (1, 2)
     groups_def = (RelayGroup.aux, RelayGroup.lock)
+    readers_def = (1, )
 
 
 class ZKDevice:
