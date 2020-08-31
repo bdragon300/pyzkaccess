@@ -329,6 +329,8 @@ class Event:
 
 
 class EventLog(deque):
+    polling_interval = 1
+
     def __init__(self,
                  sdk: ZKSDK,
                  buffer_size: int,
@@ -369,7 +371,7 @@ class EventLog(deque):
             unread = list(self.unread)
             if unread:
                 return unread
-            time.sleep(1)  # FIXME: add polling interval setting
+            time.sleep(self.polling_interval)
 
         return []
 
