@@ -1,4 +1,5 @@
 import ctypes
+import itertools
 import time
 from collections import deque
 from datetime import datetime
@@ -6,7 +7,6 @@ from typing import Iterable, Union, Optional
 
 from .device import ZKModel, ZK400, ZKDevice
 from .enum import ControlOperation, RelayGroup
-import itertools
 
 
 class ZKSDK:
@@ -350,7 +350,7 @@ class EventLog(deque):
 
     def refresh(self) -> int:
         # ZKAccess always returns single event with code "255"
-        # if no other events occured. So, skip it
+        # on every log query if no other events occured. So, skip it
         new_events = [e for e in self._pull_events() if e.event_type != '255']
         events_added = 0
         while new_events:
@@ -369,7 +369,8 @@ class EventLog(deque):
             unread = list(self.unread)
             if unread:
                 return unread
-            time.sleep(1)
+            time.sleep(1)  # FIXME: add polling interval setting
+        # FIXME: return type should be list
 
     def _pull_events(self) -> Iterable[Event]:
         events = self.sdk.get_rt_log(self.buffer_size)
