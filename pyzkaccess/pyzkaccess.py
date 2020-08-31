@@ -385,9 +385,9 @@ class EventLog(deque):
             seq = reversed(seq)
             step = -step
         if start is not None and start < 0:
-            start = len(self) - start
+            start = len(self) + start
         if stop is not None and stop < 0:
-            stop = len(self) - stop
+            stop = len(self) + stop
         return itertools.islice(seq, start, stop, step)
 
     def __str__(self):
