@@ -82,7 +82,7 @@ class ZKSDK:
         *lines, _ = raw.split('\r\n')
         return lines
 
-    def search_device(self, broadcast_address: str, buffer_size: int) -> str:
+    def search_device(self, broadcast_address: str, buffer_size: int) -> Iterable[str]:
         buf = ctypes.create_string_buffer(buffer_size)
         broadcast_address = broadcast_address.encode()
         protocol = b'UDP'  # Only UDP works, see SDK docs
@@ -91,7 +91,9 @@ class ZKSDK:
         if res < 0:
             raise RuntimeError('SearchDevice failed, returned: {}'.format(str(res)))
 
-        return buf.value.decode('utf-8')
+        raw = buf.value.decode('utf-8')
+        *lines, _ = raw.split("\r\n")
+        return lines
 
     def __del__(self):
         self.disconnect()
@@ -182,10 +184,8 @@ class ZKAccess:
                        broadcast_address: str = '255.255.255.255',
                        dllpath: str = 'plcommpro.dll') -> Iterable[ZKDevice]:
         sdk = ZKSDK(dllpath)
-        raw = sdk.search_device(broadcast_address, cls.buffer_size)
-        *lines, _ = raw.split("\r\n")
-
-        return (ZKDevice(line) for line in lines)
+        devices = sdk.search_device(broadcast_address, cls.buffer_size)
+        return (ZKDevice(line) for line in devices)
 
     def __enter__(self):
         if not self.sdk.is_connected:
