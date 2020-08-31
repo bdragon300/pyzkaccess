@@ -320,6 +320,14 @@ class Event:
         for i in range(len(self.__slots__)):
             setattr(self, self.__slots__[i], items[i])
 
+    def __str__(self):
+        return 'Event(' \
+               + ', '.join('{}={}'.format(k, getattr(self, k)) for k in self.__slots__) \
+               + ')'
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class EventLog(deque):
     def __init__(self,
