@@ -342,18 +342,21 @@ class EventLog(deque):
 
     def poll(self, timeout: int = 60) -> Optional[Iterable[Event]]:
         for i in range(timeout):
-            unread = self.get_unread()
+            unread = self.unread
             if unread:
                 return unread
             time.sleep(1)
 
-    def get_unread(self) -> Iterable[Event]:
+    @property
+    def unread(self) -> Iterable[Event]:
         unread_index = self.unread_index
         self.unread_index = len(self)
         return self[unread_index:]
 
     def refresh(self) -> int:
-        new_events = list(self._pull_new())
+        # ZKAccess always returns single event with code "255"
+        # if no other events occured. So, skip it
+        new_events = [e for e in self._pull_events() if e.event_type != '255']
         if new_events:
             old_len = len(self)
             self.extend(new_events)
@@ -362,7 +365,7 @@ class EventLog(deque):
 
         return min(len(self), len(new_events))
 
-    def _pull_new(self):
+    def _pull_events(self) -> Iterable[Event]:
         raw = self.sdk.get_rt_log(self.buffer_size)
         *events_s, empty = raw.split('\r\n')
 
