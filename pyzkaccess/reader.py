@@ -23,7 +23,7 @@ class Reader(ReaderInterface):
         self.number = number
 
     def _specific_event_log(self) -> EventLog:
-        return self._event_log.include(door=[str(self.number)])  # FIXME: event_types
+        return self._event_log.only(door=[str(self.number)])  # FIXME: event_types
 
     def __str__(self):
         return "Reader[{}]".format(self.number)
@@ -47,4 +47,4 @@ class ReaderList(ReaderInterface, UserTuple):
 
     def _specific_event_log(self) -> EventLog:
         doors = [str(x.number) for x in self]
-        return self._event_log.include(door=doors)  # FIXME: event_types
+        return self._event_log.only(door=doors)  # FIXME: event_types

@@ -87,14 +87,12 @@ class EventLog:
                  sdk: ZKSDK,
                  buffer_size: int,
                  maxlen: Optional[int] = None,
-                 include_filters: Optional[dict] = None,
-                 exclude_filters: Optional[dict] = None,
+                 only_filters: Optional[dict] = None,
                  _data: Optional[deque] = None):
         self.sdk = sdk
         self.buffer_size = buffer_size
         self.data = _data if _data is not None else deque(maxlen=maxlen)
-        self.include_filters = include_filters or {}
-        self.exclude_filters = exclude_filters or {}
+        self.only_filters = only_filters or {}
 
     def refresh(self) -> int:
         # ZKAccess always returns single event with code "255"
@@ -128,23 +126,12 @@ class EventLog:
 
         return []
 
-    def include(self, **filters) -> 'EventLog':
-        include_filters = self._merge_filters(self.include_filters, filters)
+    def only(self, **filters) -> 'EventLog':
+        only_filters = self._merge_filters(self.only_filters, filters)
         obj = self.__class__(self.sdk,
                              self.buffer_size,
                              self.data.maxlen,
-                             include_filters,
-                             self.exclude_filters,
-                             _data=self.data)
-        return obj
-
-    def exclude(self, **filters) -> 'EventLog':
-        exclude_filters = self._merge_filters(self.exclude_filters, filters)
-        obj = self.__class__(self.sdk,
-                             self.buffer_size,
-                             self.data.maxlen,
-                             self.include_filters,
-                             exclude_filters,
+                             only_filters,
                              _data=self.data)
         return obj
 
@@ -167,7 +154,7 @@ class EventLog:
         return res
 
     def _filtered_events(self, data: Iterable[Event]) -> Iterable[Event]:
-        if not self.include_filters and not self.exclude_filters:
+        if not self.only_filters:
             yield from data
             return
 
@@ -177,16 +164,11 @@ class EventLog:
             if event.event_type == '255':
                 continue
 
-            all_match = all(getattr(event, field) in fltr
-                            for field, fltr in self.exclude_filters.items())
-            if all_match:
-                continue
-
-            if not self.include_filters:
+            if not self.only_filters:
                 yield event
             else:
                 all_match = all(getattr(event, field) in fltr
-                                for field, fltr in self.include_filters.items())
+                                for field, fltr in self.only_filters.items())
                 if all_match:
                     yield event
 
@@ -206,7 +188,7 @@ class EventLog:
         return itertools.islice(seq, start, stop, step)
 
     def __len__(self) -> int:
-        if not self.include_filters and not self.exclude_filters:
+        if not self.only_filters:
             return len(self.data)
 
         return sum(1 for _ in self._filtered_events(self.data))
