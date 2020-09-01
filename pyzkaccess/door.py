@@ -3,9 +3,10 @@ from typing import Iterable
 
 from .common import UserTuple
 from .event import EventLog
-from .reader import ReaderList, Reader
+from .reader import Reader, ReaderList
 from .relay import RelayList
 from .sdk import ZKSDK
+from .aux_input import AuxInput, AuxInputList
 
 
 class DoorInterface(metaclass=ABCMeta):
@@ -18,8 +19,6 @@ class DoorInterface(metaclass=ABCMeta):
     def relays(self) -> RelayList:
         pass
 
-    # TODO: aux inputs
-
     @abstractmethod
     def _specific_event_log(self) -> EventLog:
         pass
@@ -31,12 +30,14 @@ class Door(DoorInterface):
                  event_log: EventLog,
                  number: int,
                  relays: RelayList,
-                 reader: Reader):
+                 reader: Reader,
+                 aux_input: AuxInput):
         self.sdk = sdk
         self.number = number
         self._event_log = event_log
         self._relays = relays
         self._reader = reader
+        self._aux_input = aux_input
 
     @property
     def relays(self) -> RelayList:
@@ -46,8 +47,12 @@ class Door(DoorInterface):
     def reader(self):
         return self._reader
 
+    @property
+    def aux_input(self):
+        return self._aux_input
+
     def _specific_event_log(self) -> EventLog:
-        return self._event_log.include(door=[str(self.number)])
+        return self._event_log.only(door=[str(self.number)])
 
     def __str__(self):
         return "Door[{}]".format(self.number)
@@ -72,6 +77,11 @@ class DoorList(DoorInterface, UserTuple):
         readers = [x.reader for x in self]
         return ReaderList(self.sdk, event_log=self._event_log, readers=readers)
 
+    @property
+    def aux_inputs(self):
+        aux_inputs = [x.aux_input for x in self]
+        return AuxInputList(self.sdk, event_log=self._event_log, aux_inputs=aux_inputs)
+
     def __getitem__(self, item):
         doors = super().__getitem__(item)
         if isinstance(item, slice):
@@ -81,4 +91,4 @@ class DoorList(DoorInterface, UserTuple):
 
     def _specific_event_log(self) -> EventLog:
         doors = [str(x.number) for x in self]
-        return self._event_log.include(door=doors)
+        return self._event_log.only(door=doors)

@@ -8,6 +8,7 @@ from .event import EventLog
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
 from .sdk import ZKSDK
+from .aux_input import AuxInput, AuxInputList
 
 
 class ZKAccess:
@@ -67,18 +68,24 @@ class ZKAccess:
     @property
     def doors(self):
         mdl = self.device_model
-        readers = [Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def]
-        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
-        door_relays = [
+        readers = (Reader(self.sdk, self._event_log, x) for x in mdl.readers_def)
+        aux_inputs = (AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def)
+        relays = (Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def))
+        door_relays = (
             RelayList(self.sdk, relays=[x for x in relays if x.number == door])
             for door in mdl.doors_def
-        ]
-        doors = [Door(self.sdk, self._event_log, door, relays, reader)
-                 for door, relays, reader in zip(mdl.doors_def, door_relays, readers)]
+        )
+        seq = zip(mdl.doors_def, door_relays, readers, aux_inputs)
+        doors = [Door(self.sdk, self._event_log, door, relays, reader, aux_input)
+                 for door, relays, reader, aux_input in seq]
 
         return DoorList(self.sdk, event_log=self._event_log, doors=doors)
 
-    # TODO: aux inputs
+    @property
+    def aux_inputs(self):
+        mdl = self.device_model
+        aux_inputs = [AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def]
+        return AuxInputList(self.sdk, event_log=self._event_log, aux_inputs=aux_inputs)
 
     @property
     def dll_object(self) -> ctypes.WinDLL:
