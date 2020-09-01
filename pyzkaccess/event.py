@@ -71,7 +71,7 @@ class EventLog:
                  _data: Optional[deque] = None):
         self.sdk = sdk
         self.buffer_size = buffer_size
-        self.data = _data or deque(maxlen=maxlen)
+        self.data = _data if _data is not None else deque(maxlen=maxlen)
         self.include_filters = include_filters or {}
         self.exclude_filters = exclude_filters or {}
 
