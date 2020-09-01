@@ -87,6 +87,15 @@ class EventLog:
 
         return min(len(self.data), count)
 
+    def after_time(self, after_time: datetime) -> Iterable[Event]:
+        return filter(lambda x: x.time >= after_time, self._filtered_events(self.data))
+
+    def before_time(self, before_time: datetime) -> Iterable[Event]:
+        return filter(lambda x: x.time < before_time, self._filtered_events(self.data))
+
+    def between_time(self, from_time: datetime, to_time: datetime) -> Iterable[Event]:
+        return filter(lambda x: from_time <= x.time < to_time, self._filtered_events(self.data))
+
     def poll(self, timeout: int = 60) -> List[Event]:
         for _ in range(timeout):
             count = self.refresh()
@@ -117,6 +126,9 @@ class EventLog:
                              exclude_filters,
                              _data=self.data)
         return obj
+
+    def clear(self) -> None:
+        self.data.clear()
 
     @staticmethod
     def _merge_filters(initial: dict, fltr: dict) -> dict:
