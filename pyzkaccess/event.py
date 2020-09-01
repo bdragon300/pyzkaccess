@@ -196,9 +196,9 @@ class EventLog:
         seq = self._filtered_events(self.data)
         if not isinstance(item, slice):
             try:
-                return itertools.islice(seq, item, item + 1)
+                return next(itertools.islice(seq, item, None))
             except StopIteration:
-                raise IndexError('Index is out of range')
+                raise IndexError('Index is out of range') from None
 
         start, stop, step = item.start, item.stop, item.step
         return itertools.islice(seq, start, stop, step)
