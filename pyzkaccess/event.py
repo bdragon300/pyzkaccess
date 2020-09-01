@@ -177,16 +177,18 @@ class EventLog:
             if event.event_type == '255':
                 continue
 
-            for field, fltr in self.exclude_filters.items():
-                if getattr(event, field) in fltr:
-                    continue
+            all_match = all(getattr(event, field) in fltr
+                            for field, fltr in self.exclude_filters.items())
+            if all_match:
+                continue
 
             if not self.include_filters:
                 yield event
             else:
-                for field, fltr in self.include_filters.items():
-                    if getattr(event, field) in fltr:
-                        yield event
+                all_match = all(getattr(event, field) in fltr
+                                for field, fltr in self.include_filters.items())
+                if all_match:
+                    yield event
 
     def _pull_events(self) -> Iterable[Event]:
         events = self.sdk.get_rt_log(self.buffer_size)
