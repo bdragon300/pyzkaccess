@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Iterable, Union
 
+from .common import UserTuple
 from .enum import RelayGroup, ControlOperation
 from .sdk import ZKSDK
 
@@ -44,7 +45,7 @@ class Relay(RelayInterface):
         return "Relay(RelayGroup.{}, {})".format(self.group.name, self.number)
 
 
-class RelayList(RelayInterface, list):
+class RelayList(RelayInterface, UserTuple):
     """Collection of relay objects which is used to perform group
     operations over multiple relays
     """

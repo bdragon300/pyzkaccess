@@ -3,6 +3,7 @@ from typing import Iterable
 
 from .event import EventLog, Event
 from .sdk import ZKSDK
+from .common import UserTuple
 
 
 class ReaderInterface(metaclass=ABCMeta):
@@ -34,7 +35,7 @@ class Reader(ReaderInterface):
         return self.__str__()
 
 
-class ReaderList(ReaderInterface, list):
+class ReaderList(ReaderInterface, UserTuple):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, readers: Iterable[Reader] = ()):
         super().__init__(readers)
         self.sdk = sdk
