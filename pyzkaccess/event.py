@@ -5,6 +5,7 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Optional, List, Iterable, Union
 
+from .enum import VERIFY_MODES, EVENT_TYPES, ENTRY_EXIT_TYPES
 from .sdk import ZKSDK
 
 
@@ -30,6 +31,26 @@ class Event:
         """
         if s:
             self.parse(s)
+
+    @property
+    def description(self) -> str:
+        msg = 'Event[{}]: "{}" at door "{}" for card "{}" -- {}'.format(
+            str(self.time), self.event_type_description, self.door, self.card,
+            self.entry_exit_description
+        )
+        return msg
+
+    @property
+    def entry_exit_description(self) -> str:
+        return ENTRY_EXIT_TYPES.get(self.entry_exit, '?')
+
+    @property
+    def event_type_description(self) -> str:
+        return EVENT_TYPES.get(self.event_type, '?')
+
+    @property
+    def verify_mode_description(self) -> str:
+        return VERIFY_MODES.get(self.verify_mode, '?')
 
     def parse(self, event_line: str) -> None:
         """

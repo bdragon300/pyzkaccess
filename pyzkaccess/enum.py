@@ -22,6 +22,8 @@ VERIFY_MODES = {
     '1':   'Only finger',
     '3':   'Only password',
     '4':   'Only card',
+    '6':   'Card or finger',
+    '10':  'Card and finger',
     '11':  'Card and password',
     '200': 'Others'
 }
