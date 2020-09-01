@@ -1,17 +1,31 @@
+from abc import ABCMeta, abstractmethod
 from typing import Iterable
 
+from .event import EventLog, Event
 from .sdk import ZKSDK
-from .event import EventLog
 
 
-class Reader:
+class ReaderInterface(metaclass=ABCMeta):
+    @property
+    def events(self) -> EventLog:
+        return self._specific_event_log()
+
+    def poll(self, timeout: int = 60) -> Iterable[Event]:
+        return self._specific_event_log().poll(timeout)
+
+    @abstractmethod
+    def _specific_event_log(self) -> EventLog:
+        pass
+
+
+class Reader(ReaderInterface):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, number: int):
         self.sdk = sdk
-        self.event_log = event_log
+        self._event_log = event_log
         self.number = number
 
-    def poll(self, timeout: int = 60):
-        return self.event_log.include(door=[str(self.number)]).poll(timeout)
+    def _specific_event_log(self) -> EventLog:
+        return self._event_log.include(door=[str(self.number)])
 
     def __str__(self):
         return "Reader[{}]".format(self.number)
@@ -20,19 +34,19 @@ class Reader:
         return self.__str__()
 
 
-class ReaderList(list):
+class ReaderList(ReaderInterface, list):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, readers: Iterable[Reader] = ()):
         super().__init__(readers)
         self.sdk = sdk
-        self.event_log = event_log
+        self._event_log = event_log
 
     def __getitem__(self, item):
         readers = super().__getitem__(item)
         if isinstance(item, slice):
-            return self.__class__(self.sdk, self.event_log, readers=readers)
+            return self.__class__(self.sdk, self._event_log, readers=readers)
         else:
             return readers
 
-    def poll(self, timeout: int = 60):
+    def _specific_event_log(self) -> EventLog:
         doors = [str(x.number) for x in self]
-        return self.event_log.include(door=doors).poll(timeout)
+        return self._event_log.include(door=doors)

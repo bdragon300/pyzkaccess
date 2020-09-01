@@ -1,12 +1,12 @@
 import ctypes
 from typing import Iterable, Optional
 
-from .sdk import ZKSDK
 from .device import ZKModel, ZK400, ZKDevice
 from .enum import ControlOperation
 from .event import EventLog
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
+from .sdk import ZKSDK
 
 
 class ZKAccess:
@@ -56,14 +56,11 @@ class ZKAccess:
 
     @property
     def readers(self) -> 'ReaderList':
-        readers = [Reader(self.sdk, self._event_log, x)
-                   for x in self.device_model.readers_def]
-        return ReaderList(sdk=self.sdk,
-                          event_log=self._event_log,
-                          readers=readers)
+        readers = [Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def]
+        return ReaderList(sdk=self.sdk, event_log=self._event_log, readers=readers)
 
     @property
-    def event_log(self) -> 'EventLog':
+    def events(self) -> 'EventLog':
         return self._event_log
 
     @property
@@ -72,11 +69,19 @@ class ZKAccess:
         return self.sdk.dll
 
     @property
-    def handle(self):
+    def handle(self) -> Optional[int]:
         """Device handle. `None` if there is no active connection.
         Read only.
         """
         return self.sdk.handle
+
+    @classmethod
+    def search_devices(cls,
+                       broadcast_address: str = '255.255.255.255',
+                       dllpath: str = 'plcommpro.dll') -> Iterable[ZKDevice]:
+        sdk = ZKSDK(dllpath)
+        devices = sdk.search_device(broadcast_address, cls.buffer_size)
+        return (ZKDevice(line) for line in devices)
 
     def connect(self, connstr: bytes) -> None:
         """
@@ -100,14 +105,6 @@ class ZKAccess:
     def restart(self) -> None:
         """Restart a device"""
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
-
-    @classmethod
-    def search_devices(cls,
-                       broadcast_address: str = '255.255.255.255',
-                       dllpath: str = 'plcommpro.dll') -> Iterable[ZKDevice]:
-        sdk = ZKSDK(dllpath)
-        devices = sdk.search_device(broadcast_address, cls.buffer_size)
-        return (ZKDevice(line) for line in devices)
 
     def __enter__(self):
         if not self.sdk.is_connected:

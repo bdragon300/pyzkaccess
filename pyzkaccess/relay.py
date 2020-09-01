@@ -1,10 +1,17 @@
+from abc import ABCMeta, abstractmethod
 from typing import Iterable, Union
 
-from .sdk import ZKSDK
 from .enum import RelayGroup, ControlOperation
+from .sdk import ZKSDK
 
 
-class Relay:
+class RelayInterface(metaclass=ABCMeta):
+    @abstractmethod
+    def switch_on(self, timeout: int) -> None:
+        pass
+
+
+class Relay(RelayInterface):
     """Concrete relay"""
     def __init__(self, sdk: ZKSDK, group: RelayGroup, number: int):
         self.sdk = sdk
@@ -20,7 +27,7 @@ class Relay:
         :return:
         """
         if timeout < 0 or timeout > 255:
-            raise ValueError("Incorrect timeout: {}".format(timeout))
+            raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
 
         self.sdk.control_device(
             ControlOperation.output.value,
@@ -37,7 +44,7 @@ class Relay:
         return "Relay(RelayGroup.{}, {})".format(self.group.name, self.number)
 
 
-class RelayList(list):
+class RelayList(RelayInterface, list):
     """Collection of relay objects which is used to perform group
     operations over multiple relays
     """
@@ -57,9 +64,6 @@ class RelayList(list):
         """
         if timeout < 0 or timeout > 255:
             raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
-
-        if timeout < 0 or timeout > 255:
-            raise ValueError("Incorrect timeout: {}".format(timeout))
 
         for relay in self:
             self.sdk.control_device(ControlOperation.output.value,

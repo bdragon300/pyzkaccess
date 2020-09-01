@@ -51,8 +51,8 @@ class ZKDevice:
         if s:
             self.parse(s)
 
-    def parse(self, s):
-        if s == '' or s == '\r\n':
+    def parse(self, device_line: str) -> None:
+        if device_line in ('', '\r\n'):
             raise ValueError("Empty event string")
 
         tokens = {
@@ -63,7 +63,7 @@ class ZKDevice:
             'Ver': 'version'
         }
 
-        pieces = s.split(',')
+        pieces = device_line.split(',')
         for piece in pieces:
             tok, val = piece.split('=')
             if tok not in tokens:
@@ -73,9 +73,9 @@ class ZKDevice:
         if tokens:
             raise ValueError("Parameters {} are not found in device string".format(tokens.keys()))
 
-        self.model = self._setup_model(self.model)
+        self.model = self._get_model_cls(self.model)
 
-    def _setup_model(self, model_name):
+    def _get_model_cls(self, model_name):
         for cls in self.available_models:
             if cls.name == model_name:
                 return cls

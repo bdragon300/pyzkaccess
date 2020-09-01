@@ -31,23 +31,24 @@ class Event:
         if s:
             self.parse(s)
 
-    def parse(self, s):
+    def parse(self, event_line: str) -> None:
         """
         Parse one event string and fills out slots
-        :param s: event string
+        :param event_line: event string
         :raises ValueError: event string is invalid
         :return:
         """
-        if s == '' or s == '\r\n':
+        if event_line == '' or event_line == '\r\n':
             raise ValueError("Empty event string")
 
-        items = s.split(',')
+        items = event_line.split(',')
         if len(items) != 7:
             raise ValueError("Event string has not 7 comma-separated parts")
 
-        items[0] = datetime.strptime(items[0], '%Y-%m-%d %H:%M:%S')
         for i in range(len(self.__slots__)):
             setattr(self, self.__slots__[i], items[i])
+
+        self.time = datetime.strptime(self.time, '%Y-%m-%d %H:%M:%S')
 
     def __str__(self):
         return 'Event(' \
@@ -97,8 +98,28 @@ class EventLog:
 
         return []
 
+    def include(self, **filters) -> 'EventLog':
+        include_filters = self._merge_filters(self.include_filters, filters)
+        obj = self.__class__(self.sdk,
+                             self.buffer_size,
+                             self.data.maxlen,
+                             include_filters,
+                             self.exclude_filters,
+                             _data=self.data)
+        return obj
+
+    def exclude(self, **filters) -> 'EventLog':
+        exclude_filters = self._merge_filters(self.exclude_filters, filters)
+        obj = self.__class__(self.sdk,
+                             self.buffer_size,
+                             self.data.maxlen,
+                             self.include_filters,
+                             exclude_filters,
+                             _data=self.data)
+        return obj
+
     @staticmethod
-    def merge_filters(initial: dict, fltr: dict) -> dict:
+    def _merge_filters(initial: dict, fltr: dict) -> dict:
         seq_types = (tuple, list)
         res = deepcopy(initial)
         for key, value in fltr.items():
@@ -111,26 +132,6 @@ class EventLog:
                 res[key] = value
 
         return res
-
-    def include(self, **filters):
-        include_filters = self.merge_filters(self.include_filters, filters)
-        obj = self.__class__(self.sdk,
-                             self.buffer_size,
-                             self.data.maxlen,
-                             include_filters,
-                             self.exclude_filters,
-                             _data=self.data)
-        return obj
-
-    def exclude(self, **filters):
-        exclude_filters = self.merge_filters(self.exclude_filters, filters)
-        obj = self.__class__(self.sdk,
-                             self.buffer_size,
-                             self.data.maxlen,
-                             self.include_filters,
-                             exclude_filters,
-                             _data=self.data)
-        return obj
 
     def _filtered_events(self, data: Iterable[Event]) -> Iterable[Event]:
         if not self.include_filters and not self.exclude_filters:

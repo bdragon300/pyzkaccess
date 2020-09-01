@@ -25,6 +25,7 @@ VERIFY_MODES = {
     '11':  'Card and password',
     '200': 'Others'
 }
+
 EVENT_TYPES = {
     '0':   'Normal Punch Open',
     '1':   'Punch during Normal Open Time Zone',
@@ -77,6 +78,7 @@ EVENT_TYPES = {
     '221': 'Auxiliary Input Shorted',
     '255': 'Actually that obtain door status and alarm status',
 }
+
 ENTRY_EXIT_TYPES = {
     '0': 'Entry',
     '1': 'Exit',

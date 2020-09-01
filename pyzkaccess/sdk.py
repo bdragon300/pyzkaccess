@@ -8,17 +8,17 @@ class ZKSDK:
         self.handle = None
 
     @property
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return bool(self.handle is not None)
 
-    def connect(self, connstr: bytes):
+    def connect(self, connstr: bytes) -> None:
         self.handle = self.dll.Connect(connstr)
         if self.handle == 0:
             self.handle = None
             # FIXME: return errors description everywhere
             raise ConnectionError("Unable to connect device using connstr '{}'".format(connstr))
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         if not self.handle:
             return
 
