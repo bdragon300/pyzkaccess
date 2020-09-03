@@ -81,8 +81,6 @@ class Event:
 
 
 class EventLog:
-    polling_interval = 1
-
     def __init__(self,
                  sdk: ZKSDK,
                  buffer_size: int,
@@ -115,14 +113,14 @@ class EventLog:
     def between_time(self, from_time: datetime, to_time: datetime) -> Iterable[Event]:
         return filter(lambda x: from_time <= x.time < to_time, self._filtered_events(self.data))
 
-    def poll(self, timeout: int = 60) -> List[Event]:
+    def poll(self, timeout: int = 60, polling_interval: int = 1) -> List[Event]:
         for _ in range(timeout):
             count = self.refresh()
             if count:
                 reversed_events = self._filtered_events(reversed(self.data))
                 res = list(itertools.islice(reversed_events, None, count))[::-1]
                 return res
-            time.sleep(self.polling_interval)
+            time.sleep(polling_interval)
 
         return []
 
