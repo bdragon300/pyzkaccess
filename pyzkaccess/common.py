@@ -1,5 +1,8 @@
-from typing import Sequence, Union, Iterable
 from copy import copy
+from typing import Sequence, Union, Iterable
+
+from wrapt import ObjectProxy
+from wrapt.wrappers import _ObjectProxyMetaType
 
 
 class UserTuple:
@@ -78,3 +81,43 @@ class UserTuple:
     def copy(self): return self.__class__(self)
     def count(self, item): return self.data.count(item)
     def index(self, item, *args): return self.data.index(item, *args)
+
+
+class DocValueMeta(_ObjectProxyMetaType):
+    def __new__(cls, name, bases, attrs):
+        # Hack: override class creation for proxy object since
+        # ObjectProxy metaclass doesn't allow easily redefine __doc__
+        def get_doc(self):
+            return self._self_doc if self._self_doc else self.__wrapped__.__doc__
+
+        doc_prop = property(get_doc, None, None)
+
+        new_class = super().__new__(cls, name, bases, attrs)
+        type.__setattr__(new_class, '__doc__', doc_prop)
+        return new_class
+
+
+class DocValue(ObjectProxy, metaclass=DocValueMeta):
+    def __init__(self, value: Union[str, int], doc: str):
+        super().__init__(value)
+        if not isinstance(value, (str, int)):
+            raise TypeError('Init value type must be int or str')
+
+        self._self_value = value
+        self._self_doc = doc
+
+    def __repr__(self):
+        return self.__wrapped__.__repr__()
+
+    @property
+    def value(self):
+        return self._self_value
+
+    @property
+    def doc(self):
+        return self._self_doc
+
+
+class DocDict(dict):
+    def __init__(self, initdict: dict):
+        super().__init__({k: DocValue(k, v) for k, v in initdict.items()})

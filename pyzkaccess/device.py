@@ -1,3 +1,4 @@
+from .common import DocDict
 from .relay import RelayGroup
 
 
@@ -10,6 +11,8 @@ class ZKModel:
     readers_def = None
     doors_dev = None
     aux_inputs_def = None
+    anti_passback_rules = None
+    interlock_rules = None
 
 
 class ZK400(ZKModel):
@@ -27,6 +30,36 @@ class ZK400(ZKModel):
     readers_def = (1, 2, 3, 4)
     doors_def = (1, 2, 3, 4)
     aux_inputs_def = (1, 2, 3, 4)
+    anti_passback_rules = DocDict({
+        0:   'Anti-passback disabled',
+        1:   'Enable the anti-passback function Door 1 and Door 2',
+        2:   'Enable the anti•passback function between Door 3 and Door 4',
+        3:   'Enable the anti-passback function between Door 1 and Door 2, and between '
+             'Door 3 and Door 4',
+        4:   'Enable the anti-passback function between Door 1,2 and Door 3,4',
+        5:   'Enable the anti-passback function between Door 1 and Door 2,3',
+        6:   'Enable the anti-passback function between Door 1 and Door 2,3,4',
+        16:  'Anti-passback is supported only between the readers of Door 1',
+        32:  'Anti-passback is supported only between the readers of Door 2',
+        64:  'Anti-passback is supported only between the readers of Door 3',
+        128: 'Anti-passback is supported only between the readers of Door 4',
+        96:  'Anti-passback is supported concurrently among Door 2 and Door 3 readers respectively',
+        160: 'Anti-passback is supported concurrently among Door 2 and Door 4 readers respectively',
+        196: 'Anti-passback is supported concurrently among Door 3 and Door 4 readers respectively',
+        112: 'Anti-passback is supported concurrently among Door 1, 2, 3 readers respectively',
+        176: 'Anti-passback is supported concurrently among Door 1, 2, 4 readers respectively',
+        208: 'Anti-passback is supported concurrently among Door 1, 3, 4 readers respectively',
+        224: 'Anti-passback is supported concurrently among Door 2, 3, 4 readers respectively',
+        240: 'Anti-passback is supported concurrently among Door 1, 2, 3, 4 readers respectively',
+    })
+    interlock_rules = DocDict({
+        0: 'Interlock disabled',
+        1: 'Interlock Door 1 and Door 2 mutually',
+        2: 'Interlock Door 3 and Door 4 mutually',
+        3: 'Interlock Door 1, Door 2 and Door 3 mutually',
+        4: 'Interlock Door 1 and Door 2 mutually and interlock Door 3 and Door 4 mutually',
+        5: 'Interlock Door 1, Door 2, Door 3, Door 4 mutually',
+    })
 
 
 class ZK200(ZKModel):
@@ -38,6 +71,19 @@ class ZK200(ZKModel):
     readers_def = (1, 2)
     doors_def = (1, 2)
     aux_inputs_def = (1, 2)
+    anti_passback_rules = DocDict({
+        0: 'Anti-passback disabled',
+        1: 'Enable the anti-passback function between Door 1 and Door 2 (one-way) '
+           'or readers of Door 1 (two-way)',
+        2: 'Enable the anti-passback function between readers of Door 2 (two-way)',
+        3: 'Enable the anti-passback function between readers of Door 1 and between readers of '
+           'Door 2 respectively (two-way)',
+        4: 'Enable the anti-passback function between Door 1 and Door 2 (two-way)'
+    })
+    interlock_rules = DocDict({
+        0: 'Interlock disabled',
+        1: 'Interlock Door 1 and Door 2 mutually',
+    })
 
 
 class ZK100(ZKModel):
@@ -49,6 +95,13 @@ class ZK100(ZKModel):
     readers_def = (1, )
     doors_def = (1, )
     aux_inputs_def = (1, )
+    anti_passback_rules = DocDict({
+        0: 'Anti-passback disabled',
+        1: 'Enable the anti-passback function between the readers of Door1 (two-way)',
+    })
+    interlock_rules = DocDict({
+        0: 'Interlock disabled',
+    })
 
 
 class ZKDevice:

@@ -18,6 +18,24 @@ class RelayGroup(Enum):
     aux = 2
 
 
+class SensorType(Enum):
+    not_available = 0
+    normal_open = 1
+    normal_closed = 2
+
+
+class VerifyMode(Enum):
+    not_available = 0
+    only_finger = 1
+    only_password = 3
+    only_card = 4
+    card_or_finger = 6
+    card_and_finger = 10
+    card_and_password = 11
+    others = 200
+
+
+# TODO: replace on Enum above
 VERIFY_MODES = {
     '1':   'Only finger',
     '3':   'Only password',

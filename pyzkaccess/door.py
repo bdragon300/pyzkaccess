@@ -1,12 +1,13 @@
 from abc import ABCMeta, abstractmethod
 from typing import Iterable
 
+from .aux_input import AuxInput, AuxInputList
 from .common import UserTuple
 from .event import EventLog
+from .param import DoorParameters
 from .reader import Reader, ReaderList
 from .relay import RelayList
 from .sdk import ZKSDK
-from .aux_input import AuxInput, AuxInputList
 
 
 class DoorInterface(metaclass=ABCMeta):
@@ -31,13 +32,15 @@ class Door(DoorInterface):
                  number: int,
                  relays: RelayList,
                  reader: Reader,
-                 aux_input: AuxInput):
+                 aux_input: AuxInput,
+                 parameters: DoorParameters):
         self.sdk = sdk
         self.number = number
         self._event_log = event_log
         self._relays = relays
         self._reader = reader
         self._aux_input = aux_input
+        self._parameters = parameters
 
     @property
     def relays(self) -> RelayList:
@@ -50,6 +53,10 @@ class Door(DoorInterface):
     @property
     def aux_input(self):
         return self._aux_input
+
+    @property
+    def parameters(self):
+        return self._parameters
 
     def _specific_event_log(self) -> EventLog:
         return self._event_log.only(door=[str(self.number)])

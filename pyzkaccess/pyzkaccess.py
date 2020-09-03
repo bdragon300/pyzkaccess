@@ -1,14 +1,15 @@
 import ctypes
 from typing import Iterable, Optional
 
+from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
 from .door import Door, DoorList
 from .enum import ControlOperation
 from .event import EventLog
+from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
 from .sdk import ZKSDK
-from .aux_input import AuxInput, AuxInputList
 
 
 class ZKAccess:
@@ -75,9 +76,12 @@ class ZKAccess:
             RelayList(self.sdk, relays=[x for x in relays if x.number == door])
             for door in mdl.doors_def
         )
-        seq = zip(mdl.doors_def, door_relays, readers, aux_inputs)
-        doors = [Door(self.sdk, self._event_log, door, relays, reader, aux_input)
-                 for door, relays, reader, aux_input in seq]
+        params = (DoorParameters(self.sdk, device_model=mdl, door_number=door)
+                  for door in mdl.doors_def)
+
+        seq = zip(mdl.doors_def, door_relays, readers, aux_inputs, params)
+        doors = [Door(self.sdk, self._event_log, door, relays, reader, aux_input, params)
+                 for door, relays, reader, aux_input, params in seq]
 
         return DoorList(self.sdk, event_log=self._event_log, doors=doors)
 
@@ -86,6 +90,10 @@ class ZKAccess:
         mdl = self.device_model
         aux_inputs = [AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def]
         return AuxInputList(self.sdk, event_log=self._event_log, aux_inputs=aux_inputs)
+
+    @property
+    def parameters(self):
+        return DeviceParameters(self.sdk, self.device_model)
 
     @property
     def dll_object(self) -> ctypes.WinDLL:
