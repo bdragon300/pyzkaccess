@@ -115,11 +115,11 @@ class ZKDevice:
         if s:
             params = self.parse(s)
 
-        self.mac = params['MAC']  # type: Optional[str]
-        self.ip = params['IP']  # type: str
-        self.serial_number = params['SN']  # type: str
-        self.model = self._get_model_cls(params['Device'])  # type: type(ZKModel)
-        self.version = params['Ver']  # type: Optional[str]
+        self.mac = params['mac']  # type: Optional[str]
+        self.ip = params['ip']  # type: str
+        self.serial_number = params['serial_number']  # type: str
+        self.model = self._get_model_cls(params['model'])  # type: type(ZKModel)
+        self.version = params['version']  # type: Optional[str]
 
     def parse(self, device_line: str) -> Mapping[str, str]:
         if device_line in ('', '\r\n'):
@@ -136,7 +136,7 @@ class ZKDevice:
                 ))
             res[tokens_mapping[tok]] = val  # {slot: value}
 
-        if res.keys() != tokens_mapping.keys():
+        if res.keys() != set(self.__slots__):
             raise ValueError("Some keys was not found in device string '{}'".format(device_line))
 
         return res
