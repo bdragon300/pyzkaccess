@@ -26,7 +26,7 @@ class Event:
         'verify_mode'
     )
 
-    def __init__(self, s=None):
+    def __init__(self, s):
         """
         :param s: Event string to be parsed.
         """

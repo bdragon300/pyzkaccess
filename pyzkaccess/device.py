@@ -111,7 +111,7 @@ class ZKDevice:
     parse_tokens = frozenset(('MAC', 'IP', 'SN', 'Device', 'Ver'))
     available_models = (ZK100, ZK200, ZK400)
 
-    def __init__(self, s=None):
+    def __init__(self, s):
         parsed = self.parse(s)
 
         self.mac = parsed['MAC']  # type: str
