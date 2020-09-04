@@ -21,7 +21,7 @@ class ZKAccess:
     def __init__(self,
                  connstr: Optional[bytes] = None,
                  device: Optional[ZKDevice] = None,
-                 device_model: ZKModel = ZK400,
+                 device_model: type(ZKModel) = ZK400,
                  dllpath: str = 'plcommpro.dll',
                  log_capacity: Optional[int] = None):
         """
@@ -31,9 +31,9 @@ class ZKAccess:
         :param device_model: Device model class. Default is C3-400
         """
         self.connstr = connstr
-        self.device = device
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
+        self._device = device
         self._event_log = EventLog(self.sdk, self.buffer_size, maxlen=log_capacity)
 
         if connstr is None and device is None:
@@ -94,6 +94,17 @@ class ZKAccess:
     @property
     def parameters(self):
         return DeviceParameters(self.sdk, self.device_model)
+
+    @property
+    def device(self) -> ZKDevice:
+        if self._device:
+            return self._device
+
+        return ZKDevice(mac=None,
+                        ip=self.parameters.ip_address,
+                        serial_number=self.parameters.serial_number,
+                        model=self.device_model,
+                        version=None)
 
     @property
     def dll_object(self) -> ctypes.WinDLL:

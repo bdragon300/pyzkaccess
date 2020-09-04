@@ -1,4 +1,4 @@
-from typing import Mapping
+from typing import Mapping, Optional
 
 from .common import DocDict
 from .relay import RelayGroup
@@ -115,11 +115,11 @@ class ZKDevice:
         if s:
             params = self.parse(s)
 
-        self.mac = params['MAC']  # type: str
+        self.mac = params['MAC']  # type: Optional[str]
         self.ip = params['IP']  # type: str
         self.serial_number = params['SN']  # type: str
         self.model = self._get_model_cls(params['Device'])  # type: type(ZKModel)
-        self.mac = params['Ver']  # type: str
+        self.version = params['Ver']  # type: Optional[str]
 
     def parse(self, device_line: str) -> Mapping[str, str]:
         if device_line in ('', '\r\n'):
