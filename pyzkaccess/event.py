@@ -36,7 +36,7 @@ class Event:
         self.pin = parsed[1]   # type: str
         self.card = parsed[2]  # type: str
         self.door = int(parsed[3])  # type: int
-        self.event_type = EVENT_TYPES(int(parsed[4]))  # type: DocValue
+        self.event_type = EVENT_TYPES[int(parsed[4])]  # type: DocValue
         self.entry_exit = PassageDirection(int(parsed[5]))  # type: PassageDirection
         self.verify_mode = VerifyMode(int(parsed[6]))  # type: VerifyMode
 
