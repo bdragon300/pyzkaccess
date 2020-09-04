@@ -11,7 +11,8 @@ class ZKSDK:
     def is_connected(self) -> bool:
         return bool(self.handle is not None)
 
-    def connect(self, connstr: bytes) -> None:
+    def connect(self, connstr: str) -> None:
+        connstr = connstr.encode()
         self.handle = self.dll.Connect(connstr)
         if self.handle == 0:
             self.handle = None

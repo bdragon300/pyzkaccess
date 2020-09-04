@@ -19,7 +19,7 @@ class ZKAccess:
     buffer_size = 4096
 
     def __init__(self,
-                 connstr: Optional[bytes] = None,
+                 connstr: Optional[str] = None,
                  device: Optional[ZKDevice] = None,
                  device_model: type(ZKModel) = ZK400,
                  dllpath: str = 'plcommpro.dll',
@@ -43,7 +43,6 @@ class ZKAccess:
             if not connstr:
                 self.connstr = \
                     'protocol=TCP,ipaddress={},port=4370,timeout=4000,passwd='.format(device.ip)
-                self.connstr = self.connstr.encode()
             if not device_model:
                 self.device_model = device.model
 
@@ -126,7 +125,7 @@ class ZKAccess:
         devices = sdk.search_device(broadcast_address, cls.buffer_size)
         return (ZKDevice(line) for line in devices)
 
-    def connect(self, connstr: bytes) -> None:
+    def connect(self, connstr: str) -> None:
         """
         Connect to a device using connection string, ex:
         'protocol=TCP,ipaddress=192.168.22.201,port=4370,timeout=4000,passwd='
