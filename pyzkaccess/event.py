@@ -3,9 +3,10 @@ import time
 from collections import deque
 from copy import deepcopy
 from datetime import datetime
-from typing import Optional, List, Iterable, Union
+from typing import Optional, List, Iterable, Union, Sequence
 
-from .enum import VERIFY_MODES, EVENT_TYPES, ENTRY_EXIT_TYPES
+from .common import DocValue
+from .enum import VerifyMode, PassageDirection, EVENT_TYPES
 from .sdk import ZKSDK
 
 
@@ -27,32 +28,27 @@ class Event:
 
     def __init__(self, s=None):
         """
-        :param s: Optional. Event string to be parsed.
+        :param s: Event string to be parsed.
         """
-        if s:
-            self.parse(s)
+        parsed = self.parse(s)
+
+        self.time = datetime.strptime(parsed[0], '%Y-%m-%d %H:%M:%S')  # type: datetime
+        self.pin = parsed[1]   # type: str
+        self.card = parsed[2]  # type: str
+        self.door = int(parsed[3])  # type: int
+        self.event_type = EVENT_TYPES(int(parsed[4]))  # type: DocValue
+        self.entry_exit = PassageDirection(int(parsed[5]))  # type: PassageDirection
+        self.verify_mode = VerifyMode(int(parsed[6]))  # type: VerifyMode
 
     @property
     def description(self) -> str:
         msg = 'Event[{}]: "{}" at door "{}" for card "{}" -- {}'.format(
-            str(self.time), self.event_type_description, self.door, self.card,
-            self.entry_exit_description
+            str(self.time), self.event_type.doc, self.door, self.card,
+            self.entry_exit.name.capitalize()
         )
         return msg
 
-    @property
-    def entry_exit_description(self) -> str:
-        return ENTRY_EXIT_TYPES.get(self.entry_exit, '?')
-
-    @property
-    def event_type_description(self) -> str:
-        return EVENT_TYPES.get(self.event_type, '?')
-
-    @property
-    def verify_mode_description(self) -> str:
-        return VERIFY_MODES.get(self.verify_mode, '?')
-
-    def parse(self, event_line: str) -> None:
+    def parse(self, event_line: str) -> Sequence[str]:
         """
         Parse one event string and fills out slots
         :param event_line: event string
@@ -66,14 +62,7 @@ class Event:
         if len(items) != 7:
             raise ValueError("Event string has not 7 comma-separated parts")
 
-        for i in range(len(self.__slots__)):
-            setattr(self, self.__slots__[i], items[i])
-
-        self.time = datetime.strptime(self.time, '%Y-%m-%d %H:%M:%S')
-        self.door = int(self.door)
-        self.event_type = int(self.event_type)
-        self.entry_exit = int(self.entry_exit)
-        self.verify_mode = int(self.verify_mode)
+        return items
 
     def __str__(self):
         return 'Event(' \

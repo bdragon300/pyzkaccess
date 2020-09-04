@@ -1,4 +1,5 @@
 from enum import Enum
+from .common import DocDict
 
 
 class ControlOperation(Enum):
@@ -35,18 +36,13 @@ class VerifyMode(Enum):
     others = 200
 
 
-# TODO: replace on Enum above
-VERIFY_MODES = {
-    1:   'Only finger',
-    3:   'Only password',
-    4:   'Only card',
-    6:   'Card or finger',
-    10:  'Card and finger',
-    11:  'Card and password',
-    200: 'Others'
-}
+class PassageDirection(Enum):
+    entry = 0
+    exit = 1
+    none = 2
 
-EVENT_TYPES = {
+
+EVENT_TYPES = DocDict({
     0: 'Normal Punch Open',
     1: 'Punch during Normal Open Time Zone',
     2: 'First Card Normal Open (Punch Card)',
@@ -97,10 +93,4 @@ EVENT_TYPES = {
     220: 'Auxiliary Input Disconnected',
     221: 'Auxiliary Input Shorted',
     255: 'Actually that obtain door status and alarm status',
-}
-
-ENTRY_EXIT_TYPES = {
-    0: 'Entry',
-    1: 'Exit',
-    2: 'None'
-}
+})
