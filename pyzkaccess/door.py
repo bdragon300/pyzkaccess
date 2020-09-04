@@ -34,8 +34,8 @@ class Door(DoorInterface):
                  reader: Reader,
                  aux_input: AuxInput,
                  parameters: DoorParameters):
-        self.sdk = sdk
         self.number = number
+        self._sdk = sdk
         self._event_log = event_log
         self._relays = relays
         self._reader = reader
@@ -71,28 +71,28 @@ class Door(DoorInterface):
 class DoorList(DoorInterface, UserTuple):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, doors: Iterable[Door]):
         super().__init__(doors)
-        self.sdk = sdk
+        self._sdk = sdk
         self._event_log = event_log
 
     @property
     def relays(self) -> RelayList:
         relays = [relay for door in self for relay in door.relays]
-        return RelayList(self.sdk, relays=relays)
+        return RelayList(self._sdk, relays=relays)
 
     @property
     def readers(self):
         readers = [x.reader for x in self]
-        return ReaderList(self.sdk, event_log=self._event_log, readers=readers)
+        return ReaderList(self._sdk, event_log=self._event_log, readers=readers)
 
     @property
     def aux_inputs(self):
         aux_inputs = [x.aux_input for x in self]
-        return AuxInputList(self.sdk, event_log=self._event_log, aux_inputs=aux_inputs)
+        return AuxInputList(self._sdk, event_log=self._event_log, aux_inputs=aux_inputs)
 
     def __getitem__(self, item):
         doors = super().__getitem__(item)
         if isinstance(item, slice):
-            return self.__class__(self.sdk, self._event_log, doors=doors)
+            return self.__class__(self._sdk, self._event_log, doors=doors)
         else:
             return doors
 

@@ -10,14 +10,14 @@ from .sdk import ZKSDK
 def _make_daylight_prop(query_name_spring, query_string_fall):
     def read(self):
         query = query_name_spring if self.is_daylight else query_string_fall
-        res = self.sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
         return int(res[query])
 
     def write(self, value):
         query = query_name_spring if self.is_daylight else query_string_fall
         if not isinstance(value, int):
             raise TypeError('Bad value type, should be int')
-        self.sdk.set_device_param(parameters={query: value})
+        self._sdk.set_device_param(parameters={query: value})
 
     return property(fget=read, fset=write, fdel=None, doc=None)
 
@@ -49,9 +49,9 @@ class DaylightSavingMomentMode1:
 
 class DaylightSavingMomentMode2:
     def __init__(self, sdk: ZKSDK, is_daylight: bool, buffer_size: int):
-        self.sdk = sdk
         self.is_daylight = is_daylight
         self.buffer_size = buffer_size
+        self._sdk = sdk
 
     month = _make_daylight_prop('WeekOfMonth1', 'WeekOfMonth6')
     week_of_month = _make_daylight_prop('WeekOfMonth2', 'WeekOfMonth7')
@@ -79,7 +79,7 @@ def _make_prop(query_tpl: str,
 
     def read(self) -> prop_type:
         query = query_tpl.format(self=self)
-        res = self.sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
         res = res[query]
         res = data_type(res)
         if data_type != prop_type:
@@ -103,7 +103,7 @@ def _make_prop(query_tpl: str,
         value = data_type(value)
 
         query = query_tpl.format(self=self)
-        self.sdk.set_device_param(parameters={query: value})
+        self._sdk.set_device_param(parameters={query: value})
 
     doc_readable_msg = '-'.join([
         'read' if readable else '',
@@ -122,8 +122,8 @@ class BaseParameters:
     buffer_size = 4096
 
     def __init__(self, sdk: ZKSDK, device_model: ZKModel):
-        self.sdk = sdk
         self.device_model = device_model
+        self._sdk = sdk
 
 
 def _check_ip(addr: str):
@@ -189,7 +189,7 @@ class DeviceParameters(BaseParameters):
         after the first door has opened, not otherwise. Or a door
         can be opened only by its readers from one side.
         """
-        res = self.sdk.get_device_param(parameters=('AntiPassback', ), buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=('AntiPassback',), buffer_size=self.buffer_size)
         res = int(res['AntiPassback'])
         return self.device_model.anti_passback_rules[res]
 
@@ -199,15 +199,15 @@ class DeviceParameters(BaseParameters):
             raise ValueError('Value not in possible values for {}: {}'.format(
                 self.device_model.name, self.device_model.anti_passback_rules.keys()
             ))
-        self.sdk.get_device_param(parameters={'AntiPassback': value},
-                                  buffer_size=self.buffer_size)
+        self._sdk.get_device_param(parameters={'AntiPassback': value},
+                                   buffer_size=self.buffer_size)
 
     @property
     def interlock(self):
         """Interlock rule for doors. Possible values depend on device
         model. Interlock is when the second door can be opened only
         after the first door was opened and closed, and vice versa"""
-        res = self.sdk.get_device_param(parameters=('InterLock', ), buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=('InterLock',), buffer_size=self.buffer_size)
         if not res:
             return self.device_model.interlock_rules[0]
 
@@ -220,51 +220,51 @@ class DeviceParameters(BaseParameters):
             raise ValueError('Value not in possible values for {}: {}'.format(
                 self.device_model.name, self.device_model.anti_passback_rules.keys()
             ))
-        self.sdk.get_device_param(parameters={'InterLock': value},
-                                  buffer_size=self.buffer_size)
+        self._sdk.get_device_param(parameters={'InterLock': value},
+                                   buffer_size=self.buffer_size)
 
     @property
     def spring_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
         """Spring forward daylight saving time (mode 1) (read-write)"""
-        res = self.sdk.get_device_param(parameters=('DaylightSavingTime',),
-                                        buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=('DaylightSavingTime',),
+                                         buffer_size=self.buffer_size)
         res = [int(x) for x in res['DaylightSavingTime'].split('-')]  # FIXME: extract bytes?
         return DaylightSavingMomentMode1(month=res[0], day=res[1], hour=res[2], minute=res[3])
 
     @spring_daylight_time_mode1.setter
     def spring_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self.sdk.set_device_param(parameters={'DaylightSavingTime': value})
+        self._sdk.set_device_param(parameters={'DaylightSavingTime': value})
 
     @property
     def fall_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
         """Fall back daylight saving time (mode 1) (read-write)"""
-        res = self.sdk.get_device_param(parameters=('StandardTime', ), buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=('StandardTime',), buffer_size=self.buffer_size)
         res = [int(x) for x in res['DaylightSavingTime'].split('-')]
         return DaylightSavingMomentMode1(month=res[0], day=res[1], hour=res[2], minute=res[3])
 
     @fall_daylight_time_mode1.setter
     def fall_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self.sdk.set_device_param(parameters={'StandardTime': value})
+        self._sdk.set_device_param(parameters={'StandardTime': value})
 
     @property
     def spring_daylight_time_mode2(self) -> DaylightSavingMomentMode2:
         """Spring forward daylight saving time (mode 2) (read-write)"""
-        return DaylightSavingMomentMode2(self.sdk, True, self.buffer_size)
+        return DaylightSavingMomentMode2(self._sdk, True, self.buffer_size)
 
     @spring_daylight_time_mode2.setter
     def spring_daylight_time_mode2(self, value: DaylightSavingMomentMode2):
-        t = DaylightSavingMomentMode2(self.sdk, True, self.buffer_size)
+        t = DaylightSavingMomentMode2(self._sdk, True, self.buffer_size)
         for attr in ('month', 'week_of_month', 'day_of_week', 'hour', 'minute'):
             setattr(t, attr, getattr(value, attr))
 
     @property
     def fall_daylight_time_mode2(self) -> DaylightSavingMomentMode2:
         """Fall back daylight saving time (mode 2) (read-write)"""
-        return DaylightSavingMomentMode2(self.sdk, False, self.buffer_size)
+        return DaylightSavingMomentMode2(self._sdk, False, self.buffer_size)
 
     @fall_daylight_time_mode2.setter
     def fall_daylight_time_mode2(self, value: DaylightSavingMomentMode2):
-        t = DaylightSavingMomentMode2(self.sdk, False, self.buffer_size)
+        t = DaylightSavingMomentMode2(self._sdk, False, self.buffer_size)
         for attr in ('month', 'week_of_month', 'day_of_week', 'hour', 'minute'):
             setattr(t, attr, getattr(value, attr))
 
@@ -288,10 +288,10 @@ class DeviceParameters(BaseParameters):
             value.second
         ))
 
-        self.sdk.set_device_param(parameters={'DateTime': value})
+        self._sdk.set_device_param(parameters={'DateTime': value})
 
     def _get_datetime(self):
-        res = self.sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)
+        res = self._sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)
         res = int(res['DateTime'])
 
         dt = datetime(

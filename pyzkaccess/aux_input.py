@@ -20,8 +20,8 @@ class AuxInputInterface(metaclass=ABCMeta):
 
 class AuxInput(AuxInputInterface):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, number: int):
-        self.sdk = sdk
         self.number = number
+        self._sdk = sdk
         self._event_log = event_log
 
     def _specific_event_log(self) -> EventLog:
@@ -37,13 +37,13 @@ class AuxInput(AuxInputInterface):
 class AuxInputList(AuxInputInterface, UserTuple):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, aux_inputs: Iterable[AuxInput] = ()):
         super().__init__(aux_inputs)
-        self.sdk = sdk
+        self._sdk = sdk
         self._event_log = event_log
 
     def __getitem__(self, item):
         aux_inputs = super().__getitem__(item)
         if isinstance(item, slice):
-            return self.__class__(self.sdk, self._event_log, aux_inputs=aux_inputs)
+            return self.__class__(self._sdk, self._event_log, aux_inputs=aux_inputs)
         else:
             return aux_inputs
 

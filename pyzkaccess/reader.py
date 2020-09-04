@@ -18,9 +18,9 @@ class ReaderInterface(metaclass=ABCMeta):
 
 class Reader(ReaderInterface):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, number: int):
-        self.sdk = sdk
-        self._event_log = event_log
         self.number = number
+        self._sdk = sdk
+        self._event_log = event_log
 
     def _specific_event_log(self) -> EventLog:
         return self._event_log.only(door=[self.number])  # FIXME: event_types
@@ -35,13 +35,13 @@ class Reader(ReaderInterface):
 class ReaderList(ReaderInterface, UserTuple):
     def __init__(self, sdk: ZKSDK, event_log: EventLog, readers: Iterable[Reader] = ()):
         super().__init__(readers)
-        self.sdk = sdk
+        self._sdk = sdk
         self._event_log = event_log
 
     def __getitem__(self, item):
         readers = super().__getitem__(item)
         if isinstance(item, slice):
-            return self.__class__(self.sdk, self._event_log, readers=readers)
+            return self.__class__(self._sdk, self._event_log, readers=readers)
         else:
             return readers
 

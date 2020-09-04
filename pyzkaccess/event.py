@@ -80,10 +80,10 @@ class EventLog:
                  maxlen: Optional[int] = None,
                  only_filters: Optional[dict] = None,
                  _data: Optional[deque] = None):
-        self.sdk = sdk
         self.buffer_size = buffer_size
         self.data = _data if _data is not None else deque(maxlen=maxlen)
         self.only_filters = only_filters or {}
+        self._sdk = sdk
 
     def refresh(self) -> int:
         # ZKAccess always returns single event with code 255
@@ -119,7 +119,7 @@ class EventLog:
 
     def only(self, **filters) -> 'EventLog':
         only_filters = self._merge_filters(self.only_filters, filters)
-        obj = self.__class__(self.sdk,
+        obj = self.__class__(self._sdk,
                              self.buffer_size,
                              self.data.maxlen,
                              only_filters,
@@ -164,7 +164,7 @@ class EventLog:
                     yield event
 
     def _pull_events(self) -> Iterable[Event]:
-        events = self.sdk.get_rt_log(self.buffer_size)
+        events = self._sdk.get_rt_log(self.buffer_size)
         return (Event(s) for s in events)
 
     def __getitem__(self, item) -> Union[Iterable[Event], Event]:

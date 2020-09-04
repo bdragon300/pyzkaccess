@@ -15,9 +15,9 @@ class RelayInterface(metaclass=ABCMeta):
 class Relay(RelayInterface):
     """Concrete relay"""
     def __init__(self, sdk: ZKSDK, group: RelayGroup, number: int):
-        self.sdk = sdk
         self.group = group
         self.number = number
+        self._sdk = sdk
 
     def switch_on(self, timeout: int) -> None:
         """
@@ -30,7 +30,7 @@ class Relay(RelayInterface):
         if timeout < 0 or timeout > 255:
             raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
 
-        self.sdk.control_device(
+        self._sdk.control_device(
             ControlOperation.output.value,
             self.number,
             self.group.value,
@@ -54,7 +54,7 @@ class RelayList(RelayInterface, UserTuple):
         :param sdk: ZKAccess object
         """
         super().__init__(relays)
-        self.sdk = sdk
+        self._sdk = sdk
 
     def switch_on(self, timeout: int) -> None:
         """
@@ -67,24 +67,24 @@ class RelayList(RelayInterface, UserTuple):
             raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
 
         for relay in self:
-            self.sdk.control_device(ControlOperation.output.value,
-                                    relay.number,
-                                    relay.group.value,
-                                    timeout,
-                                    0)
+            self._sdk.control_device(ControlOperation.output.value,
+                                     relay.number,
+                                     relay.group.value,
+                                     timeout,
+                                     0)
     # FIXME: add __getitem__
     @property
     def aux(self) -> 'RelayList':
         """Return relays only from aux group"""
         relays = [x for x in self if x.group == RelayGroup.aux]
-        return self.__class__(sdk=self.sdk, relays=relays)
+        return self.__class__(sdk=self._sdk, relays=relays)
 
     @property
     def lock(self) -> 'RelayList':
         """Return relays only from lock group"""
         relays = [x for x in self if x.group == RelayGroup.lock]
-        return self.__class__(sdk=self.sdk, relays=relays)
+        return self.__class__(sdk=self._sdk, relays=relays)
 
     def by_mask(self, mask: Iterable[Union[int, bool]]):
         relays = [x for x, m in zip(self, mask) if m]
-        return self.__class__(sdk=self.sdk, relays=relays)
+        return self.__class__(sdk=self._sdk, relays=relays)
