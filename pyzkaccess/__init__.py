@@ -4,6 +4,7 @@ from .device import *
 from .door import *
 from .enum import *
 from .event import *
+from .exceptions import *
 from .param import *
 from .pyzkaccess import *
 from .reader import *

@@ -135,7 +135,9 @@ class ZKAccess:
         :return:
         """
         if self.sdk.is_connected:
-            raise RuntimeError('Already connected')
+            if connstr != self.connstr:
+                raise ValueError('Please disconnect first before connecting with other connstr')
+            return
 
         self.connstr = connstr
         self.sdk.connect(connstr)

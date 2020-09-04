@@ -1,6 +1,8 @@
 import ctypes
 from typing import Sequence, Mapping, Any
 
+from .exceptions import ZKSDKError
+
 
 class ZKSDK:
     def __init__(self, dllpath: str):
@@ -16,8 +18,8 @@ class ZKSDK:
         self.handle = self.dll.Connect(connstr)
         if self.handle == 0:
             self.handle = None
-            # FIXME: return errors description everywhere
-            raise ConnectionError("Unable to connect device using connstr '{}'".format(connstr))
+            err = self.dll.PullLastError()
+            raise ZKSDKError("Unable to connect a device using connstr {}".format(connstr), err)
 
     def disconnect(self) -> None:
         if not self.handle:
@@ -49,12 +51,7 @@ class ZKSDK:
             options_str
         )
         if err < 0:
-            fmt = (
-                ','.join((str(self.handle), str(operation), str(p1),
-                          str(p2), str(p3), str(p4), str(options_str))),
-                str(err)
-            )
-            raise RuntimeError('ControlDevice failed, params: ({}), returned: {}'.format(*fmt))
+            raise ZKSDKError('ControlDevice failed for operation {}'.format(operation), err)
 
         return err
 
@@ -70,7 +67,7 @@ class ZKSDK:
 
         err = self.dll.GetRTLog(self.handle, buf, buffer_size)
         if err < 0:
-            raise RuntimeError('GetRTLog failed, returned: {}'.format(str(err)))
+            raise ZKSDKError('GetRTLog failed', err)
 
         raw = buf.value.decode('utf-8')
         *lines, _ = raw.split('\r\n')
@@ -83,7 +80,7 @@ class ZKSDK:
 
         err = self.dll.SearchDevice(protocol, broadcast_address, buf)
         if err < 0:
-            raise RuntimeError('SearchDevice failed, returned: {}'.format(str(err)))
+            raise ZKSDKError('SearchDevice failed', err)
 
         raw = buf.value.decode('utf-8')
         *lines, _ = raw.split("\r\n")
@@ -103,14 +100,14 @@ class ZKSDK:
 
             err = self.dll.GetDeviceParam(self.handle, buf, buffer_size, query)
             if err < 0:
-                raise RuntimeError('GetDeviceParam failed, returned: {}'.format(str(err)))
+                raise ZKSDKError('GetDeviceParam failed', err)
 
             for pair in buf.value.decode().split(','):
                 key, val = pair.split('=')
                 results[key] = val
 
         if results.keys() != set(parameters):
-            raise RuntimeError(
+            raise ValueError(
                 'Parameters returned by a device are differ than parameters was requested'
             )
         return results
@@ -129,7 +126,7 @@ class ZKSDK:
 
             err = self.dll.SetDeviceParam(self.handle, query)
             if err < 0:
-                raise RuntimeError('SetDeviceParam failed, returned: {}'.format(str(err)))
+                raise ZKSDKError('SetDeviceParam failed', err)
 
     def __del__(self):
         self.disconnect()
