@@ -17,7 +17,7 @@ def _make_daylight_prop(query_name_spring, query_string_fall):
         query = query_name_spring if self.is_daylight else query_string_fall
         if not isinstance(value, int):
             raise TypeError('Bad value type, should be int')
-        self.sdk.set_device_param(parameters={query: str(value)})
+        self.sdk.set_device_param(parameters={query: value})
 
     return property(fget=read, fset=write, fdel=None, doc=None)
 
@@ -103,7 +103,7 @@ def _make_prop(query_tpl: str,
         value = data_type(value)
 
         query = query_tpl.format(self=self)
-        self.sdk.set_device_param(parameters={query: str(value)})
+        self.sdk.set_device_param(parameters={query: value})
 
     doc_readable_msg = '-'.join([
         'read' if readable else '',
@@ -199,7 +199,7 @@ class DeviceParameters(BaseParameters):
             raise ValueError('Value not in possible values for {}: {}'.format(
                 self.device_model.name, self.device_model.anti_passback_rules.keys()
             ))
-        self.sdk.get_device_param(parameters={'AntiPassback': str(value)},
+        self.sdk.get_device_param(parameters={'AntiPassback': value},
                                   buffer_size=self.buffer_size)
 
     @property
@@ -220,7 +220,7 @@ class DeviceParameters(BaseParameters):
             raise ValueError('Value not in possible values for {}: {}'.format(
                 self.device_model.name, self.device_model.anti_passback_rules.keys()
             ))
-        self.sdk.get_device_param(parameters={'InterLock': str(value)},
+        self.sdk.get_device_param(parameters={'InterLock': value},
                                   buffer_size=self.buffer_size)
 
     @property
@@ -233,7 +233,7 @@ class DeviceParameters(BaseParameters):
 
     @spring_daylight_time_mode1.setter
     def spring_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self.sdk.set_device_param(parameters={'DaylightSavingTime': str(value)})
+        self.sdk.set_device_param(parameters={'DaylightSavingTime': value})
 
     @property
     def fall_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
@@ -244,7 +244,7 @@ class DeviceParameters(BaseParameters):
 
     @fall_daylight_time_mode1.setter
     def fall_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self.sdk.set_device_param(parameters={'StandardTime': str(value)})
+        self.sdk.set_device_param(parameters={'StandardTime': value})
 
     @property
     def spring_daylight_time_mode2(self) -> DaylightSavingMomentMode2:
@@ -288,7 +288,7 @@ class DeviceParameters(BaseParameters):
             value.second
         ))
 
-        self.sdk.set_device_param(parameters={'DateTime': str(value)})
+        self.sdk.set_device_param(parameters={'DateTime': value})
 
     def _get_datetime(self):
         res = self.sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)

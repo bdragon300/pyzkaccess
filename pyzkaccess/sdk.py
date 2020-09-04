@@ -1,5 +1,5 @@
 import ctypes
-from typing import Sequence, Mapping
+from typing import Sequence, Mapping, Any
 
 
 class ZKSDK:
@@ -114,7 +114,7 @@ class ZKSDK:
             )
         return results
 
-    def set_device_param(self, parameters: Mapping[str, str]) -> None:
+    def set_device_param(self, parameters: Mapping[str, Any]) -> None:
         if not parameters:
             return
 
