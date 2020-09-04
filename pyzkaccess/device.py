@@ -1,3 +1,5 @@
+from typing import Mapping
+
 from .common import DocDict
 from .relay import RelayGroup
 
@@ -106,37 +108,38 @@ class ZK100(ZKModel):
 
 class ZKDevice:
     __slots__ = ('mac', 'ip', 'serial_number', 'model', 'version')
+    parse_tokens = frozenset(('MAC', 'IP', 'SN', 'Device', 'Ver'))
     available_models = (ZK100, ZK200, ZK400)
 
     def __init__(self, s=None):
-        if s:
-            self.parse(s)
+        parsed = self.parse(s)
 
-    def parse(self, device_line: str) -> None:
+        self.mac = parsed['MAC']  # type: str
+        self.ip = parsed['IP']  # type: str
+        self.serial_number = parsed['SN']  # type: str
+        self.model = self._get_model_cls(parsed['Device'])  # type: type(ZKModel)
+        self.mac = parsed['Ver']  # type: str
+
+    def parse(self, device_line: str) -> Mapping[str, str]:
         if device_line in ('', '\r\n'):
             raise ValueError("Empty event string")
 
-        tokens = {
-            'MAC': 'mac',
-            'IP': 'ip',
-            'SN': 'serial_number',
-            'Device': 'model',
-            'Ver': 'version'
-        }
-
+        res = {}
         pieces = device_line.split(',')
         for piece in pieces:
             tok, val = piece.split('=')
-            if tok not in tokens:
-                raise ValueError("Unknown param '{}={}' found in device string".format(tok, val))
-            setattr(self, tokens.pop(tok), val)
+            if tok not in self.parse_tokens:
+                raise ValueError("Unknown param '{}={}' found in device string '{}'".format(
+                    tok, val, device_line
+                ))
+            res[tok] = val
 
-        if tokens:
-            raise ValueError("Parameters {} are not found in device string".format(tokens.keys()))
+        if res.keys() != self.parse_tokens:
+            raise ValueError("Some keys was not found in device string '{}'".format(device_line))
 
-        self.model = self._get_model_cls(self.model)
+        return res
 
-    def _get_model_cls(self, model_name):
+    def _get_model_cls(self, model_name) -> type(ZKModel):
         for cls in self.available_models:
             if cls.name == model_name:
                 return cls
