@@ -3,29 +3,32 @@ from .common import DocDict
 
 
 class ControlOperation(Enum):
-    """
-    Type of device control operation. See PULL SDK docs
-    """
+    """Device control operation. See `ControlOperation` SDK func docs"""
     output = 1
     cancel_alarm = 2
     restart = 3
 
 
 class RelayGroup(Enum):
-    """
-    Device relay group. See PULL SDK docs
+    """Device relay group.
+    There are either lock relays (door output) or aux relays
+    (aux output)
     """
     lock = 1
     aux = 2
 
 
 class SensorType(Enum):
+    """Sensor type of door. See DoorXSensorType parameter in SDK docs"""
     not_available = 0
     normal_open = 1
     normal_closed = 2
 
 
 class VerifyMode(Enum):
+    """Which methods are used to authenticate user.
+    See `DoorXVerifyType` parameter in SDK docs
+    """
     not_available = 0
     only_finger = 1
     only_password = 3
@@ -37,11 +40,16 @@ class VerifyMode(Enum):
 
 
 class PassageDirection(Enum):
+    """Whether a user was entered or exited via door
+    See event format description in SDK docs
+    """
     entry = 0
     exit = 1
     none = 2
 
 
+#: Type of event which is returned by GetRTLog function
+#: See event format description in SDK docs
 EVENT_TYPES = DocDict({
     0: 'Normal Punch Open',
     1: 'Punch during Normal Open Time Zone',
@@ -96,6 +104,7 @@ EVENT_TYPES = DocDict({
 })
 
 
+#: Errors which SDK functions may return. See errors description in SDK
 PULL_SDK_ERRORS = DocDict({
     -1: 'The command is not sent successfully',
     -2: 'The command has no response',
@@ -138,7 +147,8 @@ PULL_SDK_ERRORS = DocDict({
     -307: 'Connection attempt failed',
 })
 
-
+#: SDK functions can also return WINSOCK errors using `PullLastError`
+#: function. See SDK docs and MSDN
 WSA_ERROR_CODES = DocDict({
     6: "WSA_INVALID_HANDLE (Specified event object handle is invalid. An application attempts to "
        "use an event object, but the specified handle is not valid)",

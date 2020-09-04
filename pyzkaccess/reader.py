@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Iterable
+from typing import Iterable, Union
 
 from .common import UserTuple
 from .event import EventLog
@@ -9,6 +9,7 @@ from .sdk import ZKSDK
 class ReaderInterface(metaclass=ABCMeta):
     @property
     def events(self) -> EventLog:
+        """Event log of current reader"""
         return self._specific_event_log()
 
     @abstractmethod
@@ -17,6 +18,7 @@ class ReaderInterface(metaclass=ABCMeta):
 
 
 class Reader(ReaderInterface):
+    """Concrete reader"""
     def __init__(self, sdk: ZKSDK, event_log: EventLog, number: int):
         self.number = number
         self._sdk = sdk
@@ -33,12 +35,15 @@ class Reader(ReaderInterface):
 
 
 class ReaderList(ReaderInterface, UserTuple):
+    """Collection of reader objects which is used to perform group
+    operations over multiple readers
+    """
     def __init__(self, sdk: ZKSDK, event_log: EventLog, readers: Iterable[Reader] = ()):
         super().__init__(readers)
         self._sdk = sdk
         self._event_log = event_log
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Union[int, slice]) -> Union[Reader, 'ReaderList']:
         readers = super().__getitem__(item)
         if isinstance(item, slice):
             return self.__class__(self._sdk, self._event_log, readers=readers)

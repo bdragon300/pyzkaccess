@@ -23,6 +23,10 @@ def _make_daylight_prop(query_name_spring, query_string_fall):
 
 
 class DaylightSavingMomentMode1:
+    """Daylight saving parameters used in mode1 setting (all parameters
+    in one request). See `DLSTMode`, `DaylightSavingTime`,
+    `StandardTime` parameters in SDK docs
+    """
     def __init__(self, month, day, hour, minute):
         self.month = int(month)
         self.day = int(day)
@@ -48,6 +52,10 @@ class DaylightSavingMomentMode1:
 
 
 class DaylightSavingMomentMode2:
+    """Daylight saving parameters used in mode2 setting (each parameter
+    in a separate request). See `DLSTMode`, `WeekOfMonth*` parameters
+    in SDK docs
+    """
     def __init__(self, sdk: ZKSDK, is_daylight: bool, buffer_size: int):
         self.is_daylight = is_daylight
         self.buffer_size = buffer_size
@@ -119,6 +127,8 @@ def _make_prop(query_tpl: str,
 
 
 class BaseParameters:
+    #: Size in bytes of c-string buffer which is used to accept
+    #: text data from PULL SDK functions
     buffer_size = 4096
 
     def __init__(self, sdk: ZKSDK, device_model: ZKModel):
@@ -132,6 +142,7 @@ def _check_ip(addr: str):
 
 
 class DeviceParameters(BaseParameters):
+    """Parameters related to the whole device"""
     serial_number = _make_prop(
         '~SerialNumber', str, str, True, False, 'Serial number of device'
     )
@@ -308,6 +319,7 @@ class DeviceParameters(BaseParameters):
 
 
 class DoorParameters(BaseParameters):
+    """Parameters related to a concrete door"""
     def __init__(self, sdk: ZKSDK, device_model: ZKModel, door_number: int):
         super().__init__(sdk, device_model)
         self.door_number = door_number

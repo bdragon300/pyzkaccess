@@ -11,6 +11,7 @@ class AuxInputInterface(metaclass=ABCMeta):
 
     @property
     def events(self) -> EventLog:
+        """Event log of current aux input"""
         return self._specific_event_log()
 
     @abstractmethod
@@ -19,6 +20,7 @@ class AuxInputInterface(metaclass=ABCMeta):
 
 
 class AuxInput(AuxInputInterface):
+    """Concrete auxiliary input"""
     def __init__(self, sdk: ZKSDK, event_log: EventLog, number: int):
         self.number = number
         self._sdk = sdk
@@ -35,6 +37,9 @@ class AuxInput(AuxInputInterface):
 
 
 class AuxInputList(AuxInputInterface, UserTuple):
+    """Collection of aux input objects which is used to perform group
+    operations over multiple aux inputs
+    """
     def __init__(self, sdk: ZKSDK, event_log: EventLog, aux_inputs: Iterable[AuxInput] = ()):
         super().__init__(aux_inputs)
         self._sdk = sdk

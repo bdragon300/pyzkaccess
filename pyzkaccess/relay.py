@@ -9,6 +9,12 @@ from .sdk import ZKSDK
 class RelayInterface(metaclass=ABCMeta):
     @abstractmethod
     def switch_on(self, timeout: int) -> None:
+        """
+        Switch on a relay for the given time. If a relay is already
+        switched on then its timeout will be refreshed
+        :param timeout: timeout in seconds, Number between 0 and 255
+        :return:
+        """
         pass
 
 
@@ -50,15 +56,12 @@ class RelayList(RelayInterface, UserTuple):
     operations over multiple relays
     """
     def __init__(self, sdk: ZKSDK, relays: Iterable[Relay] = ()):
-        """
-        :param sdk: ZKAccess object
-        """
         super().__init__(relays)
         self._sdk = sdk
 
     def switch_on(self, timeout: int) -> None:
         """
-        Switch on all relays in set
+        Switch on all relays in set for a given time
         :param timeout: Timeout in seconds while relay will be enabled.
          Number between 0 and 255
         :return:
@@ -85,6 +88,22 @@ class RelayList(RelayInterface, UserTuple):
         relays = [x for x in self if x.group == RelayGroup.lock]
         return self.__class__(sdk=self._sdk, relays=relays)
 
-    def by_mask(self, mask: Iterable[Union[int, bool]]):
+    def by_mask(self, mask: Iterable[Union[int, bool]]) -> 'RelayList':
+        """
+        Return only relays starting from 0 which are matched by given
+        mask. E.g. for `mask=[1, 0, 0, 1, 0, 0, 1, 0]` the function
+        returns the 1st, the 4th and the 7th of 8 relays.
+
+        If mask is longer than count of relays, the rest values
+        will be ignored:
+        for 5 relays `mask=[1, 0, 0, 1, 0, 0, 1, 0]` will return
+        the 1st and the 4th relays.
+
+        If mask is shorter than count of relays then the rest relays
+        will be ignored:
+        for 8 relays `mask=[1, 0, 0]` will return the 1st relay only.
+        :param mask: mask is a list of ints or bools
+        :return: new instance of RelayList contained needed relays
+        """
         relays = [x for x, m in zip(self, mask) if m]
         return self.__class__(sdk=self._sdk, relays=relays)

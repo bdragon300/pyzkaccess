@@ -13,9 +13,10 @@ from .sdk import ZKSDK
 
 
 class ZKAccess:
-    """Main class to work with a device.
-    Holds a connection and provides interface to PULL SDK functions
-    """
+    """Interface to a connected device"""
+
+    #: Size in bytes of c-string buffer which is used to accept
+    #: text data from PULL SDK functions
     buffer_size = 4096
 
     def __init__(self,
@@ -25,19 +26,22 @@ class ZKAccess:
                  dllpath: str = 'plcommpro.dll',
                  log_capacity: Optional[int] = None):
         """
-        :param connstr: Device connection string. If given then
-         automatically connect to a device
+        :param connstr: Connection string. If given then
+         we try to connect automatically to a device. Ex:
+         'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+        :param device: ZKDevice object to connect with. If
+         given then we try to connect automatically to a device
+        :param device_model: Device model. Default is C3-400
         :param dllpath: Full path to plcommpro.dll
-        :param device_model: Device model class. Default is C3-400
+        :param log_capacity: Mixumum capacity of events log. By default
+         size is not limited
+        :raises ZKSDKError: On connection error
         """
         self.connstr = connstr
         self.device_model = device_model
         self.sdk = ZKSDK(dllpath)
         self._device = device
         self._event_log = EventLog(self.sdk, self.buffer_size, maxlen=log_capacity)
-
-        if connstr is None and device is None:
-            raise ValueError('Please specify either connstr or device')
 
         if device:
             if not connstr:
@@ -50,23 +54,15 @@ class ZKAccess:
             self.connect(self.connstr)
 
     @property
-    def relays(self) -> 'RelayList':
-        """Set of all relays"""
-        mdl = self.device_model
-        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
-        return RelayList(sdk=self.sdk, relays=relays)
-
-    @property
-    def readers(self) -> 'ReaderList':
-        readers = [Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def]
-        return ReaderList(sdk=self.sdk, event_log=self._event_log, readers=readers)
-
-    @property
-    def events(self) -> 'EventLog':
-        return self._event_log
-
-    @property
     def doors(self):
+        """Door object list, depends on device model.
+        Door object incapsulates access to appropriate relays, reader,
+        aux input, and also its events and parameters
+
+        You can work with one object as with a slice. E.g. switch_on
+        all relays of a door (`zk.doors[0].relays.switch_on(5)`) or
+        of a slice (`zk.doors[:2].relays.switch_on(5)`)
+        """
         mdl = self.device_model
         readers = (Reader(self.sdk, self._event_log, x) for x in mdl.readers_def)
         aux_inputs = (AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def)
@@ -85,17 +81,71 @@ class ZKAccess:
         return DoorList(self.sdk, event_log=self._event_log, doors=doors)
 
     @property
+    def relays(self) -> 'RelayList':
+        """Relay object list, depends on device model
+
+        You can work with one object as with a slice. E.g. switch on
+        a single relay (`zk.relays[0].switch_on(5)`) or a slice
+        (`zk.relays[:2].switch_on(5)`)
+        """
+        mdl = self.device_model
+        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
+        return RelayList(sdk=self.sdk, relays=relays)
+
+    @property
+    def readers(self) -> 'ReaderList':
+        """Reader object list, depends on device model
+
+        You can work with one object as with a slice. E.g. get events
+        of single reader (`zk.readers[0].events`) or a slice
+        (`zk.readers[:2].events`)
+        """
+        readers = [Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def]
+        return ReaderList(sdk=self.sdk, event_log=self._event_log, readers=readers)
+
+    @property
     def aux_inputs(self):
+        """Aux input object list, depends on device model
+
+        You can work with one object as with a slice. E.g. get events
+        of single input (`zk.aux_inputs[0].events`) or a slice
+        (`zk.aux_inputs[:2].events`)
+        """
         mdl = self.device_model
         aux_inputs = [AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def]
         return AuxInputList(self.sdk, event_log=self._event_log, aux_inputs=aux_inputs)
 
     @property
+    def events(self) -> 'EventLog':
+        """Device event log.
+
+        This property returns all records pulled from a device.
+        Keep in mind that log is not filled out automatically and
+        should be refreshed periodically by hand using `refresh()`
+        method. This is because working with ZKAccess has
+        request-response nature and cannot up a tunnel which may be
+        used to feed events.
+
+        But you can use `poll()` method which awaits new events from
+        a device and return them if any.
+
+        Doors, inputs, readers have their own `events` property. Those
+        properties just filters the same event log instance and
+        return entries related to requested object.
+        """
+        return self._event_log
+
+    @property
     def parameters(self):
+        """Parameters related to the whole device such as datetime,
+        connection settings and so forth. Door-specific parameters are
+        accesible by `doors` property.
+        """
         return DeviceParameters(self.sdk, self.device_model)
 
     @property
     def device(self) -> ZKDevice:
+        """Current device object we connected with"""
         if self._device:
             return self._device
 
@@ -121,6 +171,26 @@ class ZKAccess:
     def search_devices(cls,
                        broadcast_address: str = '255.255.255.255',
                        dllpath: str = 'plcommpro.dll') -> Iterable[ZKDevice]:
+        """
+        Classmethod which scans an Ethernet network with given
+        broadcast address and returns all found ZK devices.
+
+        Please keep in mind that process sends broadcast packets to
+        perform a search which are not passed through routers. So you'll
+        get results only for local network segment.
+
+        The default broadcast address may not work in some cases, so
+        it's better to specify your local network broadcast address.
+        For example, if your ip is `192.168.22.123` and netmask is
+        `255.255.255.0` or `/24` so your ip will be `192.168.22.255`.
+
+        Returned objects can be used as `device=` parameter in
+        constructor.
+        :param broadcast_address: your local segment broadcast address
+         as string. Default is '255.255.255.255'
+        :param dllpath: path to a PULL SDK DLL. Default: 'plcommpro.dll'
+        :return: iterable of found ZKDevice
+        """
         sdk = ZKSDK(dllpath)
         devices = sdk.search_device(broadcast_address, cls.buffer_size)
         return (ZKDevice(line) for line in devices)
@@ -128,15 +198,13 @@ class ZKAccess:
     def connect(self, connstr: str) -> None:
         """
         Connect to a device using connection string, ex:
-        'protocol=TCP,ipaddress=192.168.22.201,port=4370,timeout=4000,passwd='
+        'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
         :param connstr: device connection string
-        :raises RuntimeError: if we are already connected
-        :raises ConnectionError: connection attempt was failed
         :return:
         """
         if self.sdk.is_connected:
             if connstr != self.connstr:
-                raise ValueError('Please disconnect first before connecting with other connstr')
+                raise ValueError('Please disconnect before connecting with other connstr')
             return
 
         self.connstr = connstr
@@ -151,7 +219,7 @@ class ZKAccess:
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
 
     def __enter__(self):
-        if not self.sdk.is_connected:
+        if self.connstr:
             self.connect(self.connstr)
         return self
 

@@ -6,6 +6,7 @@ from wrapt.wrappers import _ObjectProxyMetaType
 
 
 class UserTuple:
+    """Immutable version of `collections.UserList` from the stdlib"""
     def __init__(self, initlist: Union[Sequence, Iterable, 'UserTuple'] = None):
         self.data = tuple()
         if initlist is not None:
@@ -98,7 +99,14 @@ class DocValueMeta(_ObjectProxyMetaType):
 
 
 class DocValue(ObjectProxy, metaclass=DocValueMeta):
+    """Value of type with custom __doc__ attribute. The main aim is to
+    annotate a value of any type including built-in ones
+    """
     def __init__(self, value: Union[str, int], doc: str):
+        """
+        :param value: value which was exposed by this object
+        :param doc: documentation string which will be put to __doc__
+        """
         super().__init__(value)
         if not isinstance(value, (str, int)):
             raise TypeError('Init value type must be int or str')
@@ -111,13 +119,31 @@ class DocValue(ObjectProxy, metaclass=DocValueMeta):
 
     @property
     def value(self):
+        """Exposed value"""
         return self._self_value
 
     @property
     def doc(self):
+        """Documentation of a value"""
         return self._self_doc
 
 
 class DocDict(dict):
+    """DocDict is dictionary, where values are annotated versions
+    of keys.
+
+    As initial value DocDict accepts a dictionary where dict key is
+    an exposed value and dict value is docstring.
+
+    >>> d = DocDict({1: 'Docstring 1', 2: 'Docstring 2'})
+    >>> print(d[1])
+    1
+    >>> print(type(d[1]))
+    DocValue
+    >>> assert d[1] == 1
+    True
+    >>> print(d[1].__doc__)
+    Docstring 1
+    """
     def __init__(self, initdict: dict):
         super().__init__({k: DocValue(k, v) for k, v in initdict.items()})

@@ -2,6 +2,7 @@ from .enum import PULL_SDK_ERRORS, WSA_ERROR_CODES
 
 
 class ZKSDKError(Exception):
+    """Error in PULL SDK function. Supports error description"""
     def __init__(self, msg: str, err: int, *args):
         super().__init__((msg, *args))
         self.err = int(err)

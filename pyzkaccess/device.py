@@ -5,15 +5,34 @@ from .relay import RelayGroup
 
 
 class ZKModel:
-    """Base class for concrete ZK model"""
+    """Base class for concrete ZK model Contains model-specific
+    definitions
+    """
+    #: Name of model
     name = None
+
+    #: Relays count
     relays = None
+
+    #: Definition of relay numbers (count must be equal to `relays`)
     relays_def = None
+
+    #: Definition of relay groups (count must be equal to `relays`)
     groups_def = None
+
+    #: Definition of reader numbers
     readers_def = None
+
+    #: Definition of door numbers
     doors_dev = None
+
+    #: Definition of aux input numbers
     aux_inputs_def = None
+
+    #: Anti-passback rules available on concrete device model
     anti_passback_rules = None
+
+    #: Interlock rules available on concrete device model
     interlock_rules = None
 
 
@@ -107,6 +126,7 @@ class ZK100(ZKModel):
 
 
 class ZKDevice:
+    """Concrete ZK device info"""
     __slots__ = ('mac', 'ip', 'serial_number', 'model', 'version')
     parse_tokens = ('MAC', 'IP', 'SN', 'Device', 'Ver')  # The same order as __slots__
     available_models = (ZK100, ZK200, ZK400)
@@ -122,6 +142,12 @@ class ZKDevice:
         self.version = params['version']  # type: Optional[str]
 
     def parse(self, device_line: str) -> Mapping[str, str]:
+        """
+        Parse and validate raw device string
+        :param device_line: event string
+        :return: dictionary where keys are slots and values are
+         appropriate values extracted from string
+        """
         if device_line in ('', '\r\n'):
             raise ValueError("Empty event string")
 

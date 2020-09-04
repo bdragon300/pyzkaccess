@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Iterable
+from typing import Iterable, Union
 
 from .aux_input import AuxInput, AuxInputList
 from .common import UserTuple
@@ -13,11 +13,15 @@ from .sdk import ZKSDK
 class DoorInterface(metaclass=ABCMeta):
     @property
     def events(self) -> EventLog:
+        """Event log of current door. This includes events of its
+        relays, readers, aux inputs and so forth
+        """
         return self._specific_event_log()
 
     @property
     @abstractmethod
     def relays(self) -> RelayList:
+        """Relays which belong to this door"""
         pass
 
     @abstractmethod
@@ -26,6 +30,7 @@ class DoorInterface(metaclass=ABCMeta):
 
 
 class Door(DoorInterface):
+    """Concrete door"""
     def __init__(self,
                  sdk: ZKSDK,
                  event_log: EventLog,
@@ -47,15 +52,18 @@ class Door(DoorInterface):
         return self._relays
 
     @property
-    def reader(self):
+    def reader(self) -> Reader:
+        """Reader which belong to this door"""
         return self._reader
 
     @property
-    def aux_input(self):
+    def aux_input(self) -> AuxInput:
+        """Aux input which belong to this door"""
         return self._aux_input
 
     @property
-    def parameters(self):
+    def parameters(self) -> DoorParameters:
+        """Device parameters related to this door"""
         return self._parameters
 
     def _specific_event_log(self) -> EventLog:
@@ -69,6 +77,9 @@ class Door(DoorInterface):
 
 
 class DoorList(DoorInterface, UserTuple):
+    """Collection of door objects which is used to perform group
+    operations over multiple doors
+    """
     def __init__(self, sdk: ZKSDK, event_log: EventLog, doors: Iterable[Door]):
         super().__init__(doors)
         self._sdk = sdk
@@ -76,20 +87,23 @@ class DoorList(DoorInterface, UserTuple):
 
     @property
     def relays(self) -> RelayList:
+        """Relays which belong to this doors"""
         relays = [relay for door in self for relay in door.relays]
         return RelayList(self._sdk, relays=relays)
 
     @property
-    def readers(self):
+    def readers(self) -> ReaderList:
+        """Readers which belong to this door"""
         readers = [x.reader for x in self]
         return ReaderList(self._sdk, event_log=self._event_log, readers=readers)
 
     @property
-    def aux_inputs(self):
+    def aux_inputs(self) -> AuxInputList:
+        """Aux inputs which belong to this door"""
         aux_inputs = [x.aux_input for x in self]
         return AuxInputList(self._sdk, event_log=self._event_log, aux_inputs=aux_inputs)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Union[int, slice]) -> Union[Door, 'DoorList']:
         doors = super().__getitem__(item)
         if isinstance(item, slice):
             return self.__class__(self._sdk, self._event_log, doors=doors)
