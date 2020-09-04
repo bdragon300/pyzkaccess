@@ -108,33 +108,35 @@ class ZK100(ZKModel):
 
 class ZKDevice:
     __slots__ = ('mac', 'ip', 'serial_number', 'model', 'version')
-    parse_tokens = frozenset(('MAC', 'IP', 'SN', 'Device', 'Ver'))
+    parse_tokens = ('MAC', 'IP', 'SN', 'Device', 'Ver')  # The same order as __slots__
     available_models = (ZK100, ZK200, ZK400)
 
-    def __init__(self, s):
-        parsed = self.parse(s)
+    def __init__(self, s=None, **params):
+        if s:
+            params = self.parse(s)
 
-        self.mac = parsed['MAC']  # type: str
-        self.ip = parsed['IP']  # type: str
-        self.serial_number = parsed['SN']  # type: str
-        self.model = self._get_model_cls(parsed['Device'])  # type: type(ZKModel)
-        self.mac = parsed['Ver']  # type: str
+        self.mac = params['MAC']  # type: str
+        self.ip = params['IP']  # type: str
+        self.serial_number = params['SN']  # type: str
+        self.model = self._get_model_cls(params['Device'])  # type: type(ZKModel)
+        self.mac = params['Ver']  # type: str
 
     def parse(self, device_line: str) -> Mapping[str, str]:
         if device_line in ('', '\r\n'):
             raise ValueError("Empty event string")
 
         res = {}
+        tokens_mapping = dict(zip(self.parse_tokens, self.__slots__))
         pieces = device_line.split(',')
         for piece in pieces:
             tok, val = piece.split('=')
-            if tok not in self.parse_tokens:
+            if tok not in tokens_mapping:
                 raise ValueError("Unknown param '{}={}' found in device string '{}'".format(
                     tok, val, device_line
                 ))
-            res[tok] = val
+            res[tokens_mapping[tok]] = val  # {slot: value}
 
-        if res.keys() != self.parse_tokens:
+        if res.keys() != tokens_mapping.keys():
             raise ValueError("Some keys was not found in device string '{}'".format(device_line))
 
         return res
