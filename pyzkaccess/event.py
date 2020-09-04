@@ -70,6 +70,10 @@ class Event:
             setattr(self, self.__slots__[i], items[i])
 
         self.time = datetime.strptime(self.time, '%Y-%m-%d %H:%M:%S')
+        self.door = int(self.door)
+        self.event_type = int(self.event_type)
+        self.entry_exit = int(self.entry_exit)
+        self.verify_mode = int(self.verify_mode)
 
     def __str__(self):
         return 'Event(' \
@@ -93,14 +97,14 @@ class EventLog:
         self.only_filters = only_filters or {}
 
     def refresh(self) -> int:
-        # ZKAccess always returns single event with code "255"
+        # ZKAccess always returns single event with code 255
         # on every log query if no other events occured. So, skip it
-        new_events = [e for e in self._pull_events() if e.event_type != '255']
+        new_events = [e for e in self._pull_events() if e.event_type != 255]
         count = 0
         while new_events:
             self.data.extend(new_events)
             count += sum(1 for _ in self._filtered_events(new_events))
-            new_events = [e for e in self._pull_events() if e.event_type != '255']
+            new_events = [e for e in self._pull_events() if e.event_type != 255]
 
         return min(len(self.data), count)
 
@@ -157,9 +161,9 @@ class EventLog:
             return
 
         for event in data:
-            # ZKAccess always returns single event with code "255"
+            # ZKAccess always returns single event with code 255
             # on every log query if no other events occured. So, skip it
-            if event.event_type == '255':
+            if event.event_type == 255:
                 continue
 
             if not self.only_filters:

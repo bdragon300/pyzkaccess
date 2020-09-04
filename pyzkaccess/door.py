@@ -59,7 +59,7 @@ class Door(DoorInterface):
         return self._parameters
 
     def _specific_event_log(self) -> EventLog:
-        return self._event_log.only(door=[str(self.number)])
+        return self._event_log.only(door=[self.number])
 
     def __str__(self):
         return "Door[{}]".format(self.number)
@@ -97,5 +97,5 @@ class DoorList(DoorInterface, UserTuple):
             return doors
 
     def _specific_event_log(self) -> EventLog:
-        doors = [str(x.number) for x in self]
+        doors = [x.number for x in self]
         return self._event_log.only(door=doors)

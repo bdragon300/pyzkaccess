@@ -7,7 +7,7 @@ from .sdk import ZKSDK
 
 
 class AuxInputInterface(metaclass=ABCMeta):
-    event_types = ('220', '221')
+    event_types = (220, 221)
 
     @property
     def events(self) -> EventLog:
@@ -25,7 +25,7 @@ class AuxInput(AuxInputInterface):
         self._event_log = event_log
 
     def _specific_event_log(self) -> EventLog:
-        return self._event_log.only(door=[str(self.number)], event_type=self.event_types)
+        return self._event_log.only(door=[self.number], event_type=self.event_types)
 
     def __str__(self):
         return "AuxInput[{}]".format(self.number)
@@ -48,5 +48,5 @@ class AuxInputList(AuxInputInterface, UserTuple):
             return aux_inputs
 
     def _specific_event_log(self) -> EventLog:
-        doors = [str(x.number) for x in self]
+        doors = [x.number for x in self]
         return self._event_log.only(door=doors, event_type=self.event_types)
