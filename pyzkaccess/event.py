@@ -139,7 +139,7 @@ class EventLog:
         """
         return filter(lambda x: from_time <= x.time < to_time, self._filtered_events(self.data))
 
-    def poll(self, timeout: int = 60, polling_interval: int = 1) -> List[Event]:
+    def poll(self, timeout: float = 60, polling_interval: float = 1) -> List[Event]:
         """
         Wait for new events by making periodically requests to a device.
         If events was appeared then return them. If no event was

@@ -1,5 +1,5 @@
 import ctypes
-from typing import Iterable, Optional
+from typing import Optional, Sequence
 
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
@@ -170,7 +170,7 @@ class ZKAccess:
     @classmethod
     def search_devices(cls,
                        broadcast_address: str = '255.255.255.255',
-                       dllpath: str = 'plcommpro.dll') -> Iterable[ZKDevice]:
+                       dllpath: str = 'plcommpro.dll') -> Sequence[ZKDevice]:
         """
         Classmethod which scans an Ethernet network with given
         broadcast address and returns all found ZK devices.
@@ -193,7 +193,7 @@ class ZKAccess:
         """
         sdk = ZKSDK(dllpath)
         devices = sdk.search_device(broadcast_address, cls.buffer_size)
-        return (ZKDevice(line) for line in devices)
+        return tuple(ZKDevice(line) for line in devices)
 
     def connect(self, connstr: str) -> None:
         """
