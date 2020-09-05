@@ -2,7 +2,7 @@ import itertools
 import time
 from collections import deque
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Iterable, Union, Sequence
 
 from .common import DocValue
@@ -54,14 +54,21 @@ class Event:
         :param event_line: event string
         :return: parsed string parts of event string
         """
-        if event_line == '' or event_line == '\r\n':
-            raise ValueError("Empty event string")
+        event_line = event_line.replace('\r\n', '')
 
         items = event_line.split(',')
         if len(items) != 7:
-            raise ValueError("Event string has not 7 comma-separated parts")
+            raise ValueError("Event string must have exactly 7 parts: {}".format(event_line))
 
         return items
+
+    def __eq__(self, other):
+        if isinstance(other, Event):
+            return all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__)
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         return 'Event(' \
@@ -150,8 +157,9 @@ class EventLog:
         :return: iterable with new events if any or empty iterable if
          timeout has expired
         """
-        for _ in range(timeout):
-            count = self.refresh()
+        deadline = datetime.now().timestamp() + timeout
+        while datetime.now().timestamp() < deadline:
+            count = self.refresh()  # Can run up to several seconds depending on network
             if count:
                 reversed_events = self._filtered_events(reversed(self.data))
                 res = list(itertools.islice(reversed_events, None, count))[::-1]
@@ -193,14 +201,14 @@ class EventLog:
         :param fltr: filter dict which updates initial
         :return: merged filter dict
         """
-        seq_types = (tuple, list)
+        seq_types = (tuple, list, set, frozenset)
         res = deepcopy(initial)
         for key, value in fltr.items():
             if not isinstance(value, seq_types):
-                value = [value]
+                value = {value}
 
             if key in res:
-                res[key].extend(value)
+                res[key].update(value)
             else:
                 res[key] = value
 

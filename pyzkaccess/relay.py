@@ -44,6 +44,16 @@ class Relay(RelayInterface):
             0
         )
 
+    def __eq__(self, other):
+        if isinstance(other, Relay):
+            return self.number == other.number \
+                   and self.group == other.group \
+                   and self._sdk is other._sdk
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         return "Relay.{}({})".format(self.group.name, self.number)
 
@@ -75,7 +85,7 @@ class RelayList(RelayInterface, UserTuple):
                                      relay.group.value,
                                      timeout,
                                      0)
-    # FIXME: add __getitem__
+
     @property
     def aux(self) -> 'RelayList':
         """Return relays only from aux group"""
@@ -87,6 +97,13 @@ class RelayList(RelayInterface, UserTuple):
         """Return relays only from lock group"""
         relays = [x for x in self if x.group == RelayGroup.lock]
         return self.__class__(sdk=self._sdk, relays=relays)
+
+    def __getitem__(self, item):
+        relays = super().__getitem__(item)
+        if isinstance(item, slice):
+            return self.__class__(self._sdk, relays=relays)
+        else:
+            return relays
 
     def by_mask(self, mask: Iterable[Union[int, bool]]) -> 'RelayList':
         """

@@ -7,6 +7,11 @@ from .sdk import ZKSDK
 
 
 class ReaderInterface(metaclass=ABCMeta):
+    #: Event types which are fully or partially related to a reader
+    #: See EVENT_TYPES enum and SDK docs
+    event_types = frozenset((0, 1, 2, 3, 4, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26,
+                             27, 29, 30, 31, 32, 33, 34, 35, 36, 101, 103, 203))
+
     @property
     def events(self) -> EventLog:
         """Event log of current reader"""
@@ -25,7 +30,15 @@ class Reader(ReaderInterface):
         self._event_log = event_log
 
     def _specific_event_log(self) -> EventLog:
-        return self._event_log.only(door=[self.number])  # FIXME: event_types
+        return self._event_log.only(door=[self.number], event_type=self.event_types)
+
+    def __eq__(self, other):
+        if isinstance(other, Reader):
+            return self.number == other.number and self._sdk is other._sdk
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __str__(self):
         return "Reader[{}]".format(self.number)
@@ -51,5 +64,5 @@ class ReaderList(ReaderInterface, UserTuple):
             return readers
 
     def _specific_event_log(self) -> EventLog:
-        doors = [x.number for x in self]
-        return self._event_log.only(door=doors)  # FIXME: event_types
+        doors = set(x.number for x in self)
+        return self._event_log.only(door=doors, event_type=self.event_types)

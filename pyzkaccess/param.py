@@ -131,7 +131,7 @@ class BaseParameters:
     #: text data from PULL SDK functions
     buffer_size = 4096
 
-    def __init__(self, sdk: ZKSDK, device_model: ZKModel):
+    def __init__(self, sdk: ZKSDK, device_model: type(ZKModel)):
         self.device_model = device_model
         self._sdk = sdk
 
@@ -320,7 +320,7 @@ class DeviceParameters(BaseParameters):
 
 class DoorParameters(BaseParameters):
     """Parameters related to a concrete door"""
-    def __init__(self, sdk: ZKSDK, device_model: ZKModel, door_number: int):
+    def __init__(self, sdk: ZKSDK, device_model: type(ZKModel), door_number: int):
         super().__init__(sdk, device_model)
         self.door_number = door_number
 

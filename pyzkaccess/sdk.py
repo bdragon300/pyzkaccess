@@ -176,9 +176,9 @@ class ZKSDK:
         #  docs. So send them in loop by bunches of 20 items
         keys = list(parameters.keys())
         while keys:
-            query_keys = keys[:30]
+            query_keys = keys[:20]
             query = ','.join('{}={}'.format(k, parameters[k]) for k in query_keys).encode()
-            del keys[:30]
+            del keys[:20]
 
             err = self.dll.SetDeviceParam(self.handle, query)
             if err < 0:

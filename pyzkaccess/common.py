@@ -1,4 +1,4 @@
-from copy import copy
+from copy import copy, deepcopy
 from typing import Sequence, Union, Iterable
 
 from wrapt import ObjectProxy
@@ -126,6 +126,14 @@ class DocValue(ObjectProxy, metaclass=DocValueMeta):
     def doc(self):
         """Documentation of a value"""
         return self._self_doc
+
+    def __copy__(self):
+        obj = self.__class__(copy(self._self_value), copy(self._self_doc))
+        return obj
+
+    def __deepcopy__(self, memodict=None):
+        obj = self.__class__(deepcopy(self._self_value), deepcopy(self._self_doc))
+        return obj
 
 
 class DocDict(dict):

@@ -69,6 +69,18 @@ class Door(DoorInterface):
     def _specific_event_log(self) -> EventLog:
         return self._event_log.only(door=[self.number])
 
+    def __eq__(self, other):
+        if isinstance(other, Door):
+            return self.number == other.number \
+                   and self._sdk is other._sdk \
+                   and self._relays == other._relays \
+                   and self._reader == other._reader \
+                   and self._aux_input == other._aux_input
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         return "Door[{}]".format(self.number)
 
@@ -111,5 +123,5 @@ class DoorList(DoorInterface, UserTuple):
             return doors
 
     def _specific_event_log(self) -> EventLog:
-        doors = [x.number for x in self]
+        doors = set(x.number for x in self)
         return self._event_log.only(door=doors)

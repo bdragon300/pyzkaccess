@@ -135,6 +135,9 @@ class ZKDevice:
         if s:
             params = self.parse(s)
 
+        if not params:
+            raise TypeError('You must specify device string or object attributes as kwargs')
+
         self.mac = params['mac']  # type: Optional[str]
         self.ip = params['ip']  # type: str
         self.serial_number = params['serial_number']  # type: str
@@ -148,8 +151,7 @@ class ZKDevice:
         :return: dictionary where keys are slots and values are
          appropriate values extracted from string
         """
-        if device_line in ('', '\r\n'):
-            raise ValueError("Empty event string")
+        device_line = device_line.replace('\r\n', '')
 
         res = {}
         tokens_mapping = dict(zip(self.parse_tokens, self.__slots__))

@@ -29,6 +29,14 @@ class AuxInput(AuxInputInterface):
     def _specific_event_log(self) -> EventLog:
         return self._event_log.only(door=[self.number], event_type=self.event_types)
 
+    def __eq__(self, other):
+        if isinstance(other, AuxInput):
+            return self.number == other.number and self._sdk is other._sdk
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         return "AuxInput[{}]".format(self.number)
 
@@ -53,5 +61,5 @@ class AuxInputList(AuxInputInterface, UserTuple):
             return aux_inputs
 
     def _specific_event_log(self) -> EventLog:
-        doors = [x.number for x in self]
+        doors = set(x.number for x in self)
         return self._event_log.only(door=doors, event_type=self.event_types)
