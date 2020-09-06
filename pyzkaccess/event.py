@@ -226,11 +226,6 @@ class EventLog:
             return
 
         for event in data:
-            # ZKAccess always returns single event with code 255
-            # on every log query if no other events occured. So, skip it
-            if event.event_type == 255:
-                continue
-
             if not self.only_filters:
                 yield event
             else:
