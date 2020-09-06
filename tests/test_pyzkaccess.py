@@ -1,338 +1,258 @@
-import datetime
-from unittest.mock import patch, Mock, call
+from unittest.mock import patch
 
 import pytest
 
-from pyzkaccess import ZK400
-from pyzkaccess.event import Event
-
 with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess import ControlOperation, RelayGroup
     from pyzkaccess import ZKAccess
-    from pyzkaccess.device import ZK200, ZK100
+    from pyzkaccess.device import ZK400, ZK200, ZK100, ZKDevice
+    from pyzkaccess.event import EventLog
+    from pyzkaccess.door import Door, DoorList
+    from pyzkaccess.relay import Relay, RelayList
+    from pyzkaccess.reader import Reader, ReaderList
+    from pyzkaccess.aux_input import AuxInput, AuxInputList
+    from pyzkaccess.param import DeviceParameters
 
 
 class TestZKAccess:
     @pytest.fixture(autouse=True)
-    def setUp(self):
-        dllpath = 'somedll'
-        with patch('ctypes.WinDLL', create=True) as m:
-            self.obj = ZKAccess(dllpath)
-            m.assert_called_with(dllpath)
-            assert self.obj.dll_object == m.return_value
+    def setup(self):
+        zksdk_patcher = patch('ZKSDK', create=True)
+        self.sdk_cls = zksdk_patcher.start()
+        self.sdk = self.sdk_cls.return_value
+        self.connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+        self.obj = ZKAccess(connstr=self.connstr)
+        yield
+        zksdk_patcher.stop()
 
-    def test_handle_prop(self):
-        assert self.obj.handle is None
-
-    def test_connstr_prop(self):
+    def test_init__if_no_autoconnect__should_initialize_default_attributes(self):
         assert self.obj.connstr is None
-
-    def test_device_model_prop(self):
-        dllpath = 'somedll'
-        with patch('ctypes.WinDLL', create=True) as m:
-            obj = ZKAccess(dllpath, device_model=ZK200)
-
-            assert obj.device_model == ZK200
-
-    def test_device_model_prop_default(self):
         assert self.obj.device_model == ZK400
+        assert self.obj.sdk is self.sdk
+        assert self.obj._device is None
 
-    def test_connstr_prop_set_on_connect(self):
-        test_connstr = 'protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd='
+    def test_init__if_no_autoconnect__should_initialize_default_event_log_attributes(self):
+        assert type(self.obj._event_log) == EventLog
+        assert self.obj._event_log._sdk is self.sdk
+        assert self.obj._event_log.buffer_size == 4096
+        assert self.obj._event_log.data.maxlen is None
+        assert self.obj._event_log.only_filters == {}
 
-        self.obj.connect(test_connstr)
+    def test_init__should_call_sdk_with_given_dllpath(self):
+        ZKAccess(connstr=self.connstr, dllpath='testdll')
 
-        assert self.obj.connstr == test_connstr
+        assert self.sdk_cls.assert_called_once_with('testdll')
 
-    def test_handle_prop_reset_on_disconnect(self):
-        self.obj._handle = 12345
+    def test_init__if_device_model_is_passed__should_set_device_model_prop(self):
+        obj = ZKAccess(device_model=ZK200)
 
-        self.obj.disconnect()
+        assert obj.device_model == ZK200
 
-        assert self.obj.handle is None
+    def test_init__if_connstr_is_specified__should_automatically_connect(self):
+        self.sdk.connect.assert_called_once_with(connstr)
 
-    def test_connect_if_connstr_set_in_contructor(self):
-        test_connstr = 'protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd='
-        # self.obj.connect = Mock()
+    def test_init__if_device_is_specified__should_automatically_connect(self):
+        device = ZKDevice(mac='00:17:61:C8:EC:17',
+                          ip='192.168.1.201',
+                          serial_number='DGD9190019050335134',
+                          model=ZK100,
+                          version='AC Ver 4.3.4 Apr 28 2017')
+        expect_connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
 
-        with patch('ctypes.WinDLL', create=True) as m:
-            obj = Mock(spec=ZKAccess)
-            # obj.__init__ = Mock(wraps=ZKAccess.__init__)
+        _ = ZKAccess(device=device)
 
-            ZKAccess.__init__(obj, 'somedll', test_connstr)
+        self.sdk.connect.assert_called_once_with(expect_connstr)
 
-        obj.connect.assert_called_once_with(test_connstr)
+    def test_init__if_device_is_specified__should_override_device_model(self):
+        device = ZKDevice(mac='00:17:61:C8:EC:17',
+                          ip='192.168.1.201',
+                          serial_number='DGD9190019050335134',
+                          model=ZK100,
+                          version='AC Ver 4.3.4 Apr 28 2017')
 
-    def test_connect_ok(self):
-        dll_connect_f = self.obj.dll_object.Connect.return_value
-        connstr = 'protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd='
+        obj = ZKAccess(device=device, device_model=ZK200)
 
-        self.obj.connect(connstr)
+        assert obj.device_model == ZK100
 
-        self.obj.dll_object.Connect.assert_called_with(connstr)
-        assert self.obj.handle == dll_connect_f
+    def test_init__if_both_connstr_and_device_are_specified__device_takes_precedence(self):
+        device = ZKDevice(mac='00:17:61:C8:EC:17',
+                          ip='192.168.1.201',
+                          serial_number='DGD9190019050335134',
+                          model=ZK100,
+                          version='AC Ver 4.3.4 Apr 28 2017')
+        test_connstr = 'protocol=TCP,ipaddress=10.0.0.23,port=4370,timeout=4000,passwd='
+        expect_connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
 
-    def test_connect_fail(self):
-        self.obj.dll_object.Connect.return_value = 0
-        connstr = 'wrong_connection_string'
+        _ = ZKAccess(device=device, connstr=test_connstr)
 
-        with pytest.raises(ConnectionError):
-            self.obj.connect(connstr)
+        self.sdk.connect.assert_called_once_with(expect_connstr)
 
-        self.obj.dll_object.Connect.assert_called_with(connstr)
-        assert self.obj.handle is None
+    @pytest.mark.parametrize('model,doors_count', ((ZK400, 4), (ZK200, 2), (ZK100, 1)))
+    def test_doors_prop__should_return_object_sequence(self, model, doors_count):
+        res = self.obj.doors
 
-    def test_repeated_connect(self):
-        self.obj._handle = 12345
+        assert len(res) == doors_count
+        assert type(res) == DoorList
+        assert all(type(x) == Door for x in res)
+        assert all(obj.number == num for obj, num in zip(res, model.doors_def))
 
-        with pytest.raises(RuntimeError):
-            self.obj.connect('protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd=')
+    @pytest.mark.parametrize('model,relay_count', ((ZK400, 8), (ZK200, 4), (ZK100, 2)))
+    def test_relays_prop__should_return_object_sequence(self, model, relay_count):
+        res = self.obj.relays
 
-    def test_disconnect(self):
-        handle = 12345
-        self.obj._handle = 12345
+        assert len(res) == relay_count
+        assert type(res) == RelayList
+        assert all(type(x) == Relay for x in res)
+        assert all(obj.number == num for obj, num in zip(res, model.relays_def))
+        assert all(obj.group == group for obj, group in zip(res, model.groups_def))
 
-        self.obj.disconnect()
+    @pytest.mark.parametrize('model,readers_count', ((ZK400, 4), (ZK200, 2), (ZK100, 1)))
+    def test_readers_prop__should_return_object_sequence(self, model, readers_count):
+        res = self.obj.readers
 
-        self.obj.dll_object.Disconnect.assert_called_with(handle)
-        assert self.obj._handle is None
+        assert len(res) == readers_count
+        assert type(res) == ReaderList
+        assert all(type(x) == Reader for x in res)
+        assert all(obj.number == num for obj, num in zip(res, model.readers_def))
 
-    def test_repeated_disconnect(self):
-        self.obj._handle = None
+    @pytest.mark.parametrize('model,aux_input_count', ((ZK400, 4), (ZK200, 2), (ZK100, 1)))
+    def test_aux_inputs_prop__should_return_object_sequence(self, model, aux_input_count):
+        res = self.obj.aux_inputs
 
-        self.obj.disconnect()  # Skip if already disconnected
+        assert len(res) == aux_input_count
+        assert type(res) == AuxInputList
+        assert all(type(x) == AuxInput for x in res)
+        assert all(obj.number == num for obj, num in zip(res, model.aux_inputs_def))
 
-        assert self.obj.dll_object.Disconnect.call_count == 0
-        assert self.obj._handle is None
+    def test_events_prop__should_return_event_log(self):
+        res = self.obj.events
 
-    def test_context_manager(self):
-        test_connstr = 'protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd='
-        with patch('ctypes.WinDLL', create=True):
-            obj = ZKAccess('somedll', connstr=test_connstr)
-        obj.connect = Mock()
-        obj.disconnect = Mock()
-        obj._handle = None
+        assert res is self.obj._event_log
+        assert res.only_filters == {}
 
-        with obj as o:
-            obj._handle = 12345
-            assert o is obj
-            obj.connect.assert_called_with(test_connstr)
-            assert obj.disconnect.call_count == 0
+    def test_parameters_prop__should_return_object_of_device_parameters(self):
+        res = self.obj.parameters
 
-        obj.disconnect.assert_called_with()
+        assert type(res) == DeviceParameters
+        assert res._sdk == self.sdk
+        assert res.device_model == ZK200
 
-    def test_context_manager_already_connected(self):
-        test_connstr = 'protocol=TCP,ipaddress=10.0.3.201,port=4370,timeout=4000,passwd='
-        with patch('ctypes.WinDLL', create=True):
-            obj = ZKAccess('somedll')
-        obj.connect(test_connstr)
-        obj.connect = Mock()
-        obj.disconnect = Mock()
+    def test_device_prop__if_device_was_passed_to_init__should_return_it(self):
+        device = ZKDevice(mac='00:17:61:C8:EC:17',
+                          ip='192.168.1.201',
+                          serial_number='DGD9190019050335134',
+                          model=ZK100,
+                          version='AC Ver 4.3.4 Apr 28 2017')
+        obj = ZKAccess(device=device)
 
-        with obj as o:
-            assert o is obj
-            assert obj.connect.call_count == 0
-            assert obj.disconnect.call_count == 0
+        res = obj.device
 
-        assert obj.disconnect.call_count == 1
+        assert res is device
 
-    @pytest.mark.parametrize('group', (RelayGroup.lock, RelayGroup.aux))
-    def test_enable_relay(self, group):
-        self.obj.zk_control_device = Mock()
-        door = 1
-        timeout = 5
+    def test_device_prop__if_device_was_not_passed_to_init__should_return_new_object(self):
+        def se(params, bufsize):
+            return {
+                'IPAddress': '10.0.0.2',
+                '~SerialNumber': 'test serial'
+            }[params[0]]
 
-        self.obj.enable_relay(group, door, timeout)
+        self.sdk.get_device_param.side_effect = se
+        connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+        obj = ZKAccess(connstr=connstr, device_model=ZK200)
 
-        self.obj.zk_control_device.assert_called_with(
-            ControlOperation.output,
-            door,
-            group,
-            timeout,
-            0
-        )
+        res = obj.device
 
-    @pytest.mark.parametrize('door,timeout', ((0, -1), (0, 256)))
-    def test_enable_relay_error(self, door, timeout):
-        self.obj.zk_control_device = Mock()
+        assert obj._device is None
+        assert type(res) == ZKDevice
+        assert res.mac is None
+        assert res.ip == '10.0.0.2'
+        assert res.serial_number == 'test serial'
+        assert res.model == ZK200
+        assert res.version is None
 
-        with pytest.raises(ValueError):
-            self.obj.enable_relay(RelayGroup.lock, door, timeout)
-
-    @pytest.mark.parametrize('device_model', (ZK400, ZK200, ZK100))
-    @pytest.mark.parametrize('timeout', (-1, 256))
-    def test_enable_relay_error_by_model(self, device_model, timeout):
-        self.obj.zk_control_device = Mock()
-        self.obj.device_model = device_model
-        door = device_model.relays + 1
-
-        with pytest.raises(ValueError):
-            self.obj.enable_relay(RelayGroup.lock, door, timeout)
-
-    @pytest.mark.parametrize('device_model', (ZK400, ZK200, ZK100))
-    @pytest.mark.parametrize('pattern', ((0, 0), (1, 0), (0, 1), (1, 1)))
-    def test_enable_relay_list(self, device_model, pattern):
-        self.obj.zk_control_device = Mock()
-        self.obj.device_model = device_model
-        timeout = 5
-        l = pattern * (device_model.relays // 2)
-
-        self.obj.enable_relay_list(l, timeout)
-
-        calls = []
-        for i in range(device_model.relays):
-            door = int(device_model.relays_def[i])
-            group = int(device_model.groups_def[i])
-            if l[i]:
-                calls.append(
-                    call(
-                        ControlOperation.output,
-                        door,
-                        group,
-                        timeout,
-                        0
-                    )
-                )
-        self.obj.zk_control_device.assert_has_calls(calls, any_order=True)
-
-    @pytest.mark.parametrize('timeout', (-1, 256))
-    def test_enable_relay_list_error(self, timeout):
-        self.obj.control_device = Mock()
-        l = (0, ) * 8
-
-        with pytest.raises(ValueError):
-            self.obj.enable_relay_list(l, timeout)
-
-    @pytest.mark.parametrize('device_model', (ZK400, ZK200, ZK100))
-    @pytest.mark.parametrize('length_offset', (1, -1))
-    def test_enable_relay_list_error_by_model(self, device_model, length_offset):
-        self.obj.control_device = Mock()
-        self.obj.device_model = device_model
-        l = (0, ) * (8 + length_offset)
-        timeout = 5
-
-        with pytest.raises(ValueError):
-            self.obj.enable_relay_list(l, timeout)
-
-    def test_read_events_zk_params(self):
-        test_data = '2017-02-09 12:37:41,0,0,1,220,2,200\r\n2017-02-09 12:37:42,0,0,1,221,2,200\r\n'
-        self.obj.zk_get_rt_log = Mock()
-        self.obj.zk_get_rt_log.return_value = test_data
-        buf_size = 4096
-
-        res = self.obj.read_events(buf_size)
-
-        self.obj.zk_get_rt_log.assert_called_with(buf_size)
-
-    def test_read_events_return_value(self):
-        test_data = '2017-02-09 12:37:41,0,0,1,220,2,200\r\n2017-02-09 12:37:42,0,0,1,221,2,200\r\n'
-        self.obj.zk_get_rt_log = Mock()
-        self.obj.zk_get_rt_log.return_value = test_data
-        *events_strs, empty = test_data.split('\r\n')
-        check_data = [Event(s) for s in events_strs]
-        buf_size = 4096
-
-        res = self.obj.read_events(buf_size)
-
-        r = list(res)
-        for i in range(len(list(r))):
-            for j in check_data[i].__slots__:
-                assert getattr(check_data[i], j) == getattr(r[i], j)
-
-    def test_zk_control_device(self):
-        test_params = (
-            ControlOperation.output,
-            0,
-            0,
-            0,
-            0,
-            ''
-        )
-        self.obj.dll_object.ControlDevice.return_value = 0  # Success
-
-        self.obj.zk_control_device(*test_params)
-
-        self.obj.dll_object.ControlDevice.assert_called_with(self.obj.handle, *test_params)
-
-    def test_zk_control_device_error(self):
-        test_params = (
-            ControlOperation.output,
-            0,
-            0,
-            0,
-            0,
-            ''
-        )
-        self.obj.dll_object.ControlDevice.return_value = -1  # Some error
+    def test_device_prop__if_not_connected__should_raise_error(self):
+        obj = ZKAccess()
 
         with pytest.raises(RuntimeError):
-            self.obj.zk_control_device(*test_params)
+            _ = obj.device
 
-    def test_zk_get_rt_log(self):
-        buf_size = 4096
-        self.obj.dll_object.GetRTLog.return_value = 2  # Records count
+    def test_dll_object_prop__should_return_sdk_dll_object(self):
+        res = self.obj.dll_object
 
-        with patch('ctypes.create_string_buffer') as m:
-            buf = m.return_value  # bytes type
-            res = self.obj.zk_get_rt_log(buf_size)
+        assert res is self.sdk.dll
 
-            self.obj.dll_object.GetRTLog.assert_called_with(self.obj.handle, buf, buf_size)
-            buf.value.decode.assert_called_with('utf-8')
-            assert res == buf.value.decode.return_value
+    def test_handle_prop__should_return_sdk_handle(self):
+        res = self.obj.handle
 
-    def test_zk_get_rt_log_error(self):
-        buf_size = 4096
-        self.obj.dll_object.GetRTLog.return_value = -1  # Some error
+        assert res is self.sdk.handle
 
-        with patch('ctypes.create_string_buffer') as m:
-            with pytest.raises(RuntimeError):
-                res = self.obj.zk_get_rt_log(buf_size)
+    def test_search_devices__should_call_sdk_function(self):
+        self.sdk_cls.search_devices.return_value = []
 
+        _ = ZKAccess.search_devices('192.168.1.255')
 
-class TestZKRealtimeEvent:
-    @pytest.fixture(autouse=True)
-    def setUp(self):
-        self.obj = Event()
+        self.sdk.search_devices.assert_called_once_with('192.168.1.255', 4096)
 
-    def test_constructor_without_parse(self):
-        obj = Mock(spec=Event)
+    def test_search_devices__should_return_list_of_found_device_objects(self):
+        self.sdk_cls.search_devices.return_value = [
+            'MAC=00:17:61:C8:EC:17,IP=192.168.1.201,SN=DGD9190019050335134,'
+            'Device=C3-400,Ver=AC Ver 4.3.4 Apr 28 2017',
+            'MAC=00:17:61:C8:EC:18,IP=192.168.1.202,SN=DGD9190019050335135,'
+            'Device=C3-200,Ver=AC Ver 4.3.4 Apr 28 2017'
+        ]
+        expect = (
+            ZKDevice(mac='00:17:61:C8:EC:17', ip='192.168.1.201',
+                     serial_number='DGD9190019050335134', model=ZK400,
+                     version='AC Ver 4.3.4 Apr 28 2017'),
+            ZKDevice(mac='00:17:61:C8:EC:18', ip='192.168.1.202',
+                     serial_number='DGD9190019050335135', model=ZK200,
+                     version='AC Ver 4.3.4 Apr 28 2017'),
+        )
 
-        Event.__init__(obj)
+        res = ZKAccess.search_devices('192.168.1.255')
 
-        assert obj.parse.call_count == 0
+        assert res == expect
 
-    def test_constructor_with_parse(self):
-        test_data = '2017-02-09 12:37:34,0,0,1,221,2,200'
-        obj = Mock(spec=Event)
+    def test_connect__should_call_sdk_function(self):
+        connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+        obj = ZKAccess()
 
-        Event.__init__(obj, test_data)
+        obj.connect(connstr)
 
-        obj.parse.assert_called_with(test_data)
+        self.sdk.connect.assert_called_once_with(connstr)
+        assert obj.connstr == connstr
 
-    def test_parse_normal(self):
-        test_data = '2017-02-09 12:37:34,0,0,1,221,2,200'
-        check_data = {
-            'time': datetime.datetime.strptime('2017-02-09 12:37:34', '%Y-%m-%d %H:%M:%S'),
-            'pin': '0',
-            'card': '0',
-            'door': '1',
-            'event_type': '221',
-            'entry_exit': '2',
-            'verify_mode': '200'
-        }
+    def test_connect__if_connected_and_trying_connect_with_same_connstr__should_do_nothing(self):
+        self.obj.connect(self.connstr)
 
-        self.obj.parse(test_data)
+        self.sdk.connect.assert_not_called()
+        assert self.obj.connstr == self.connstr
 
-        for slot in self.obj.__slots__:
-            assert getattr(self.obj, slot) == check_data[slot]
+    def test_connect__if_connected_and_trying_connect_with_another_connstr__should_raise_error(
+            self
+    ):
+        connstr2 = 'protocol=TCP,ipaddress=192.168.1.202,port=4370,timeout=4000,passwd='
 
-    @pytest.mark.parametrize('test_data', [
-        '2017-02-09 12:37:34,0,0,1,221,2,200\r\n2017-02-09 12:37:35,0,0,1,220,2,200\r\n',
-        '',
-        '\r\n',
-        '2017-02-09 12:37:34,0,0,1,221,2,200,5',
-        '2017-02-09 12:37:34,0,0,1,221,2'
-    ])
-    def test_parse_error(self, test_data):
         with pytest.raises(ValueError):
-            res = self.obj.parse(test_data)
+            self.obj.connect(connstr2)
+
+    def test_disconnect__should_call_sdk_function(self):
+        self.obj.disconnect()
+
+        self.sdk.disconnect.assert_called_once_with(self.connstr)
+        assert self.obj.connstr == self.connstr
+
+    def test_restart__should_call_sdk_function(self):
+        self.obj.restart()
+
+        self.sdk.disconnect.assert_called_once_with(self.connstr)
+        assert self.obj.connstr == self.connstr
+
+    def test_context_manager__should_return_self(self):
+        with self.obj as ctx_obj:
+            assert ctx_obj is self.obj
+
+    def test_context_manager__should_disconnect_after_exit(self):
+        with self.obj:
+            pass
+
+        assert self.sdk.disconnect.assert_called_once_with()

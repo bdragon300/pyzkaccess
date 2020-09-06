@@ -149,6 +149,9 @@ class ZKAccess:
         if self._device:
             return self._device
 
+        if not self.sdk.is_connected:
+            raise RuntimeError('Cannot create device while not connected')
+
         return ZKDevice(mac=None,
                         ip=self.parameters.ip_address,
                         serial_number=self.parameters.serial_number,
@@ -182,7 +185,7 @@ class ZKAccess:
         The default broadcast address may not work in some cases, so
         it's better to specify your local network broadcast address.
         For example, if your ip is `192.168.22.123` and netmask is
-        `255.255.255.0` or `/24` so your ip will be `192.168.22.255`.
+        `255.255.255.0` or `/24` so address will be `192.168.22.255`.
 
         Returned objects can be used as `device=` parameter in
         constructor.
@@ -219,8 +222,6 @@ class ZKAccess:
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
 
     def __enter__(self):
-        if self.connstr:
-            self.connect(self.connstr)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
