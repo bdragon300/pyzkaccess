@@ -119,7 +119,7 @@ class EventLog:
             count += sum(1 for _ in self._filtered_events(new_events))
             new_events = [e for e in self._pull_events() if e.event_type != 255]
 
-        return min(len(self.data), count)
+        return count
 
     def after_time(self, after_time: datetime) -> Iterable[Event]:
         """
@@ -210,7 +210,7 @@ class EventLog:
             if key in res:
                 res[key].update(value)
             else:
-                res[key] = value
+                res[key] = set(value)
 
         return res
 

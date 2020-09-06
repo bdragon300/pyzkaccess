@@ -37,7 +37,7 @@ class TestDocValue:
         docstr = 'test doc'
         obj = DocValue(init_val, docstr)
 
-        copied = copy(DocValue)
+        copied = copy(obj)
 
         assert copied.value == init_val
         assert copied.doc == docstr
@@ -48,7 +48,7 @@ class TestDocValue:
         docstr = 'test doc'
         obj = DocValue(init_val, docstr)
 
-        copied = deepcopy(DocValue)
+        copied = deepcopy(obj)
 
         assert copied.value == init_val
         assert copied.doc == docstr

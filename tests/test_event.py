@@ -19,7 +19,7 @@ class TestEvent:
     def test_init__should_parse_and_fill_object_attributes(self, event_string):
         obj = Event(event_string)
 
-        assert obj.time == datetime(year=2000, month=2, day=2, hour=15, minute=9, second=2)
+        assert obj.time == datetime(2000, 2, 2, 15, 9, 10)
         assert obj.pin == '0'
         assert obj.card == '7125793'
         assert obj.door == 1
@@ -73,11 +73,22 @@ class TestEventLog:
     def test_init__should_initialize_attributes(self):
         data = deque()
         filters = {'filter': {'value'}}
-        obj = EventLog(self.sdk, 4096, 10, filters, data)
+        obj = EventLog(self.sdk, 4096, 10, filters)
 
         assert obj._sdk is self.sdk
         assert obj.buffer_size == 4096
         assert obj.data.maxlen == 10
+        assert obj.only_filters == filters
+        assert type(obj.data) == deque
+
+    def test_init__should_initialize_data_attribute(self):
+        data = deque()
+        filters = {'filter': {'value'}}
+        obj = EventLog(self.sdk, 4096, 10, filters, data)
+
+        assert obj._sdk is self.sdk
+        assert obj.buffer_size == 4096
+        assert obj.data.maxlen == None  # When _data is passed
         assert obj.only_filters == filters
         assert obj.data is data
 
@@ -99,7 +110,7 @@ class TestEventLog:
             ['2000-02-02 15:09:10,0,7125793,1,27,2,0',
              '2000-02-02 15:09:15,0,7125794,3,27,2,0',
              '2000-02-02 15:09:17,0,7125784,3,27,2,0'],
-            (Event('2000-02-02 15:09:00,0,7125794,2,26,1,0'),
+            (Event('2000-02-02 15:09:10,0,7125793,1,27,2,0'),
              Event('2000-02-02 15:09:15,0,7125794,3,27,2,0'),
              Event('2000-02-02 15:09:17,0,7125784,3,27,2,0'))
         ),
@@ -120,15 +131,15 @@ class TestEventLog:
     def test_refresh__if_device_has_returned_events_and_maxlen_is_set__should_append_data_and_return_count_of_fetched_records(  # noqa
             self, initial, events_str, expect
     ):
-        self.sdk.get_rt_log.return_value = events_str
-        obj = EventLog(self.sdk, 4096, 2, _data=deque(initial))
+        self.sdk.get_rt_log.side_effect = [events_str, []]
+        obj = EventLog(self.sdk, 4096, _data=deque(initial, maxlen=3))
 
         res = obj.refresh()
 
-        assert obj.data == expect
+        assert tuple(obj.data) == expect
         assert res == len(events_str)
 
-    @pytest.mark.parametrize('initial,events_str,expect', (
+    @pytest.mark.parametrize('initial,events_str,expect,expect_len', (
         (
             [Event('2000-02-02 15:09:00,0,7125794,2,26,1,0')],
             ['2000-02-02 15:09:10,0,7125793,1,27,2,0',
@@ -136,24 +147,26 @@ class TestEventLog:
              '2000-02-02 15:09:17,0,7125784,3,27,2,0'],
             (Event('2000-02-02 15:09:00,0,7125794,2,26,1,0'),
              Event('2000-02-02 15:09:10,0,7125793,1,27,2,0'),
-             Event('2000-02-02 15:09:17,0,7125784,3,27,2,0'))
+             Event('2000-02-02 15:09:17,0,7125784,3,27,2,0')),
+            2
         ),
         (
             [Event('2000-02-02 15:09:00,0,7125794,2,26,1,0')],
             ['2000-02-02 15:09:15,0,7125794,3,255,2,0'],
-            (Event('2000-02-02 15:09:00,0,7125794,2,26,1,0'), )
+            (Event('2000-02-02 15:09:00,0,7125794,2,26,1,0'), ),
+            0
         ),
     ))
     def test_refresh__if_device_has_returned_events__should_always_skip_event_type_255(
-            self, initial, events_str, expect
+            self, initial, events_str, expect, expect_len
     ):
-        self.sdk.get_rt_log.return_value = events_str
-        obj = EventLog(self.sdk, 4096)
+        self.sdk.get_rt_log.side_effect = [events_str, []]
+        obj = EventLog(self.sdk, 4096, _data=deque(initial))
 
         res = obj.refresh()
 
-        assert obj.data == expect
-        assert res == len(expect)
+        assert tuple(obj.data) == expect
+        assert res == expect_len
 
     def test_refresh__if_device_has_returned_events__and_filters_and_maxlen_are_set__should_append_filtered_data_and_return_count_of_matched_records(self):  # noqa
         events_strings = [
@@ -167,12 +180,12 @@ class TestEventLog:
             Event('2000-02-02 15:09:20,0,7125793,3,27,2,0'),
             Event('2000-02-02 15:09:21,0,7125794,2,26,1,0')
         )
-        self.sdk.get_rt_log.return_value = events_strings
+        self.sdk.get_rt_log.side_effect = [events_strings, []]
         obj = EventLog(self.sdk, 4096, 2, only_filters={'card': {'7125794', '7125784'}})
 
         res = obj.refresh()
 
-        assert obj.data == events_inserted  # 2 records inserted due to maxlen
+        assert tuple(obj.data) == events_inserted  # 2 records inserted due to maxlen
         assert res == 3  # 3 records matched
 
     def test_after_time__should_return_records_after_datetime_included(self):
@@ -209,7 +222,7 @@ class TestEventLog:
 
         assert tuple(res) == (
             Event('2000-02-02 15:09:10,0,7125793,1,27,2,0'),
-            Event('2000-02-02 15:09:25,0,7125794,3,27,2,0')
+            Event('2000-02-02 15:09:15,0,7125794,3,27,2,0')
         )
 
     def test_between_time__should_return_records_betwenn_datetimes(self):
@@ -244,24 +257,29 @@ class TestEventLog:
         with patch.object(obj, 'refresh', Mock(side_effect=(0, 0, 2))):
             res = obj.poll(60, polling_interval=.5)
 
-            assert res == data[-2:]
+            assert res == list(data)[-2:]
 
     def test_poll__if_refresh_returned_events_and_filters_specified__should_return_new_filtered_events(  # noqa
             self
     ):
-        data = deque((
+        data = [
             Event('2000-02-02 15:09:10,0,7125793,1,27,2,0'),
             Event('2000-02-02 15:09:15,0,7125794,3,27,2,0'),
             Event('2000-02-02 15:09:17,0,7125784,1,25,2,0'),
             Event('2000-02-02 15:09:20,0,7125793,3,27,2,0'),
             Event('2000-02-02 15:09:21,0,7125794,2,26,1,0')
-        ))
-        obj = EventLog(self.sdk, 4096, only_filters={'card': {'7125794', '7125784'}}, _data=data)
+        ]
+        expect = (
+            Event('2000-02-02 15:09:15,0,7125794,3,27,2,0'),
+            Event('2000-02-02 15:09:17,0,7125784,1,25,2,0'),
+            Event('2000-02-02 15:09:21,0,7125794,2,26,1,0')
+        )
+        obj = EventLog(self.sdk, 4096, only_filters={'card': {'7125794', '7125784'}})
 
-        with patch.object(obj, 'refresh', Mock(side_effect=(0, 0, 3))):
+        with patch.object(obj, '_pull_events', Mock(side_effect=([], [], data, []))):
             res = obj.poll(60, polling_interval=.5)
 
-            assert res == [data[2], data[4]]
+            assert tuple(res) == expect
 
     def test_poll__if_refresh_returned_events_on_3rd_time__should_hang_for_2_intervals(self):
         data = deque((
@@ -390,7 +408,7 @@ class TestEventLog:
         ))
         obj = EventLog(self.sdk, 4096, _data=data)
 
-        assert list(obj[idx]) == list(data[idx])
+        assert list(obj[idx]) == list(data)[idx]
 
     def test_getitem__if_index_passed_and_filters_specified__should_return_filtered_items(self):
         data = deque((
@@ -471,7 +489,7 @@ class TestEventLog:
         ]
         obj = EventLog(self.sdk, 4096, only_filters={'card': {'7125794', '7125793'}}, _data=data)
 
-        assert len(obj) == consider_data
+        assert len(obj) == len(consider_data)
 
     def test_iter__should_iter_over_data(self):
         data = deque((

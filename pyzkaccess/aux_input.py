@@ -54,7 +54,7 @@ class AuxInputList(AuxInputInterface, UserTuple):
         self._event_log = event_log
 
     def __getitem__(self, item):
-        aux_inputs = super().__getitem__(item)
+        aux_inputs = self.data[item]
         if isinstance(item, slice):
             return self.__class__(self._sdk, self._event_log, aux_inputs=aux_inputs)
         else:

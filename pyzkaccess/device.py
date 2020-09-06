@@ -132,7 +132,7 @@ class ZKDevice:
     available_models = (ZK100, ZK200, ZK400)
 
     def __init__(self, s=None, **params):
-        if s:
+        if s is not None:
             params = self.parse(s)
 
         if not params:
@@ -170,6 +170,9 @@ class ZKDevice:
         return res
 
     def _get_model_cls(self, model_name) -> type(ZKModel):
+        if isinstance(model_name, type) and issubclass(model_name, ZKModel):
+            return model_name
+
         for cls in self.available_models:
             if cls.name == model_name:
                 return cls

@@ -99,7 +99,7 @@ class RelayList(RelayInterface, UserTuple):
         return self.__class__(sdk=self._sdk, relays=relays)
 
     def __getitem__(self, item):
-        relays = super().__getitem__(item)
+        relays = self.data[item]
         if isinstance(item, slice):
             return self.__class__(self._sdk, relays=relays)
         else:

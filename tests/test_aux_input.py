@@ -15,7 +15,7 @@ class TestAuxInput:
         self.event_log = EventLog(self.sdk, 4096)
 
     def test_init__should_init_properties(self):
-        obj = AuxInput(self.sdk, EventLog(self.sdk, 4096), 2)
+        obj = AuxInput(self.sdk, self.event_log, 2)
 
         assert obj._sdk is self.sdk
         assert obj._event_log is self.event_log
@@ -94,7 +94,7 @@ class TestAuxInputList:
 
         assert type(res) == EventLog
         assert res.only_filters == {
-            'door': {1, 2},
+            'door': {1, 2, 3},
             'event_type': {220, 221}
         }
 

@@ -116,7 +116,7 @@ class DoorList(DoorInterface, UserTuple):
         return AuxInputList(self._sdk, event_log=self._event_log, aux_inputs=aux_inputs)
 
     def __getitem__(self, item: Union[int, slice]) -> Union[Door, 'DoorList']:
-        doors = super().__getitem__(item)
+        doors = self.data[item]
         if isinstance(item, slice):
             return self.__class__(self._sdk, self._event_log, doors=doors)
         else:

@@ -9,7 +9,7 @@ from .event import EventLog
 from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
-from .sdk import ZKSDK
+import pyzkaccess.sdk
 
 
 class ZKAccess:
@@ -39,7 +39,7 @@ class ZKAccess:
         """
         self.connstr = connstr
         self.device_model = device_model
-        self.sdk = ZKSDK(dllpath)
+        self.sdk = pyzkaccess.sdk.ZKSDK(dllpath)
         self._device = device
         self._event_log = EventLog(self.sdk, self.buffer_size, maxlen=log_capacity)
 
@@ -194,7 +194,7 @@ class ZKAccess:
         :param dllpath: path to a PULL SDK DLL. Default: 'plcommpro.dll'
         :return: iterable of found ZKDevice
         """
-        sdk = ZKSDK(dllpath)
+        sdk = pyzkaccess.sdk.ZKSDK(dllpath)
         devices = sdk.search_device(broadcast_address, cls.buffer_size)
         return tuple(ZKDevice(line) for line in devices)
 

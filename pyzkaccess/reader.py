@@ -57,7 +57,7 @@ class ReaderList(ReaderInterface, UserTuple):
         self._event_log = event_log
 
     def __getitem__(self, item: Union[int, slice]) -> Union[Reader, 'ReaderList']:
-        readers = super().__getitem__(item)
+        readers = self.data[item]
         if isinstance(item, slice):
             return self.__class__(self._sdk, self._event_log, readers=readers)
         else:

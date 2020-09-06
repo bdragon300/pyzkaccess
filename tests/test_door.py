@@ -50,7 +50,7 @@ class TestDoor:
     def test_relays__should_return_relays_object(self):
         res = self.obj.relays
 
-        assert res is self.relays
+        assert res is self.relay_list
 
     def test_reader__should_return_reader_object(self):
         res = self.obj.reader
@@ -168,8 +168,8 @@ class TestDoorList:
         )
 
     def test_getitem__if_index_passed__should_return_item(self):
-        assert type(self.obj[2]) == Door
-        assert self.obj[2].number == 3
+        assert type(self.obj[1]) == Door
+        assert self.obj[1].number == 2
 
     @pytest.mark.parametrize('idx', (
             slice(None, 1), slice(1, 2), slice(None, None, 2), slice(0, 0)

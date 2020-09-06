@@ -13,16 +13,18 @@ def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
         res = self._sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
         res = int(res[query])
         if not(minimum <= res <= maximum):
-            raise ValueError('{} value is not in range {}..{}'.format(res, minimum, maximum))
+            raise ValueError('Value {} is not in range {}..{}'.format(res, minimum, maximum))
+
+        return res
 
     def write(self, value):
         query = query_name_spring if self.is_daylight else query_name_fall
         if not isinstance(value, int):
             raise TypeError('Bad value type, should be int')
         if not(minimum <= value <= maximum):
-            raise ValueError('{} value is not in range {}..{}'.format(value, minimum, maximum))
+            raise ValueError('Value {} is not in range {}..{}'.format(value, minimum, maximum))
 
-        self._sdk.set_device_param(parameters={query: value})
+        self._sdk.set_device_param(parameters={query: str(value)})
 
     return property(fget=read, fset=write, fdel=None, doc=None)
 
@@ -120,7 +122,7 @@ def _make_prop(query_tpl: str,
         value = data_type(value)
 
         query = query_tpl.format(self=self)
-        self._sdk.set_device_param(parameters={query: value})
+        self._sdk.set_device_param(parameters={query: str(value)})
 
     doc_readable_msg = '-'.join(x for x in [
         'read' if readable else '',
@@ -186,7 +188,7 @@ class DeviceParameters(BaseParameters):
     )
     reader_direction = _make_prop('InBIOTowWay', str, str, True, True, 'One-way/Two-way reader')
     fingerprint_version = _make_prop(
-        '~ZKFPVersion', str, str, True, False,
+        '~ZKFPVersion', int, int, True, False,
         'Device fingerprint identification version. Available values: 9, 10',
         lambda x: x in (9, 10)
     )
@@ -211,16 +213,20 @@ class DeviceParameters(BaseParameters):
         """
         res = self._sdk.get_device_param(parameters=('AntiPassback',), buffer_size=self.buffer_size)
         res = int(res['AntiPassback'])
+        if res not in self.device_model.anti_passback_rules:
+            raise ValueError('Value {} not in possible values for {}: {}'.format(
+                res, self.device_model.name, self.device_model.anti_passback_rules.keys()
+            ))
+
         return self.device_model.anti_passback_rules[res]
 
     @anti_passback_rule.setter
     def anti_passback_rule(self, value: int):
         if value not in self.device_model.anti_passback_rules:
-            raise ValueError('Value not in possible values for {}: {}'.format(
-                self.device_model.name, self.device_model.anti_passback_rules.keys()
+            raise ValueError('Value {} not in possible values for {}: {}'.format(
+                value, self.device_model.name, tuple(self.device_model.anti_passback_rules.keys())
             ))
-        self._sdk.get_device_param(parameters={'AntiPassback': value},
-                                   buffer_size=self.buffer_size)
+        self._sdk.set_device_param(parameters={'AntiPassback': str(value)})
 
     @property
     def interlock(self) -> int:
@@ -232,16 +238,19 @@ class DeviceParameters(BaseParameters):
             return self.device_model.interlock_rules[0]
 
         res = int(res['InterLock'])
+        if res not in self.device_model.interlock_rules:
+            raise ValueError('Value {} not in possible values for {}: {}'.format(
+                res, self.device_model.name, self.device_model.interlock_rules.keys()
+            ))
         return self.device_model.interlock_rules[res]
 
     @interlock.setter
     def interlock(self, value: int):
         if value not in self.device_model.anti_passback_rules:
-            raise ValueError('Value not in possible values for {}: {}'.format(
-                self.device_model.name, self.device_model.anti_passback_rules.keys()
+            raise ValueError('Value {} not in possible values for {}: {}'.format(
+                value, self.device_model.name, self.device_model.anti_passback_rules.keys()
             ))
-        self._sdk.get_device_param(parameters={'InterLock': value},
-                                   buffer_size=self.buffer_size)
+        self._sdk.set_device_param(parameters={'InterLock': str(value)})
 
     @property
     def spring_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
@@ -253,7 +262,7 @@ class DeviceParameters(BaseParameters):
 
     @spring_daylight_time_mode1.setter
     def spring_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self._sdk.set_device_param(parameters={'DaylightSavingTime': value})
+        self._sdk.set_device_param(parameters={'DaylightSavingTime': str(value)})
 
     @property
     def fall_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
@@ -264,7 +273,7 @@ class DeviceParameters(BaseParameters):
 
     @fall_daylight_time_mode1.setter
     def fall_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self._sdk.set_device_param(parameters={'StandardTime': value})
+        self._sdk.set_device_param(parameters={'StandardTime': str(value)})
 
     @property
     def spring_daylight_time_mode2(self) -> DaylightSavingMomentMode2:
@@ -308,7 +317,7 @@ class DeviceParameters(BaseParameters):
             value.second
         ))
 
-        self._sdk.set_device_param(parameters={'DateTime': value})
+        self._sdk.set_device_param(parameters={'DateTime': str(value)})
 
     def _get_datetime(self):
         res = self._sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)
@@ -336,12 +345,12 @@ class DoorParameters(BaseParameters):
     duress_password = _make_prop(
         'Door{self.door_number}ForcePassWord', str, str, True, True,
         'Duress password for door. Maximum length is 8 digits',
-        lambda x: x.isdigit() and len(x) <= 8
+        lambda x: x == '' or x.isdigit() and len(x) <= 8
     )
     emergency_password = _make_prop(
         'Door{self.door_number}SupperPassWord', str, str, True, True,
         'Emergency password for door. Maximum length is 8 digits',
-        lambda x: x.isdigit() and len(x) <= 8
+        lambda x: x == '' or x.isdigit() and len(x) <= 8
     )
     lock_on_close = _make_prop(
         'Door{self.door_number}CloseAndLock', int, bool, True, True, 'Lock on door closing'
