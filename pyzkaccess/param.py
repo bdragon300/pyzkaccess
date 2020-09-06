@@ -7,16 +7,21 @@ from .enum import SensorType, VerifyMode
 from .sdk import ZKSDK
 
 
-def _make_daylight_prop(query_name_spring, query_string_fall):
+def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
     def read(self):
-        query = query_name_spring if self.is_daylight else query_string_fall
+        query = query_name_spring if self.is_daylight else query_name_fall
         res = self._sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
-        return int(res[query])
+        res = int(res[query])
+        if not(minimum <= res <= maximum):
+            raise ValueError('{} value is not in range {}..{}'.format(res, minimum, maximum))
 
     def write(self, value):
-        query = query_name_spring if self.is_daylight else query_string_fall
+        query = query_name_spring if self.is_daylight else query_name_fall
         if not isinstance(value, int):
             raise TypeError('Bad value type, should be int')
+        if not(minimum <= value <= maximum):
+            raise ValueError('{} value is not in range {}..{}'.format(value, minimum, maximum))
+
         self._sdk.set_device_param(parameters={query: value})
 
     return property(fget=read, fset=write, fdel=None, doc=None)
@@ -61,11 +66,11 @@ class DaylightSavingMomentMode2:
         self.buffer_size = buffer_size
         self._sdk = sdk
 
-    month = _make_daylight_prop('WeekOfMonth1', 'WeekOfMonth6')
-    week_of_month = _make_daylight_prop('WeekOfMonth2', 'WeekOfMonth7')
-    day_of_week = _make_daylight_prop('WeekOfMonth3', 'WeekOfMonth8')
-    hour = _make_daylight_prop('WeekOfMonth4', 'WeekOfMonth9')
-    minute = _make_daylight_prop('WeekOfMonth5', 'WeekOfMonth10')
+    month = _make_daylight_prop('WeekOfMonth1', 'WeekOfMonth6', 1, 12)
+    week_of_month = _make_daylight_prop('WeekOfMonth2', 'WeekOfMonth7', 1, 6)
+    day_of_week = _make_daylight_prop('WeekOfMonth3', 'WeekOfMonth8', 1, 7)
+    hour = _make_daylight_prop('WeekOfMonth4', 'WeekOfMonth9', 0, 23)
+    minute = _make_daylight_prop('WeekOfMonth5', 'WeekOfMonth10', 0, 59)
 
     def __str__(self):
         pieces = 'month', 'week_of_month', 'day_of_week', 'hour', 'minute'
@@ -93,6 +98,10 @@ def _make_prop(query_tpl: str,
         if data_type != prop_type:
             res = prop_type(res)
 
+        if not(restriction_f is None or restriction_f(res)):
+            raise ValueError('Value {} does not meet to parameter restrictions, '
+                             'see property docstring and SDK documentation'.format(res))
+
         return res
 
     def write(self, value: prop_type):
@@ -113,11 +122,11 @@ def _make_prop(query_tpl: str,
         query = query_tpl.format(self=self)
         self._sdk.set_device_param(parameters={query: value})
 
-    doc_readable_msg = '-'.join([
+    doc_readable_msg = '-'.join(x for x in [
         'read' if readable else '',
         'write' if writable else '',
         'only' if readable != writable else ''
-    ])
+    ] if x)
     return property(
         fget=read if readable else None,
         fset=write if writable else None,
@@ -214,7 +223,7 @@ class DeviceParameters(BaseParameters):
                                    buffer_size=self.buffer_size)
 
     @property
-    def interlock(self):
+    def interlock(self) -> int:
         """Interlock rule for doors. Possible values depend on device
         model. Interlock is when the second door can be opened only
         after the first door was opened and closed, and vice versa"""
@@ -250,7 +259,7 @@ class DeviceParameters(BaseParameters):
     def fall_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
         """Fall back daylight saving time (mode 1) (read-write)"""
         res = self._sdk.get_device_param(parameters=('StandardTime',), buffer_size=self.buffer_size)
-        res = [int(x) for x in res['DaylightSavingTime'].split('-')]
+        res = [int(x) for x in res['StandardTime'].split('-')]
         return DaylightSavingMomentMode1(month=res[0], day=res[1], hour=res[2], minute=res[3])
 
     @fall_daylight_time_mode1.setter

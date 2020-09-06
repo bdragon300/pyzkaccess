@@ -505,8 +505,10 @@ class TestEventLog:
 
     def test_str__should_return_name_of_class(self):
         obj = EventLog(self.sdk, 4096)
+
         assert str(obj).startswith('EventLog[')
 
     def test_repr__should_return_name_of_class(self):
         obj = EventLog(self.sdk, 4096)
+
         assert repr(obj).startswith('EventLog[')
