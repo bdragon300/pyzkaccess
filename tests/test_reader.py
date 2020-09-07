@@ -15,7 +15,7 @@ class TestReader:
         self.event_log = EventLog(self.sdk, 4096)
 
     def test_init__should_init_properties(self):
-        obj = Reader(self.sdk, EventLog(self.sdk, 4096), 2)
+        obj = Reader(self.sdk, self.event_log, 2)
 
         assert obj._sdk is self.sdk
         assert obj._event_log is self.event_log
@@ -95,7 +95,7 @@ class TestReaderList:
 
         assert type(res) == EventLog
         assert res.only_filters == {
-            'door': {1, 2},
+            'door': {1, 2, 3},
             'event_type': {0, 1, 2, 3, 4, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26,
                            27, 29, 30, 31, 32, 33, 34, 35, 36, 101, 103, 203}
         }

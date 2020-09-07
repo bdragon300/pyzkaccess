@@ -128,7 +128,6 @@ class DocValue(ObjectProxy, metaclass=DocValueMeta):
         return self._self_doc
 
     def __copy__(self):
-        print('!!!!!!!!')
         obj = DocValue(copy(self._self_value), copy(self._self_doc))
         return obj
 

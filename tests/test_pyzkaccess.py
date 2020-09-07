@@ -231,14 +231,13 @@ class TestZKAccess:
         )
 
         res = ZKAccess.search_devices('192.168.1.255')
-
         assert res == expect
 
     def test_connect__should_call_sdk_function(self):
         connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
         obj = ZKAccess()
-        self.sdk.handle = 12345
-        self.sdk.is_connected = True
+        self.sdk.handle = None
+        self.sdk.is_connected = False
 
         obj.connect(connstr)
 

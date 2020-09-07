@@ -33,11 +33,12 @@ class TestZKSDK:
 
     def test_connect__should_call_sdk(self):
         connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+        expect = b'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
         self.dll_mock.Connect.return_value = 12345
 
         self.t.connect(connstr)
 
-        self.dll_mock.Connect.assert_called_once_with(connstr)
+        self.dll_mock.Connect.assert_called_once_with(expect)
 
     def test_connect__on_success__should_keep_connected(self):
         self.dll_mock.Connect.return_value = 12345
@@ -54,7 +55,7 @@ class TestZKSDK:
         with pytest.raises(ZKSDKError) as e:
             self.t.connect('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
 
-        assert e.value == errno
+        assert e.value.err == errno
         assert self.t.handle is None
 
     def test_disconnect__should_call_sdk(self):
@@ -110,7 +111,7 @@ class TestZKSDK:
         with pytest.raises(ZKSDKError) as e:
             self.t.control_device(ControlOperation['output'].value, 11, 22, 33, 44, 'options')
 
-        assert e.value == errno
+        assert e.value.err == errno
         assert self.t.handle is not None
 
     def test_get_rt_log__should_call_sdk(self):
@@ -167,7 +168,7 @@ class TestZKSDK:
         with pytest.raises(ZKSDKError) as e:
             self.t.get_rt_log(buf_size)
 
-        assert e.value == errno
+        assert e.value.err == errno
         assert self.t.handle is not None
 
     def test_search_device__should_call_sdk(self):
@@ -176,7 +177,7 @@ class TestZKSDK:
             return 0
 
         broadcast_address = '192.168.1.255'
-        expect_broadcast_address = b'192.168.1.201'
+        expect_broadcast_address = b'192.168.1.255'
         self.dll_mock.SearchDevice.side_effect = se
         buf_size = 1024
 
@@ -230,11 +231,11 @@ class TestZKSDK:
         with pytest.raises(ZKSDKError) as e:
             self.t.search_device('192.168.1.201', 4096)
 
-        assert e.value == errno
+        assert e.value.err == errno
         assert self.t.handle is not None
 
     @pytest.mark.parametrize('queries,query_calls', (
-        (['q1'], [('q1', )]),
+        (['q1'], [b'q1']),
         (
             ['q{}'.format(x) for x in range(20)],
             [','.join('q{}'.format(x) for x in range(20)).encode()],
@@ -243,7 +244,7 @@ class TestZKSDK:
             ['q{}'.format(x) for x in range(35)],
             [
                 ','.join('q{}'.format(x) for x in range(30)).encode(),
-                ','.join('q{}'.format(x) for x in range(31, 35)).encode()
+                ','.join('q{}'.format(x) for x in range(30, 35)).encode()
             ],
         ),
     ))
@@ -251,21 +252,21 @@ class TestZKSDK:
             self, queries, query_calls
     ):
         def se(*a, **kw):
-            a[1].value = b'q1=v1\r\n'
+            res = ['{0}={0}'.format(x) for x in a[3].decode().split(',')]
+            a[1].value = ','.join(res).encode() + b'\r\n'
             return 0
 
         self.t.handle = handle = 12345
         self.dll_mock.GetDeviceParam.side_effect = se
         buf_size = 1024
-        query = ('q1', )
 
-        self.t.get_device_param(query, buf_size)
+        self.t.get_device_param(queries, buf_size)
 
         calls = [call(handle, ANY, buf_size, q) for q in query_calls]
         self.dll_mock.GetDeviceParam.assert_has_calls(calls)
 
     @pytest.mark.parametrize('queries,call_buffers,expect', (
-        (['q1'], ['q1=v1'], {'q1': 'v1'}),
+        (['q1'], [b'q1=v1'], {'q1': 'v1'}),
         (
             ['q{}'.format(x) for x in range(20)],
             [','.join('q{0}=v{0}'.format(x) for x in range(20)).encode()],
@@ -275,8 +276,8 @@ class TestZKSDK:
             ['q{}'.format(x) for x in range(65)],
             [
                 ','.join('q{0}=v{0}'.format(x) for x in range(30)).encode(),
-                ','.join('q{0}=v{0}'.format(x) for x in range(31, 60)).encode(),
-                ','.join('q{0}=v{0}'.format(x) for x in range(61, 65)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in range(30, 60)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in range(60, 65)).encode(),
             ],
             {'q{}'.format(x): 'v{}'.format(x) for x in range(65)}
         ),
@@ -302,9 +303,8 @@ class TestZKSDK:
                                                                                         buffer):
         def se(*a, **kw):
             a[1].value = buffer
-            return errno
+            return 0
 
-        errno = -2
         self.t.handle = 12345
         self.dll_mock.GetDeviceParam.side_effect = se
 
@@ -319,7 +319,7 @@ class TestZKSDK:
         with pytest.raises(ZKSDKError) as e:
             self.t.get_device_param(('q1', ), 4096)
 
-        assert e.value == errno
+        assert e.value.err == errno
         assert self.t.handle is not None
 
     @pytest.mark.parametrize('parameters,query_calls', (
@@ -332,8 +332,8 @@ class TestZKSDK:
             {'q{}'.format(x): 'v{}'.format(x) for x in range(45)},
             [
                 ','.join('q{0}=v{0}'.format(x) for x in range(20)).encode(),
-                ','.join('q{0}=v{0}'.format(x) for x in range(21, 40)).encode(),
-                ','.join('q{0}=v{0}'.format(x) for x in range(41, 45)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in range(20, 40)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in range(40, 45)).encode(),
             ]
         ),
     ))
@@ -341,11 +341,10 @@ class TestZKSDK:
             self, parameters, query_calls
     ):
         def se(*a, **kw):
-            a[1].value = query_calls.pop(0)
             return 0
 
         self.t.handle = handle = 12345
-        self.dll_mock.GetDeviceParam.side_effect = se
+        self.dll_mock.SetDeviceParam.side_effect = se
 
         self.t.set_device_param(parameters)
 
@@ -363,12 +362,12 @@ class TestZKSDK:
     def test_set_device_param__on_failure__should_raise_error(self):
         errno = -2
         self.t.handle = 12345
-        self.dll_mock.GetDeviceParam.return_value = errno
+        self.dll_mock.SetDeviceParam.return_value = errno
 
         with pytest.raises(ZKSDKError) as e:
             self.t.set_device_param({'q1': 'v1'})
 
-        assert e.value == errno
+        assert e.value.err == errno
         assert self.t.handle is not None
 
     def test_object_deletion_by_gc__should_disconnect(self):

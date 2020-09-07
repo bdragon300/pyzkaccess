@@ -102,17 +102,17 @@ class TestRelayList:
         assert self.obj._sdk is self.sdk
         assert all(a is b for a, b in zip_longest(self.obj, self.relays))
 
-    def test_switch_on__should_call_sdk_method(self, group, number):
+    def test_switch_on__should_call_sdk_method(self):
         timeout = 45
 
         self.obj.switch_on(timeout)
 
-        self.sdk.control_device.assert_has_calls(
+        self.sdk.control_device.assert_has_calls((
             call(ControlOperation.output.value, 1, RelayGroup.aux.value, timeout, 0),
             call(ControlOperation.output.value, 2, RelayGroup.aux.value, timeout, 0),
             call(ControlOperation.output.value, 1, RelayGroup.lock.value, timeout, 0),
             call(ControlOperation.output.value, 2, RelayGroup.lock.value, timeout, 0),
-        )
+        ))
 
     @pytest.mark.parametrize('timeout', (-1, 256))
     def test_switch_on__if_timeout_is_out_of_range__should_raise_error(self, timeout):

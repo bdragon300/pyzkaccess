@@ -179,6 +179,14 @@ class ZKDevice:
 
         raise ValueError("Unknown device model '{}'".format(model_name))
 
+    def __eq__(self, other):
+        if isinstance(other, ZKDevice):
+            return all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__)
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __str__(self):
         params = ', '.join('{}={}'.format(k, getattr(self, k, '?')) for k in self.__slots__)
         return 'Device[{}]({})'.format(self.model.name, params)

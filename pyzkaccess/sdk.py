@@ -96,6 +96,9 @@ class ZKSDK:
             raise ZKSDKError('GetRTLog failed', err)
 
         raw = buf.value.decode('utf-8')
+        if raw == '\r\n':
+            return []
+
         *lines, _ = raw.split('\r\n')
         return lines
 
@@ -119,6 +122,8 @@ class ZKSDK:
             raise ZKSDKError('SearchDevice failed', err)
 
         raw = buf.value.decode('utf-8')
+        if raw == '\r\n':
+            return []
         *lines, _ = raw.split("\r\n")
         return lines
 
