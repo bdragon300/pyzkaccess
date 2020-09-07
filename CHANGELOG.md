@@ -7,6 +7,7 @@ and this project adheres to
 
 ## [0.2]
 ### Added
+- Add codecov
 - Add CI/CD
 - Improve documentation and serve it on GitHub pages
 - Add many tests

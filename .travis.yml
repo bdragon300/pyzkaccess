@@ -6,7 +6,7 @@ python:
   - '3.8'
 
 install:
-  - pip install setuptools tox
+  - pip install setuptools tox pytest-cov
 
 script:
   - tox
@@ -22,3 +22,5 @@ jobs:
       on:
         tags: true
         branch: master
+  - stage: codecov
+    script: "bash <(curl -s https://codecov.io/bash)"
