@@ -1,11 +1,10 @@
 from itertools import zip_longest
-from unittest.mock import patch, Mock, call
+from unittest.mock import Mock, call
 
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.relay import Relay, RelayList
-    from pyzkaccess.enum import RelayGroup, ControlOperation
+from pyzkaccess.enum import RelayGroup, ControlOperation
+from pyzkaccess.relay import Relay, RelayList
 
 
 class TestRelay:

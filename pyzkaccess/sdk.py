@@ -1,7 +1,7 @@
 __all__ = [
     'ZKSDK'
 ]
-import ctypes
+import pyzkaccess.ctypes as ctypes
 from typing import Sequence, Mapping, Any
 
 from .exceptions import ZKSDKError

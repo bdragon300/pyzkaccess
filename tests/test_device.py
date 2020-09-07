@@ -1,9 +1,6 @@
-from unittest.mock import patch
-
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.device import ZKDevice, ZK400, ZK200
+from pyzkaccess.device import ZKDevice, ZK400, ZK200
 
 
 class TestZKDevice:

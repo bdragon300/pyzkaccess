@@ -1,18 +1,16 @@
-from typing import Optional
-from unittest.mock import patch, call, Mock, ANY
+from unittest.mock import patch, call, ANY
 
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.exceptions import ZKSDKError
-    from pyzkaccess.enum import ControlOperation
+from pyzkaccess.enum import ControlOperation
+from pyzkaccess.exceptions import ZKSDKError
 
 
 class TestZKSDK:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.dllpath = 'testdll.dll'  # noqa
-        with patch('ctypes.WinDLL', create=True) as m:
+        with patch('pyzkaccess.ctypes.WinDLL', create=True) as m:
             from pyzkaccess.sdk import ZKSDK
 
             self.t = ZKSDK(self.dllpath)  # noqa

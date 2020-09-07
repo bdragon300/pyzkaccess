@@ -1,19 +1,17 @@
-from unittest.mock import patch, Mock, call
-import pytest
 from datetime import datetime
 from enum import Enum
+from unittest.mock import Mock, call
 
+import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.param import (
-        DaylightSavingMomentMode1,
-        DaylightSavingMomentMode2,
-        DeviceParameters,
-        DoorParameters
-    )
-    from pyzkaccess.enum import SensorType, VerifyMode
-    from pyzkaccess.device import ZK100, ZK200, ZK400
-
+from pyzkaccess.device import ZK400
+from pyzkaccess.enum import SensorType, VerifyMode
+from pyzkaccess.param import (
+    DaylightSavingMomentMode1,
+    DaylightSavingMomentMode2,
+    DeviceParameters,
+    DoorParameters
+)
 
 # (property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values)
 daylight_saving_mode2_properties = (

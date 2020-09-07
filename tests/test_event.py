@@ -5,10 +5,9 @@ from unittest.mock import patch, Mock
 
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.event import Event, EventLog
-    from pyzkaccess.common import DocValue
-    from pyzkaccess.enum import PassageDirection, VerifyMode
+from pyzkaccess.common import DocValue
+from pyzkaccess.enum import PassageDirection, VerifyMode
+from pyzkaccess.event import Event, EventLog
 
 
 class TestEvent:

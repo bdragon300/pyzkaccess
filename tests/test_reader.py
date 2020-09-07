@@ -1,11 +1,10 @@
 from itertools import zip_longest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock
 
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.reader import Reader, ReaderList
-    from pyzkaccess.event import EventLog
+from pyzkaccess.event import EventLog
+from pyzkaccess.reader import Reader, ReaderList
 
 
 class TestReader:

@@ -1,7 +1,7 @@
 __all__ = [
     'ZKAccess'
 ]
-import ctypes
+import pyzkaccess.ctypes as ctypes
 from typing import Optional, Sequence
 
 from .aux_input import AuxInput, AuxInputList

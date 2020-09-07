@@ -1,17 +1,16 @@
 from itertools import zip_longest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock
 
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.door import Door, DoorList
-    from pyzkaccess.event import EventLog
-    from pyzkaccess.relay import Relay, RelayList
-    from pyzkaccess.enum import RelayGroup
-    from pyzkaccess.reader import Reader, ReaderList
-    from pyzkaccess.aux_input import AuxInput, AuxInputList
-    from pyzkaccess.param import DoorParameters
-    from pyzkaccess.device import ZK200
+from pyzkaccess.aux_input import AuxInput, AuxInputList
+from pyzkaccess.device import ZK200
+from pyzkaccess.door import Door, DoorList
+from pyzkaccess.enum import RelayGroup
+from pyzkaccess.event import EventLog
+from pyzkaccess.param import DoorParameters
+from pyzkaccess.reader import Reader, ReaderList
+from pyzkaccess.relay import Relay, RelayList
 
 
 class TestDoor:

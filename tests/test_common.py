@@ -1,10 +1,8 @@
-from unittest.mock import patch
 from copy import copy, deepcopy
 
 import pytest
 
-with patch('ctypes.WinDLL', create=True):
-    from pyzkaccess.common import DocValue, DocDict
+from pyzkaccess.common import DocValue, DocDict
 
 
 class TestDocValue:
