@@ -6,7 +6,7 @@ import itertools
 import time
 from collections import deque
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, List, Iterable, Union, Sequence
 
 from .common import DocValue
@@ -52,7 +52,8 @@ class Event:
         )
         return msg
 
-    def parse(self, event_line: str) -> Sequence[str]:
+    @staticmethod
+    def parse(event_line: str) -> Sequence[str]:
         """
         Parse raw event string
         :param event_line: event string

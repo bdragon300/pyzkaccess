@@ -7,7 +7,7 @@ from copy import copy, deepcopy
 from typing import Sequence, Union, Iterable
 
 from wrapt import ObjectProxy
-from wrapt.wrappers import _ObjectProxyMetaType
+from wrapt.wrappers import _ObjectProxyMetaType  # noqa
 
 
 class UserTuple:
@@ -24,10 +24,10 @@ class UserTuple:
                 self.data = tuple(initlist)
 
     def __repr__(self): return repr(self.data)
-    def __lt__(self, other): return self.data <  self.__cast(other)
+    def __lt__(self, other): return self.data <  self.__cast(other)  # noqa
     def __le__(self, other): return self.data <= self.__cast(other)
     def __eq__(self, other): return self.data == self.__cast(other)
-    def __gt__(self, other): return self.data >  self.__cast(other)
+    def __gt__(self, other): return self.data >  self.__cast(other)  # noqa
     def __ge__(self, other): return self.data >= self.__cast(other)
 
     def __cast(self, other):
