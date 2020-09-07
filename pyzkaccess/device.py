@@ -96,7 +96,7 @@ class ZK200(ZKModel):
     relays = 4
     relays_def = (1, 2, 1, 2)
     groups_def = (RelayGroup.aux, RelayGroup.aux, RelayGroup.lock, RelayGroup.lock)
-    readers_def = (1, 2)
+    readers_def = (1, 2)  # FIXME: fix ZKAccess.doors for C3-200
     doors_def = (1, 2)
     aux_inputs_def = (1, 2)
     anti_passback_rules = DocDict({
@@ -120,9 +120,9 @@ class ZK100(ZKModel):
     relays = 2
     relays_def = (1, 2)
     groups_def = (RelayGroup.aux, RelayGroup.lock)
-    readers_def = (1, )
+    readers_def = (1, )  # FIXME: fix ZKAccess.doors for C3-100
     doors_def = (1, )
-    aux_inputs_def = (1, )
+    aux_inputs_def = (1, )  # FIXME: fix ZKAccess.doors for C3-100
     anti_passback_rules = DocDict({
         0: 'Anti-passback disabled',
         1: 'Enable the anti-passback function between the readers of Door1 (two-way)',

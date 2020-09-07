@@ -148,15 +148,19 @@ class DocDict(dict):
     As initial value DocDict accepts a dictionary where dict key is
     an exposed value and dict value is docstring.
 
-    >>> d = DocDict({1: 'Docstring 1', 2: 'Docstring 2'})
-    >>> print(d[1])
-    1
-    >>> print(type(d[1]))
-    DocValue
-    >>> assert d[1] == 1
-    True
-    >>> print(d[1].__doc__)
-    Docstring 1
+        >>> d = DocDict({1: 'Docstring 1', '2': 'Docstring 2'})
+        >>> print(repr(d[1]), repr(d['2']))
+        1 '2'
+        >>> print(type(d[1]), type(d['2']))
+        <class 'DocValue'> <class 'DocValue'>
+        >>> print(d[1] == 1)
+        True
+        >>> print(d['2'] == '2')
+        True
+        >>> print(isinstance(d[1], int), isinstance(d['2'], str))
+        True True
+        >>> print(d[1].__doc__, ',', d['2'].__doc__)
+        Docstring 1 , Docstring 2
     """
     def __init__(self, initdict: dict):
         super().__init__({k: DocValue(k, v) for k, v in initdict.items()})

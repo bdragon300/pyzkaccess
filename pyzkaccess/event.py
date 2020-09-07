@@ -176,9 +176,23 @@ class EventLog:
     def only(self, **filters) -> 'EventLog':
         """
         Return new EventLog instance with given filters applied.
-        Filter names are applied to Event objects as attribute
-        equal. So filter names are limited by available Event
-        attributes.
+        Kwargs names must be the same as Event slots.
+
+        Event log returned by this method will contain entries in
+        which attribute value is contained in appropriate filter
+        (if any).
+
+        Filters passed here will be ANDed during comparison. On
+        repeatable call of only, given filters which was also set
+        on previous call will be ORed, i.e. their values will be
+        concatenated.
+
+        In other words:
+
+        ```log.only(a=2, b=['x', 'y'])` => filtering(entry.a == 2 AND entry.b in ('x', 'y'))```
+
+        ```log.only(a=2, b=['x', 'y']).only(a=3, b=5, c=1) =>
+            filtering(entry.a in (2, 3) AND entry.b in ('x', 'y', 5) and entry.c == 1)```
 
         Ex: `new_log = log.only(door=1, event_type=221)`
         :param filters:
