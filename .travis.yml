@@ -1,0 +1,24 @@
+language: python
+python:
+  - '3.5'
+  - '3.6'
+  - '3.7'
+  - '3.8'
+
+install:
+  - pip install setuptools tox
+
+script:
+  - tox
+
+jobs:
+  include:
+  - stage: deploy
+    script: skip
+    deploy:
+      provider: pypi
+      username: "__token__"
+      password: $PYPI_TOKEN
+      on:
+        tags: true
+        branch: master
