@@ -11,10 +11,14 @@ install:
 script:
   - tox
 
+after_success:
+  - "bash <(curl -s https://codecov.io/bash)"
+
 jobs:
   include:
   - stage: deploy
     script: skip
+    after_success: skip
     deploy:
       provider: pypi
       username: "__token__"
@@ -22,5 +26,3 @@ jobs:
       on:
         tags: true
         branch: master
-  - stage: codecov
-    script: "bash <(curl -s https://codecov.io/bash)"
