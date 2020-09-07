@@ -6,6 +6,13 @@ from pyzkaccess.enum import ControlOperation
 from pyzkaccess.exceptions import ZKSDKError
 
 
+def _alpha_sorted_keys(length, range_from, range_to):
+    """Test util which returns sorted alphabetically numbers range
+    as strings
+    """
+    return list(sorted(str(x) for x in range(length)))[range_from:range_to]
+
+
 class TestZKSDK:
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -322,16 +329,17 @@ class TestZKSDK:
 
     @pytest.mark.parametrize('parameters,query_calls', (
         ({'q1': 'v1'}, [b'q1=v1']),
+        # NOTE: set_device_param sorts alphabetically incoming parameters
         (
             {'q{}'.format(x): 'v{}'.format(x) for x in range(15)},
-            [','.join('q{0}=v{0}'.format(x) for x in range(15)).encode()],
+            [','.join('q{0}=v{0}'.format(x) for x in _alpha_sorted_keys(15, None, None)).encode()]
         ),
         (
             {'q{}'.format(x): 'v{}'.format(x) for x in range(45)},
             [
-                ','.join('q{0}=v{0}'.format(x) for x in range(20)).encode(),
-                ','.join('q{0}=v{0}'.format(x) for x in range(20, 40)).encode(),
-                ','.join('q{0}=v{0}'.format(x) for x in range(40, 45)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in _alpha_sorted_keys(45, 0, 20)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in _alpha_sorted_keys(45, 20, 40)).encode(),
+                ','.join('q{0}=v{0}'.format(x) for x in _alpha_sorted_keys(45, 40, 45)).encode(),
             ]
         ),
     ))

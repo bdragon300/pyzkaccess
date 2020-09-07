@@ -182,7 +182,7 @@ class ZKSDK:
 
         # Device can accept maximum 20 parameters for one call. See SDK
         #  docs. So send them in loop by bunches of 20 items
-        keys = list(parameters.keys())
+        keys = list(sorted(parameters.keys()))
         while keys:
             query_keys = keys[:20]
             query = ','.join('{}={}'.format(k, parameters[k]) for k in query_keys).encode()
