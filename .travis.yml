@@ -18,7 +18,6 @@ jobs:
   include:
   - stage: deploy
     script: skip
-    after_success: skip
     deploy:
       provider: pypi
       username: "__token__"
