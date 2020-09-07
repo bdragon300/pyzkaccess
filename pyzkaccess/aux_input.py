@@ -1,3 +1,7 @@
+__all__ = [
+    'AuxInput',
+    'AuxInputList'
+]
 from abc import ABCMeta, abstractmethod
 from typing import Iterable
 

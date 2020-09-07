@@ -1,3 +1,7 @@
+__all__ = [
+    'Event',
+    'EventLog'
+]
 import itertools
 import time
 from collections import deque

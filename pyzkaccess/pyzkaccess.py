@@ -1,3 +1,6 @@
+__all__ = [
+    'ZKAccess'
+]
 import ctypes
 from typing import Optional, Sequence
 

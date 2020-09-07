@@ -1,3 +1,6 @@
+__all__ = [
+    'ZKSDK'
+]
 import ctypes
 from typing import Sequence, Mapping, Any
 

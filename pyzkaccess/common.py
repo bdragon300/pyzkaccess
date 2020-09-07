@@ -1,3 +1,8 @@
+__all__ = [
+    'UserTuple',
+    'DocValue',
+    'DocDict'
+]
 from copy import copy, deepcopy
 from typing import Sequence, Union, Iterable
 
