@@ -1,0 +1,1171 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+    <title>Pyzkaccess &mdash; pyzkaccess</title>
+
+    <link rel="shortcut icon" href="../../../img/favicon.ico">
+    <link rel="stylesheet" href="../../../css/alabaster.css" type="text/css">
+    <link rel="stylesheet" href="../../../css/alabaster-overrides.css" type="text/css">
+
+    
+
+    
+      <script src="../../../search/main.js"></script>
+    
+
+    
+
+    <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+    
+  
+</head>
+<body>
+
+  <div class="document">
+    <div class="documentwrapper">
+      <div class="bodywrapper">
+        <div class="body" role="main">
+          
+            <h1 id="module-pyzkaccesspyzkaccess">Module pyzkaccess.pyzkaccess</h1>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+
+    <span class="s1">&#39;ZKAccess&#39;</span>
+
+<span class="p">]</span>
+
+<span class="kn">import</span> <span class="nn">pyzkaccess.ctypes</span> <span class="kn">as</span> <span class="nn">ctypes</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span> <span class="nn">.aux_input</span> <span class="kn">import</span> <span class="n">AuxInput</span><span class="p">,</span> <span class="n">AuxInputList</span>
+
+<span class="kn">from</span> <span class="nn">.device</span> <span class="kn">import</span> <span class="n">ZKModel</span><span class="p">,</span> <span class="n">ZK400</span><span class="p">,</span> <span class="n">ZKDevice</span>
+
+<span class="kn">from</span> <span class="nn">.door</span> <span class="kn">import</span> <span class="n">Door</span><span class="p">,</span> <span class="n">DoorList</span>
+
+<span class="kn">from</span> <span class="nn">.enum</span> <span class="kn">import</span> <span class="n">ControlOperation</span>
+
+<span class="kn">from</span> <span class="nn">.event</span> <span class="kn">import</span> <span class="n">EventLog</span>
+
+<span class="kn">from</span> <span class="nn">.param</span> <span class="kn">import</span> <span class="n">DeviceParameters</span><span class="p">,</span> <span class="n">DoorParameters</span>
+
+<span class="kn">from</span> <span class="nn">.reader</span> <span class="kn">import</span> <span class="n">Reader</span><span class="p">,</span> <span class="n">ReaderList</span>
+
+<span class="kn">from</span> <span class="nn">.relay</span> <span class="kn">import</span> <span class="n">Relay</span><span class="p">,</span> <span class="n">RelayList</span>
+
+<span class="kn">import</span> <span class="nn">pyzkaccess.sdk</span>
+
+<span class="k">class</span> <span class="nc">ZKAccess</span><span class="p">:</span>
+
+    <span class="sd">&quot;&quot;&quot;Interface to a connected device&quot;&quot;&quot;</span>
+
+    <span class="c1">#: Size in bytes of c-string buffer which is used to accept</span>
+
+    <span class="c1">#: text data from PULL SDK functions</span>
+
+    <span class="n">buffer_size</span> <span class="o">=</span> <span class="mi">4096</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+
+                 <span class="n">connstr</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+
+                 <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ZKDevice</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+
+                 <span class="n">device_model</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">ZKModel</span><span class="p">)</span> <span class="o">=</span> <span class="n">ZK400</span><span class="p">,</span>
+
+                 <span class="n">dllpath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">,</span>
+
+                 <span class="n">log_capacity</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param connstr: Connection string. If given then</span>
+
+<span class="sd">         we try to connect automatically to a device. Ex:</span>
+
+<span class="sd">         &#39;protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=&#39;</span>
+
+<span class="sd">        :param device: ZKDevice object to connect with. If</span>
+
+<span class="sd">         given then we try to connect automatically to a device</span>
+
+<span class="sd">        :param device_model: Device model. Default is C3-400</span>
+
+<span class="sd">        :param dllpath: Full path to plcommpro.dll</span>
+
+<span class="sd">        :param log_capacity: Mixumum capacity of events log. By default</span>
+
+<span class="sd">         size is not limited</span>
+
+<span class="sd">        :raises ZKSDKError: On connection error</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connstr</span> <span class="o">=</span> <span class="n">connstr</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span> <span class="o">=</span> <span class="n">device_model</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span> <span class="o">=</span> <span class="n">pyzkaccess</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">ZKSDK</span><span class="p">(</span><span class="n">dllpath</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span> <span class="o">=</span> <span class="n">EventLog</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_size</span><span class="p">,</span> <span class="n">maxlen</span><span class="o">=</span><span class="n">log_capacity</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">connstr</span><span class="p">:</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">connstr</span> <span class="o">=</span> \
+
+                    <span class="s1">&#39;protocol=TCP,ipaddress={},port=4370,timeout=4000,passwd=&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">device</span><span class="o">.</span><span class="n">ip</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">device_model</span><span class="p">:</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span> <span class="o">=</span> <span class="n">device</span><span class="o">.</span><span class="n">model</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">connstr</span><span class="p">:</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">connstr</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">doors</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Door object list, depends on device model.</span>
+
+<span class="sd">        Door object incapsulates access to appropriate relays, reader,</span>
+
+<span class="sd">        aux input, and also its events and parameters</span>
+
+<span class="sd">        You can work with one object as with a slice. E.g. switch_on</span>
+
+<span class="sd">        all relays of a door (`zk.doors[0].relays.switch_on(5)`) or</span>
+
+<span class="sd">        of a slice (`zk.doors[:2].relays.switch_on(5)`)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">mdl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span>
+
+        <span class="n">readers</span> <span class="o">=</span> <span class="p">(</span><span class="n">Reader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">mdl</span><span class="o">.</span><span class="n">readers_def</span><span class="p">)</span>
+
+        <span class="n">aux_inputs</span> <span class="o">=</span> <span class="p">(</span><span class="n">AuxInput</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">mdl</span><span class="o">.</span><span class="n">aux_inputs_def</span><span class="p">)</span>
+
+        <span class="n">relays</span> <span class="o">=</span> <span class="p">(</span><span class="n">Relay</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mdl</span><span class="o">.</span><span class="n">groups_def</span><span class="p">,</span> <span class="n">mdl</span><span class="o">.</span><span class="n">relays_def</span><span class="p">))</span>
+
+        <span class="n">door_relays</span> <span class="o">=</span> <span class="p">(</span>
+
+            <span class="n">RelayList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">relays</span><span class="o">=</span><span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">relays</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">number</span> <span class="o">==</span> <span class="n">door</span><span class="p">])</span>
+
+            <span class="k">for</span> <span class="n">door</span> <span class="ow">in</span> <span class="n">mdl</span><span class="o">.</span><span class="n">doors_def</span>
+
+        <span class="p">)</span>
+
+        <span class="n">params</span> <span class="o">=</span> <span class="p">(</span><span class="n">DoorParameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">device_model</span><span class="o">=</span><span class="n">mdl</span><span class="p">,</span> <span class="n">door_number</span><span class="o">=</span><span class="n">door</span><span class="p">)</span>
+
+                  <span class="k">for</span> <span class="n">door</span> <span class="ow">in</span> <span class="n">mdl</span><span class="o">.</span><span class="n">doors_def</span><span class="p">)</span>
+
+        <span class="n">seq</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mdl</span><span class="o">.</span><span class="n">doors_def</span><span class="p">,</span> <span class="n">door_relays</span><span class="p">,</span> <span class="n">readers</span><span class="p">,</span> <span class="n">aux_inputs</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+        <span class="n">doors</span> <span class="o">=</span> <span class="p">[</span><span class="n">Door</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">door</span><span class="p">,</span> <span class="n">relays</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">aux_input</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+
+                 <span class="k">for</span> <span class="n">door</span><span class="p">,</span> <span class="n">relays</span><span class="p">,</span> <span class="n">reader</span><span class="p">,</span> <span class="n">aux_input</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">seq</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">DoorList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">event_log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">doors</span><span class="o">=</span><span class="n">doors</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">relays</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;RelayList&#39;</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Relay object list, depends on device model</span>
+
+<span class="sd">        You can work with one object as with a slice. E.g. switch on</span>
+
+<span class="sd">        a single relay (`zk.relays[0].switch_on(5)`) or a slice</span>
+
+<span class="sd">        (`zk.relays[:2].switch_on(5)`)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">mdl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span>
+
+        <span class="n">relays</span> <span class="o">=</span> <span class="p">[</span><span class="n">Relay</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mdl</span><span class="o">.</span><span class="n">groups_def</span><span class="p">,</span> <span class="n">mdl</span><span class="o">.</span><span class="n">relays_def</span><span class="p">)]</span>
+
+        <span class="k">return</span> <span class="n">RelayList</span><span class="p">(</span><span class="n">sdk</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">relays</span><span class="o">=</span><span class="n">relays</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">readers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;ReaderList&#39;</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Reader object list, depends on device model</span>
+
+<span class="sd">        You can work with one object as with a slice. E.g. get events</span>
+
+<span class="sd">        of single reader (`zk.readers[0].events`) or a slice</span>
+
+<span class="sd">        (`zk.readers[:2].events`)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">Reader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span><span class="o">.</span><span class="n">readers_def</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">ReaderList</span><span class="p">(</span><span class="n">sdk</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">event_log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">readers</span><span class="o">=</span><span class="n">readers</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">aux_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Aux input object list, depends on device model</span>
+
+<span class="sd">        You can work with one object as with a slice. E.g. get events</span>
+
+<span class="sd">        of single input (`zk.aux_inputs[0].events`) or a slice</span>
+
+<span class="sd">        (`zk.aux_inputs[:2].events`)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">mdl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span>
+
+        <span class="n">aux_inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">AuxInput</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">mdl</span><span class="o">.</span><span class="n">aux_inputs_def</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">AuxInputList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="n">event_log</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span><span class="p">,</span> <span class="n">aux_inputs</span><span class="o">=</span><span class="n">aux_inputs</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">events</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;EventLog&#39;</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Device event log.</span>
+
+<span class="sd">        This property returns all records pulled from a device.</span>
+
+<span class="sd">        Keep in mind that log is not filled out automatically and</span>
+
+<span class="sd">        should be refreshed periodically by hand using `refresh()`</span>
+
+<span class="sd">        method. This is because working with ZKAccess has</span>
+
+<span class="sd">        request-response nature and cannot up a tunnel which may be</span>
+
+<span class="sd">        used to feed events.</span>
+
+<span class="sd">        But you can use `poll()` method which awaits new events from</span>
+
+<span class="sd">        a device and return them if any.</span>
+
+<span class="sd">        Doors, inputs, readers have their own `events` property. Those</span>
+
+<span class="sd">        properties just filters the same event log instance and</span>
+
+<span class="sd">        return entries related to requested object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_event_log</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Parameters related to the whole device such as datetime,</span>
+
+<span class="sd">        connection settings and so forth. Door-specific parameters are</span>
+
+<span class="sd">        accesible by `doors` property.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">DeviceParameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_model</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ZKDevice</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Current device object we connected with&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">:</span>
+
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Cannot create device while not connected&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ZKDevice</span><span class="p">(</span><span class="n">mac</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+
+                        <span class="n">ip</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">ip_address</span><span class="p">,</span>
+
+                        <span class="n">serial_number</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">serial_number</span><span class="p">,</span>
+
+                        <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">device_model</span><span class="p">,</span>
+
+                        <span class="n">version</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">dll_object</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">WinDLL</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;DLL object (`ctypes.WinDLL`). Read only.&quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">dll</span>
+
+    <span class="nd">@property</span>
+
+    <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+
+        <span class="sd">&quot;&quot;&quot;Device handle. `None` if there is no active connection.</span>
+
+<span class="sd">        Read only.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">handle</span>
+
+    <span class="nd">@classmethod</span>
+
+    <span class="k">def</span> <span class="nf">search_devices</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span>
+
+                       <span class="n">broadcast_address</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;255.255.255.255&#39;</span><span class="p">,</span>
+
+                       <span class="n">dllpath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ZKDevice</span><span class="p">]:</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Classmethod which scans an Ethernet network with given</span>
+
+<span class="sd">        broadcast address and returns all found ZK devices.</span>
+
+<span class="sd">        Please keep in mind that process sends broadcast packets to</span>
+
+<span class="sd">        perform a search which are not passed through routers. So you&#39;ll</span>
+
+<span class="sd">        get results only for local network segment.</span>
+
+<span class="sd">        The default broadcast address may not work in some cases, so</span>
+
+<span class="sd">        it&#39;s better to specify your local network broadcast address.</span>
+
+<span class="sd">        For example, if your ip is `192.168.22.123` and netmask is</span>
+
+<span class="sd">        `255.255.255.0` or `/24` so address will be `192.168.22.255`.</span>
+
+<span class="sd">        Returned objects can be used as `device=` parameter in</span>
+
+<span class="sd">        constructor.</span>
+
+<span class="sd">        :param broadcast_address: your local segment broadcast address</span>
+
+<span class="sd">         as string. Default is &#39;255.255.255.255&#39;</span>
+
+<span class="sd">        :param dllpath: path to a PULL SDK DLL. Default: &#39;plcommpro.dll&#39;</span>
+
+<span class="sd">        :return: iterable of found ZKDevice</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">sdk</span> <span class="o">=</span> <span class="n">pyzkaccess</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">ZKSDK</span><span class="p">(</span><span class="n">dllpath</span><span class="p">)</span>
+
+        <span class="n">devices</span> <span class="o">=</span> <span class="n">sdk</span><span class="o">.</span><span class="n">search_device</span><span class="p">(</span><span class="n">broadcast_address</span><span class="p">,</span> <span class="bp">cls</span><span class="o">.</span><span class="n">buffer_size</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">ZKDevice</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">devices</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connstr</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Connect to a device using connection string, ex:</span>
+
+<span class="sd">        &#39;protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=&#39;</span>
+
+<span class="sd">        :param connstr: device connection string</span>
+
+<span class="sd">        :return:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="n">connstr</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">connstr</span><span class="p">:</span>
+
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Please disconnect before connecting with other connstr&#39;</span><span class="p">)</span>
+
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">connstr</span> <span class="o">=</span> <span class="n">connstr</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">connstr</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Disconnect from a device&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">restart</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Restart a device&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">control_device</span><span class="p">(</span><span class="n">ControlOperation</span><span class="o">.</span><span class="n">restart</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_val</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+</code></pre></div>
+
+
+</details>
+<h2 id="classes">Classes</h2>
+<h3 id="zkaccess">ZKAccess</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">ZKAccess</span><span class="p">(</span>
+    <span class="n">connstr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pyzkaccess</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">ZKDevice</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device_model</span><span class="p">:</span> <span class="nb">type</span> <span class="o">=</span> <span class="o">&lt;</span><span class="k">class</span> <span class="err">&#39;</span><span class="nc">pyzkaccess</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">ZK400</span><span class="s1">&#39;&gt;,</span>
+    <span class="n">dllpath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">,</span>
+    <span class="n">log_capacity</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span>
+</code></pre></div>
+
+
+<p>Interface to a connected device</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nl">ZKAccess</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">    </span><span class="ss">&quot;&quot;&quot;Interface to a connected device&quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">    </span><span class="err">#:</span><span class="w"> </span><span class="k">Size</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="n">c</span><span class="o">-</span><span class="n">string</span><span class="w"> </span><span class="n">buffer</span><span class="w"> </span><span class="n">which</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">used</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">accept</span><span class="w"></span>
+
+<span class="w">    </span><span class="err">#:</span><span class="w"> </span><span class="nc">text</span><span class="w"> </span><span class="k">data</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">PULL</span><span class="w"> </span><span class="n">SDK</span><span class="w"> </span><span class="n">functions</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">buffer_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                 </span><span class="nl">connstr</span><span class="p">:</span><span class="w"> </span><span class="n">Optional</span><span class="o">[</span><span class="n">str</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">None</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                 </span><span class="nl">device</span><span class="p">:</span><span class="w"> </span><span class="n">Optional</span><span class="o">[</span><span class="n">ZKDevice</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">None</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                 </span><span class="nl">device_model</span><span class="p">:</span><span class="w"> </span><span class="n">type</span><span class="p">(</span><span class="n">ZKModel</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ZK400</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                 </span><span class="nl">dllpath</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                 </span><span class="nl">log_capacity</span><span class="p">:</span><span class="w"> </span><span class="n">Optional</span><span class="o">[</span><span class="n">int</span><span class="o">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">None</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        :param connstr: Connection string. If given then</span>
+
+<span class="ss">         we try to connect automatically to a device. Ex:</span>
+
+<span class="ss">         &#39;protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=&#39;</span>
+
+<span class="ss">        :param device: ZKDevice object to connect with. If</span>
+
+<span class="ss">         given then we try to connect automatically to a device</span>
+
+<span class="ss">        :param device_model: Device model. Default is C3-400</span>
+
+<span class="ss">        :param dllpath: Full path to plcommpro.dll</span>
+
+<span class="ss">        :param log_capacity: Mixumum capacity of events log. By default</span>
+
+<span class="ss">         size is not limited</span>
+
+<span class="ss">        :raises ZKSDKError: On connection error</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">connstr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">connstr</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device_model</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pyzkaccess</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">ZKSDK</span><span class="p">(</span><span class="n">dllpath</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">_device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EventLog</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">buffer_size</span><span class="p">,</span><span class="w"> </span><span class="n">maxlen</span><span class="o">=</span><span class="n">log_capacity</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nl">device</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nl">connstr</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">                </span><span class="n">self</span><span class="p">.</span><span class="n">connstr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="err">\</span><span class="w"></span>
+
+<span class="w">                    </span><span class="s1">&#39;protocol=TCP,ipaddress={},port=4370,timeout=4000,passwd=&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="n">device</span><span class="p">.</span><span class="n">ip</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nl">device_model</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">                </span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">model</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="nl">connstr</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">self</span><span class="p">.</span><span class="k">connect</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">connstr</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">doors</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Door object list, depends on device model.</span>
+
+<span class="ss">        Door object incapsulates access to appropriate relays, reader,</span>
+
+<span class="ss">        aux input, and also its events and parameters</span>
+
+<span class="ss">        You can work with one object as with a slice. E.g. switch_on</span>
+
+<span class="ss">        all relays of a door (`zk.doors[0].relays.switch_on(5)`) or</span>
+
+<span class="ss">        of a slice (`zk.doors[:2].relays.switch_on(5)`)</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">mdl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">readers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">Reader</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">mdl</span><span class="p">.</span><span class="n">readers_def</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">aux_inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">AuxInput</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">mdl</span><span class="p">.</span><span class="n">aux_inputs_def</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">relays</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">Relay</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">zip</span><span class="p">(</span><span class="n">mdl</span><span class="p">.</span><span class="n">groups_def</span><span class="p">,</span><span class="w"> </span><span class="n">mdl</span><span class="p">.</span><span class="n">relays_def</span><span class="p">))</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">door_relays</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">RelayList</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">relays</span><span class="o">=[</span><span class="n">x for x in relays if x.number == door</span><span class="o">]</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="n">door</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">mdl</span><span class="p">.</span><span class="n">doors_def</span><span class="w"></span>
+
+<span class="w">        </span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">DoorParameters</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">device_model</span><span class="o">=</span><span class="n">mdl</span><span class="p">,</span><span class="w"> </span><span class="n">door_number</span><span class="o">=</span><span class="n">door</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">                  </span><span class="k">for</span><span class="w"> </span><span class="n">door</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">mdl</span><span class="p">.</span><span class="n">doors_def</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">seq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zip</span><span class="p">(</span><span class="n">mdl</span><span class="p">.</span><span class="n">doors_def</span><span class="p">,</span><span class="w"> </span><span class="n">door_relays</span><span class="p">,</span><span class="w"> </span><span class="n">readers</span><span class="p">,</span><span class="w"> </span><span class="n">aux_inputs</span><span class="p">,</span><span class="w"> </span><span class="n">params</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">doors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">Door(self.sdk, self._event_log, door, relays, reader, aux_input, params)</span>
+
+<span class="n">                 for door, relays, reader, aux_input, params in seq</span><span class="o">]</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">DoorList</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">event_log</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="p">,</span><span class="w"> </span><span class="n">doors</span><span class="o">=</span><span class="n">doors</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">relays</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;RelayList&#39;</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Relay object list, depends on device model</span>
+
+<span class="ss">        You can work with one object as with a slice. E.g. switch on</span>
+
+<span class="ss">        a single relay (`zk.relays[0].switch_on(5)`) or a slice</span>
+
+<span class="ss">        (`zk.relays[:2].switch_on(5)`)</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">mdl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">relays</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)</span><span class="o">]</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">RelayList</span><span class="p">(</span><span class="n">sdk</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">relays</span><span class="o">=</span><span class="n">relays</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">readers</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;ReaderList&#39;</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Reader object list, depends on device model</span>
+
+<span class="ss">        You can work with one object as with a slice. E.g. get events</span>
+
+<span class="ss">        of single reader (`zk.readers[0].events`) or a slice</span>
+
+<span class="ss">        (`zk.readers[:2].events`)</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">readers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def</span><span class="o">]</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ReaderList</span><span class="p">(</span><span class="n">sdk</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">event_log</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="p">,</span><span class="w"> </span><span class="n">readers</span><span class="o">=</span><span class="n">readers</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">aux_inputs</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Aux input object list, depends on device model</span>
+
+<span class="ss">        You can work with one object as with a slice. E.g. get events</span>
+
+<span class="ss">        of single input (`zk.aux_inputs[0].events`) or a slice</span>
+
+<span class="ss">        (`zk.aux_inputs[:2].events`)</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">mdl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">aux_inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">[</span><span class="n">AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def</span><span class="o">]</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">AuxInputList</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">event_log</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="p">,</span><span class="w"> </span><span class="n">aux_inputs</span><span class="o">=</span><span class="n">aux_inputs</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">events</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;EventLog&#39;</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Device event log.</span>
+
+<span class="ss">        This property returns all records pulled from a device.</span>
+
+<span class="ss">        Keep in mind that log is not filled out automatically and</span>
+
+<span class="ss">        should be refreshed periodically by hand using `refresh()`</span>
+
+<span class="ss">        method. This is because working with ZKAccess has</span>
+
+<span class="ss">        request-response nature and cannot up a tunnel which may be</span>
+
+<span class="ss">        used to feed events.</span>
+
+<span class="ss">        But you can use `poll()` method which awaits new events from</span>
+
+<span class="ss">        a device and return them if any.</span>
+
+<span class="ss">        Doors, inputs, readers have their own `events` property. Those</span>
+
+<span class="ss">        properties just filters the same event log instance and</span>
+
+<span class="ss">        return entries related to requested object.</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_event_log</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="k">parameters</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Parameters related to the whole device such as datetime,</span>
+
+<span class="ss">        connection settings and so forth. Door-specific parameters are</span>
+
+<span class="ss">        accesible by `doors` property.</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">DeviceParameters</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">device</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nl">ZKDevice</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Current device object we connected with&quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="nl">_device</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_device</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="nl">is_connected</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">raise</span><span class="w"> </span><span class="n">RuntimeError</span><span class="p">(</span><span class="s1">&#39;Cannot create device while not connected&#39;</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ZKDevice</span><span class="p">(</span><span class="n">mac</span><span class="o">=</span><span class="k">None</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                        </span><span class="n">ip</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="k">parameters</span><span class="p">.</span><span class="n">ip_address</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                        </span><span class="n">serial_number</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="k">parameters</span><span class="p">.</span><span class="n">serial_number</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                        </span><span class="n">model</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">device_model</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                        </span><span class="n">version</span><span class="o">=</span><span class="k">None</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">dll_object</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">ctypes</span><span class="p">.</span><span class="nl">WinDLL</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;DLL object (`ctypes.WinDLL`). Read only.&quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">dll</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">handle</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Optional</span><span class="o">[</span><span class="n">int</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Device handle. `None` if there is no active connection.</span>
+
+<span class="ss">        Read only.</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">handle</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@classmethod</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">search_devices</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                       </span><span class="nl">broadcast_address</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;255.255.255.255&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                       </span><span class="nl">dllpath</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">Sequence</span><span class="o">[</span><span class="n">ZKDevice</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Classmethod which scans an Ethernet network with given</span>
+
+<span class="ss">        broadcast address and returns all found ZK devices.</span>
+
+<span class="ss">        Please keep in mind that process sends broadcast packets to</span>
+
+<span class="ss">        perform a search which are not passed through routers. So you&#39;ll</span>
+
+<span class="ss">        get results only for local network segment.</span>
+
+<span class="ss">        The default broadcast address may not work in some cases, so</span>
+
+<span class="ss">        it&#39;s better to specify your local network broadcast address.</span>
+
+<span class="ss">        For example, if your ip is `192.168.22.123` and netmask is</span>
+
+<span class="ss">        `255.255.255.0` or `/24` so address will be `192.168.22.255`.</span>
+
+<span class="ss">        Returned objects can be used as `device=` parameter in</span>
+
+<span class="ss">        constructor.</span>
+
+<span class="ss">        :param broadcast_address: your local segment broadcast address</span>
+
+<span class="ss">         as string. Default is &#39;255.255.255.255&#39;</span>
+
+<span class="ss">        :param dllpath: path to a PULL SDK DLL. Default: &#39;plcommpro.dll&#39;</span>
+
+<span class="ss">        :return: iterable of found ZKDevice</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">sdk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pyzkaccess</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">ZKSDK</span><span class="p">(</span><span class="n">dllpath</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sdk</span><span class="p">.</span><span class="n">search_device</span><span class="p">(</span><span class="n">broadcast_address</span><span class="p">,</span><span class="w"> </span><span class="n">cls</span><span class="p">.</span><span class="n">buffer_size</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">tuple</span><span class="p">(</span><span class="n">ZKDevice</span><span class="p">(</span><span class="n">line</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">devices</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="k">connect</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="nl">connstr</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">None</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Connect to a device using connection string, ex:</span>
+
+<span class="ss">        &#39;protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=&#39;</span>
+
+<span class="ss">        :param connstr: device connection string</span>
+
+<span class="ss">        :return:</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="nl">is_connected</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">if</span><span class="w"> </span><span class="n">connstr</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="nl">connstr</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">                </span><span class="n">raise</span><span class="w"> </span><span class="n">ValueError</span><span class="p">(</span><span class="s1">&#39;Please disconnect before connecting with other connstr&#39;</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">return</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">connstr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">connstr</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="k">connect</span><span class="p">(</span><span class="n">connstr</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="k">disconnect</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">None</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Disconnect from a device&quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="k">disconnect</span><span class="p">()</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">restart</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">None</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;Restart a device&quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">control_device</span><span class="p">(</span><span class="n">ControlOperation</span><span class="p">.</span><span class="n">restart</span><span class="p">.</span><span class="k">value</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__enter__</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">self</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__exit__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">exc_type</span><span class="p">,</span><span class="w"> </span><span class="n">exc_val</span><span class="p">,</span><span class="w"> </span><span class="n">exc_tb</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="nl">is_connected</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">self</span><span class="p">.</span><span class="k">disconnect</span><span class="p">()</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<hr />
+<h4 id="class-variables">Class variables</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">buffer_size</span>
+</code></pre></div>
+
+
+<h4 id="static-methods">Static methods</h4>
+<h5 id="search_devices">search_devices</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">search_devices</span><span class="p">(</span>
+    <span class="n">broadcast_address</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;255.255.255.255&#39;</span><span class="p">,</span>
+    <span class="n">dllpath</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;plcommpro.dll&#39;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">pyzkaccess</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">ZKDevice</span><span class="p">]</span>
+</code></pre></div>
+
+
+<p>Classmethod which scans an Ethernet network with given
+broadcast address and returns all found ZK devices.</p>
+<p>Please keep in mind that process sends broadcast packets to
+perform a search which are not passed through routers. So you'll
+get results only for local network segment.</p>
+<p>The default broadcast address may not work in some cases, so
+it's better to specify your local network broadcast address.
+For example, if your ip is <code>192.168.22.123</code> and netmask is
+<code>255.255.255.0</code> or <code>/24</code> so address will be <code>192.168.22.255</code>.</p>
+<p>Returned objects can be used as <code>device=</code> parameter in
+constructor.
+:param broadcast_address: your local segment broadcast address
+ as string. Default is '255.255.255.255'
+:param dllpath: path to a PULL SDK DLL. Default: 'plcommpro.dll'
+:return: iterable of found ZKDevice</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="nv">@classmethod</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">search_devices</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                       </span><span class="nl">broadcast_address</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;255.255.255.255&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">                       </span><span class="nl">dllpath</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">Sequence</span><span class="o">[</span><span class="n">ZKDevice</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Classmethod which scans an Ethernet network with given</span>
+
+<span class="ss">        broadcast address and returns all found ZK devices.</span>
+
+<span class="ss">        Please keep in mind that process sends broadcast packets to</span>
+
+<span class="ss">        perform a search which are not passed through routers. So you&#39;ll</span>
+
+<span class="ss">        get results only for local network segment.</span>
+
+<span class="ss">        The default broadcast address may not work in some cases, so</span>
+
+<span class="ss">        it&#39;s better to specify your local network broadcast address.</span>
+
+<span class="ss">        For example, if your ip is `192.168.22.123` and netmask is</span>
+
+<span class="ss">        `255.255.255.0` or `/24` so address will be `192.168.22.255`.</span>
+
+<span class="ss">        Returned objects can be used as `device=` parameter in</span>
+
+<span class="ss">        constructor.</span>
+
+<span class="ss">        :param broadcast_address: your local segment broadcast address</span>
+
+<span class="ss">         as string. Default is &#39;255.255.255.255&#39;</span>
+
+<span class="ss">        :param dllpath: path to a PULL SDK DLL. Default: &#39;plcommpro.dll&#39;</span>
+
+<span class="ss">        :return: iterable of found ZKDevice</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">sdk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pyzkaccess</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">ZKSDK</span><span class="p">(</span><span class="n">dllpath</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">devices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sdk</span><span class="p">.</span><span class="n">search_device</span><span class="p">(</span><span class="n">broadcast_address</span><span class="p">,</span><span class="w"> </span><span class="n">cls</span><span class="p">.</span><span class="n">buffer_size</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">tuple</span><span class="p">(</span><span class="n">ZKDevice</span><span class="p">(</span><span class="n">line</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">line</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">devices</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<h4 id="instance-variables">Instance variables</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">aux_inputs</span>
+</code></pre></div>
+
+
+<p>Aux input object list, depends on device model</p>
+<p>You can work with one object as with a slice. E.g. get events
+of single input (<code>zk.aux_inputs[0].events</code>) or a slice
+(<code>zk.aux_inputs[:2].events</code>)</p>
+<div class="codehilite"><pre><span></span><code><span class="n">device</span>
+</code></pre></div>
+
+
+<p>Current device object we connected with</p>
+<div class="codehilite"><pre><span></span><code><span class="n">dll_object</span>
+</code></pre></div>
+
+
+<p>DLL object (<code>ctypes.WinDLL</code>). Read only.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">doors</span>
+</code></pre></div>
+
+
+<p>Door object list, depends on device model.
+Door object incapsulates access to appropriate relays, reader,
+aux input, and also its events and parameters</p>
+<p>You can work with one object as with a slice. E.g. switch_on
+all relays of a door (<code>zk.doors[0].relays.switch_on(5)</code>) or
+of a slice (<code>zk.doors[:2].relays.switch_on(5)</code>)</p>
+<div class="codehilite"><pre><span></span><code><span class="n">events</span>
+</code></pre></div>
+
+
+<p>Device event log.</p>
+<p>This property returns all records pulled from a device.
+Keep in mind that log is not filled out automatically and
+should be refreshed periodically by hand using <code>refresh()</code>
+method. This is because working with ZKAccess has
+request-response nature and cannot up a tunnel which may be
+used to feed events.</p>
+<p>But you can use <code>poll()</code> method which awaits new events from
+a device and return them if any.</p>
+<p>Doors, inputs, readers have their own <code>events</code> property. Those
+properties just filters the same event log instance and
+return entries related to requested object.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">handle</span>
+</code></pre></div>
+
+
+<p>Device handle. <code>None</code> if there is no active connection.
+Read only.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">parameters</span>
+</code></pre></div>
+
+
+<p>Parameters related to the whole device such as datetime,
+connection settings and so forth. Door-specific parameters are
+accesible by <code>doors</code> property.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">readers</span>
+</code></pre></div>
+
+
+<p>Reader object list, depends on device model</p>
+<p>You can work with one object as with a slice. E.g. get events
+of single reader (<code>zk.readers[0].events</code>) or a slice
+(<code>zk.readers[:2].events</code>)</p>
+<div class="codehilite"><pre><span></span><code><span class="n">relays</span>
+</code></pre></div>
+
+
+<p>Relay object list, depends on device model</p>
+<p>You can work with one object as with a slice. E.g. switch on
+a single relay (<code>zk.relays[0].switch_on(5)</code>) or a slice
+(<code>zk.relays[:2].switch_on(5)</code>)</p>
+<h4 id="methods">Methods</h4>
+<h5 id="connect">connect</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">connect</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">connstr</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+
+<p>Connect to a device using connection string, ex:
+'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+:param connstr: device connection string
+:return:</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="n">def</span> <span class="k">connect</span><span class="p">(</span><span class="k">self</span><span class="p">,</span> <span class="n">connstr</span><span class="p">:</span> <span class="n">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="k">None</span><span class="p">:</span>
+
+        <span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Connect to a device using connection string, ex:</span>
+
+<span class="ss">        &#39;protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=&#39;</span>
+
+<span class="ss">        :param connstr: device connection string</span>
+
+<span class="ss">        :return:</span>
+
+<span class="ss">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="k">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">is_connected</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="n">connstr</span> <span class="o">!=</span> <span class="k">self</span><span class="p">.</span><span class="n">connstr</span><span class="p">:</span>
+
+                <span class="n">raise</span> <span class="n">ValueError</span><span class="p">(</span><span class="s1">&#39;Please disconnect before connecting with other connstr&#39;</span><span class="p">)</span>
+
+            <span class="k">return</span>
+
+        <span class="k">self</span><span class="p">.</span><span class="n">connstr</span> <span class="o">=</span> <span class="n">connstr</span>
+
+        <span class="k">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="k">connect</span><span class="p">(</span><span class="n">connstr</span><span class="p">)</span>
+</code></pre></div>
+
+
+</details>
+<h5 id="disconnect">disconnect</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">disconnect</span><span class="p">(</span>
+    <span class="bp">self</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+
+<p>Disconnect from a device</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="n">def</span> <span class="k">disconnect</span><span class="p">(</span><span class="k">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="k">None</span><span class="p">:</span>
+
+        <span class="ss">&quot;&quot;&quot;Disconnect from a device&quot;&quot;&quot;</span>
+
+        <span class="k">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="k">disconnect</span><span class="p">()</span>
+</code></pre></div>
+
+
+</details>
+<h5 id="restart">restart</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">restart</span><span class="p">(</span>
+    <span class="bp">self</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+
+<p>Restart a device</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="n">def</span> <span class="k">restart</span><span class="p">(</span><span class="k">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="k">None</span><span class="p">:</span>
+
+        <span class="ss">&quot;&quot;&quot;Restart a device&quot;&quot;&quot;</span>
+
+        <span class="k">self</span><span class="p">.</span><span class="n">sdk</span><span class="p">.</span><span class="n">control_device</span><span class="p">(</span><span class="n">ControlOperation</span><span class="p">.</span><span class="k">restart</span><span class="p">.</span><span class="n">value</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+
+
+</details>
+            
+          
+        </div>
+      </div>
+    </div>
+    <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebarwrapper">
+        
+          
+            
+  <h1 class="logo"><a href="../../..">pyzkaccess</a></h1>
+
+
+
+          
+            
+
+
+
+<h3>Table Of Contents</h3>
+
+<nav>
+  
+  
+    <ul>
+    
+      <li><a href="#classes">Classes</a></li>
+      <ul>
+    
+      <li><a href="#zkaccess">ZKAccess</a></li>
+      <ul>
+    
+      <li><a href="#class-variables">Class variables</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#static-methods">Static methods</a></li>
+      <ul>
+    
+      <li><a href="#search_devices">search_devices</a></li>
+      <ul>
+    
+  </ul>
+    
+  </ul>
+    
+      <li><a href="#instance-variables">Instance variables</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#methods">Methods</a></li>
+      <ul>
+    
+      <li><a href="#connect">connect</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#disconnect">disconnect</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#restart">restart</a></li>
+      <ul>
+    
+  </ul>
+    
+  </ul>
+    
+  </ul>
+    
+  </ul>
+    
+  </ul>
+  
+
+  
+</nav>
+          
+            
+  <h3>Related Topics</h3>
+  <ul>
+    
+      <li>Previous: <a href="../param/" title="previous chapter">
+        Param
+      </a></li>
+    
+    
+      <li>Next: <a href="../reader/" title="next chapter">
+        Reader
+      </a></li>
+    
+  </ul>
+
+          
+            <div id="searchbox" style="display: none;" role="search">
+  <h3>Quick search</h3>
+  <form class="search" action="../../../search.html" method="get">
+    <input name="q" type="text">
+    <input value="Go" type="submit">
+  </form>
+  <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+  </p>
+</div>
+<script type="text/javascript">
+  document.getElementById("searchbox").style.display = "block";
+</script>
+          
+        
+      </div>
+    </div>
+    <div class="clearer"></div>
+  </div>
+
+  
+    <div class="footer">
+      
+      
+        
+        Powered by <a href="http://www.mkdocs.org">mkdocs 1.1.2</a>
+        &amp; <a href="https://github.com/iamale/mkdocs-alabaster">mkdocs-alabaster</a>
+      
+    </div>
+  
+
+  <!--
+  MkDocs version      : 1.1.2
+  Docs Build Date UTC : 2020-09-07 22:00:27.554448+00:00
+  -->
+</body>
+</html>
