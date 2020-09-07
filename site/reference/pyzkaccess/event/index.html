@@ -1,0 +1,1527 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+    <title>Event &mdash; pyzkaccess</title>
+
+    <link rel="shortcut icon" href="../../../img/favicon.ico">
+    <link rel="stylesheet" href="../../../css/alabaster.css" type="text/css">
+    <link rel="stylesheet" href="../../../css/alabaster-overrides.css" type="text/css">
+
+    
+
+    
+      <script src="../../../search/main.js"></script>
+    
+
+    
+
+    <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+    
+  
+</head>
+<body>
+
+  <div class="document">
+    <div class="documentwrapper">
+      <div class="bodywrapper">
+        <div class="body" role="main">
+          
+            <h1 id="module-pyzkaccessevent">Module pyzkaccess.event</h1>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="k">__</span><span class="s s-Atom">all__</span> <span class="o">=</span> <span class="p">[</span>
+
+    <span class="s s-Atom">&#39;Event&#39;</span><span class="p">,</span>
+
+    <span class="s s-Atom">&#39;EventLog&#39;</span>
+
+<span class="p">]</span>
+
+<span class="s s-Atom">import</span> <span class="s s-Atom">itertools</span>
+
+<span class="s s-Atom">import</span> <span class="s s-Atom">time</span>
+
+<span class="s s-Atom">from</span> <span class="s s-Atom">collections</span> <span class="s s-Atom">import</span> <span class="s s-Atom">deque</span>
+
+<span class="s s-Atom">from</span> <span class="s s-Atom">copy</span> <span class="s s-Atom">import</span> <span class="s s-Atom">deepcopy</span>
+
+<span class="s s-Atom">from</span> <span class="s s-Atom">datetime</span> <span class="s s-Atom">import</span> <span class="s s-Atom">datetime</span>
+
+<span class="s s-Atom">from</span> <span class="s s-Atom">typing</span> <span class="s s-Atom">import</span> <span class="nv">Optional</span><span class="p">,</span> <span class="nv">List</span><span class="p">,</span> <span class="nv">Iterable</span><span class="p">,</span> <span class="nv">Union</span><span class="p">,</span> <span class="nv">Sequence</span>
+
+<span class="s s-Atom">from</span> <span class="p">.</span><span class="s s-Atom">common</span> <span class="s s-Atom">import</span> <span class="nv">DocValue</span>
+
+<span class="s s-Atom">from</span> <span class="p">.</span><span class="s s-Atom">enum</span> <span class="s s-Atom">import</span> <span class="nv">VerifyMode</span><span class="p">,</span> <span class="nv">PassageDirection</span><span class="p">,</span> <span class="nv">EVENT_TYPES</span>
+
+<span class="s s-Atom">from</span> <span class="p">.</span><span class="s s-Atom">sdk</span> <span class="s s-Atom">import</span> <span class="nv">ZKSDK</span>
+
+<span class="s s-Atom">class</span> <span class="nv">Event</span><span class="s s-Atom">:</span>
+
+    <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">    One realtime event occured on the device</span>
+
+<span class="s2">    Since the device returns event as string we need to parse it to the</span>
+
+<span class="s2">    structured view. This class does this.</span>
+
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="k">__</span><span class="s s-Atom">slots__</span> <span class="o">=</span> <span class="p">(</span>
+
+        <span class="s s-Atom">&#39;time&#39;</span><span class="p">,</span>
+
+        <span class="s s-Atom">&#39;pin&#39;</span><span class="p">,</span>
+
+        <span class="s s-Atom">&#39;card&#39;</span><span class="p">,</span>
+
+        <span class="s s-Atom">&#39;door&#39;</span><span class="p">,</span>
+
+        <span class="s s-Atom">&#39;event_type&#39;</span><span class="p">,</span>
+
+        <span class="s s-Atom">&#39;entry_exit&#39;</span><span class="p">,</span>
+
+        <span class="s s-Atom">&#39;verify_mode&#39;</span>
+
+    <span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">init__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">s</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        :param s: Event string to be parsed.</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">parsed</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="s s-Atom">s</span><span class="p">)</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">=</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">strptime</span><span class="p">(</span><span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s s-Atom">&#39;%Y-%m-%d %H:%M:%S&#39;</span><span class="p">)</span>  <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="s s-Atom">datetime</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">pin</span> <span class="o">=</span> <span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>   <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="s s-Atom">str</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">card</span> <span class="o">=</span> <span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>  <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="s s-Atom">str</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">door</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>  <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="s s-Atom">int</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">event_type</span> <span class="o">=</span> <span class="nv">EVENT_TYPES</span><span class="p">[</span><span class="nf">int</span><span class="p">(</span><span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">4</span><span class="p">])]</span>  <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="nv">DocValue</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">entry_exit</span> <span class="o">=</span> <span class="nv">PassageDirection</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">5</span><span class="p">]))</span>  <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="nv">PassageDirection</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">verify_mode</span> <span class="o">=</span> <span class="nv">VerifyMode</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="s s-Atom">parsed</span><span class="p">[</span><span class="mi">6</span><span class="p">]))</span>  <span class="s s-Atom">#</span> <span class="nn">type</span><span class="p">:</span> <span class="nv">VerifyMode</span>
+
+    <span class="s s-Atom">@property</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">description</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">str</span><span class="p">:</span>
+
+        <span class="s s-Atom">msg</span> <span class="o">=</span> <span class="s s-Atom">&#39;Event[{}]: &quot;{}&quot; at door &quot;{}&quot; for card &quot;{}&quot; -- {}&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span>
+
+            <span class="nf">str</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">time</span><span class="p">),</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">event_type</span><span class="p">.</span><span class="s s-Atom">doc</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">door</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">card</span><span class="p">,</span>
+
+            <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">entry_exit</span><span class="p">.</span><span class="s s-Atom">name</span><span class="p">.</span><span class="nf">capitalize</span><span class="p">()</span>
+
+        <span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">msg</span>
+
+    <span class="s s-Atom">@staticmethod</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">parse</span><span class="p">(</span><span class="s s-Atom">event_line:</span> <span class="s s-Atom">str</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Sequence</span><span class="p">[</span><span class="s s-Atom">str</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Parse raw event string</span>
+
+<span class="s2">        :param event_line: event string</span>
+
+<span class="s2">        :return: parsed string parts of event string</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">event_line</span> <span class="o">=</span> <span class="s s-Atom">event_line</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="s s-Atom">&#39;\r\n&#39;</span><span class="p">,</span> <span class="s s-Atom">&#39;&#39;</span><span class="p">)</span>
+
+        <span class="s s-Atom">items</span> <span class="o">=</span> <span class="s s-Atom">event_line</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="s s-Atom">&#39;,&#39;</span><span class="p">)</span>
+
+        <span class="s s-Atom">if</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">items</span><span class="p">)</span> <span class="p">!</span><span class="o">=</span> <span class="mi">7</span><span class="s s-Atom">:</span>
+
+            <span class="s s-Atom">raise</span> <span class="nv">ValueError</span><span class="p">(</span><span class="s2">&quot;Event string must have exactly 7 parts: {}&quot;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="s s-Atom">event_line</span><span class="p">))</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">items</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">eq__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">other</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="s s-Atom">other</span><span class="p">,</span> <span class="nv">Event</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+            <span class="s s-Atom">return</span> <span class="nf">all</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">attr</span><span class="p">)</span> <span class="o">==</span> <span class="nf">getattr</span><span class="p">(</span><span class="s s-Atom">other</span><span class="p">,</span> <span class="s s-Atom">attr</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">attr</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="s s-Atom">slots__</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="nv">False</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">ne__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">other</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="nf">eq__</span><span class="p">(</span><span class="s s-Atom">other</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">str__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">&#39;Event(&#39;</span> <span class="s s-Atom">\</span>
+
+               <span class="o">+</span> <span class="s s-Atom">&#39;, &#39;</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="s s-Atom">&#39;{}={}&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="s s-Atom">k</span><span class="p">,</span> <span class="nf">getattr</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">k</span><span class="p">))</span> <span class="s s-Atom">for</span> <span class="s s-Atom">k</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="s s-Atom">slots__</span><span class="p">)</span> <span class="s s-Atom">\</span>
+
+               <span class="o">+</span> <span class="s s-Atom">&#39;)&#39;</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">repr__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="nf">str__</span><span class="p">()</span>
+
+<span class="s s-Atom">class</span> <span class="nv">EventLog</span><span class="s s-Atom">:</span>
+
+    <span class="s2">&quot;&quot;&quot;Log of realtime events</span>
+
+<span class="s2">    Keep in mind that log is not filled out automatically and</span>
+
+<span class="s2">    should be refreshed periodically by hand using `refresh()`</span>
+
+<span class="s2">    method. This is because working with ZKAccess has</span>
+
+<span class="s2">    request-response nature and cannot up a tunnel which may be</span>
+
+<span class="s2">    used to feed events.</span>
+
+<span class="s2">    But you can use `poll()` method which awaits new events from</span>
+
+<span class="s2">    a device and return them if any.</span>
+
+<span class="s2">    Log is implemented at top of deque structure, so accessing by</span>
+
+<span class="s2">    index and filtering could be slow.</span>
+
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">init__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span>
+
+                 <span class="nn">sdk</span><span class="p">:</span> <span class="nv">ZKSDK</span><span class="p">,</span>
+
+                 <span class="s s-Atom">buffer_size:</span> <span class="s s-Atom">int</span><span class="p">,</span>
+
+                 <span class="nn">maxlen</span><span class="p">:</span> <span class="nv">Optional</span><span class="p">[</span><span class="s s-Atom">int</span><span class="p">]</span> <span class="o">=</span> <span class="nv">None</span><span class="p">,</span>
+
+                 <span class="s s-Atom">only_filters:</span> <span class="nv">Optional</span><span class="p">[</span><span class="s s-Atom">dict</span><span class="p">]</span> <span class="o">=</span> <span class="nv">None</span><span class="p">,</span>
+
+                 <span class="k">_</span><span class="nn">data</span><span class="p">:</span> <span class="nv">Optional</span><span class="p">[</span><span class="s s-Atom">deque</span><span class="p">]</span> <span class="o">=</span> <span class="nv">None</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">buffer_size</span> <span class="o">=</span> <span class="s s-Atom">buffer_size</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span> <span class="o">=</span> <span class="k">_</span><span class="s s-Atom">data</span> <span class="s s-Atom">if</span> <span class="k">_</span><span class="s s-Atom">data</span> <span class="o">is</span> <span class="o">not</span> <span class="nv">None</span> <span class="s s-Atom">else</span> <span class="nf">deque</span><span class="p">(</span><span class="s s-Atom">maxlen</span><span class="o">=</span><span class="s s-Atom">maxlen</span><span class="p">)</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters</span> <span class="o">=</span> <span class="s s-Atom">only_filters</span> <span class="s s-Atom">or</span> <span class="p">{}</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="s s-Atom">sdk</span> <span class="o">=</span> <span class="s s-Atom">sdk</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">int</span><span class="p">:</span>
+
+        <span class="s2">&quot;&quot;&quot;Make a request to a device for new records and append to the</span>
+
+<span class="s2">        end if any.</span>
+
+<span class="s2">        :return: count of records which was added</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">#</span> <span class="nv">ZKAccess</span> <span class="s s-Atom">always</span> <span class="s s-Atom">returns</span> <span class="s s-Atom">single</span> <span class="s s-Atom">event</span> <span class="s s-Atom">with</span> <span class="s s-Atom">code</span> <span class="mi">255</span>
+
+        <span class="s s-Atom">#</span> <span class="s s-Atom">on</span> <span class="s s-Atom">every</span> <span class="s s-Atom">log</span> <span class="s s-Atom">query</span> <span class="s s-Atom">if</span> <span class="s s-Atom">no</span> <span class="s s-Atom">other</span> <span class="s s-Atom">events</span> <span class="s s-Atom">occured</span><span class="p">.</span> <span class="nv">So</span><span class="p">,</span> <span class="s s-Atom">skip</span> <span class="s s-Atom">it</span>
+
+        <span class="s s-Atom">new_events</span> <span class="o">=</span> <span class="p">[</span><span class="s s-Atom">e</span> <span class="s s-Atom">for</span> <span class="s s-Atom">e</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">pull_events</span><span class="p">()</span> <span class="s s-Atom">if</span> <span class="s s-Atom">e</span><span class="p">.</span><span class="s s-Atom">event_type</span> <span class="p">!</span><span class="o">=</span> <span class="mi">255</span><span class="p">]</span>
+
+        <span class="s s-Atom">count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="s s-Atom">while</span> <span class="s s-Atom">new_events:</span>
+
+            <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">.</span><span class="nf">extend</span><span class="p">(</span><span class="s s-Atom">new_events</span><span class="p">)</span>
+
+            <span class="s s-Atom">count</span> <span class="s s-Atom">+=</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="s s-Atom">for</span> <span class="k">_</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">new_events</span><span class="p">))</span>
+
+            <span class="s s-Atom">new_events</span> <span class="o">=</span> <span class="p">[</span><span class="s s-Atom">e</span> <span class="s s-Atom">for</span> <span class="s s-Atom">e</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">pull_events</span><span class="p">()</span> <span class="s s-Atom">if</span> <span class="s s-Atom">e</span><span class="p">.</span><span class="s s-Atom">event_type</span> <span class="p">!</span><span class="o">=</span> <span class="mi">255</span><span class="p">]</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">count</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">after_time</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">after_time:</span> <span class="s s-Atom">datetime</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return events which was occured after given time</span>
+
+<span class="s2">        :param after_time: datetime object to filter (included)</span>
+
+<span class="s2">        :return:</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">filter</span><span class="p">(</span><span class="s s-Atom">lambda</span> <span class="nn">x</span><span class="p">:</span> <span class="s s-Atom">x</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">&gt;=</span> <span class="s s-Atom">after_time</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">before_time</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">before_time:</span> <span class="s s-Atom">datetime</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return events which was occured before given time</span>
+
+<span class="s2">        :param before_time: datetime object to filter (excluded)</span>
+
+<span class="s2">        :return:</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">filter</span><span class="p">(</span><span class="s s-Atom">lambda</span> <span class="nn">x</span><span class="p">:</span> <span class="s s-Atom">x</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">&lt;</span> <span class="s s-Atom">before_time</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">between_time</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">from_time:</span> <span class="s s-Atom">datetime</span><span class="p">,</span> <span class="s s-Atom">to_time:</span> <span class="s s-Atom">datetime</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return events which was occured between two given time moments</span>
+
+<span class="s2">        :param from_time: datetime object to filter (included)</span>
+
+<span class="s2">        :param to_time: datetime object to filter (excluded)</span>
+
+<span class="s2">        :return:</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">filter</span><span class="p">(</span><span class="s s-Atom">lambda</span> <span class="nn">x</span><span class="p">:</span> <span class="s s-Atom">from_time</span> <span class="s s-Atom">&lt;=</span> <span class="s s-Atom">x</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">&lt;</span> <span class="s s-Atom">to_time</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">poll</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">timeout</span><span class="p">:</span> <span class="s s-Atom">float</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="s s-Atom">polling_interval:</span> <span class="s s-Atom">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">List</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Wait for new events by making periodically requests to a device.</span>
+
+<span class="s2">        If events was appeared then return them. If no event was</span>
+
+<span class="s2">        appeared until timeout was expired then return empty iterable.</span>
+
+<span class="s2">        :param timeout: timeout in seconds. Default: 60 seconds</span>
+
+<span class="s2">        :param polling_interval: interval to make a requests in seconds.</span>
+
+<span class="s2">         Default: every 1 second</span>
+
+<span class="s2">        :return: iterable with new events if any or empty iterable if</span>
+
+<span class="s2">         timeout has expired</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">deadline</span> <span class="o">=</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">timestamp</span><span class="p">()</span> <span class="o">+</span> <span class="s s-Atom">timeout</span>
+
+        <span class="s s-Atom">while</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">timestamp</span><span class="p">()</span> <span class="o">&lt;</span> <span class="nn">deadline</span><span class="p">:</span>
+
+            <span class="s s-Atom">count</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="nf">refresh</span><span class="p">()</span>  <span class="s s-Atom">#</span> <span class="nv">Can</span> <span class="s s-Atom">run</span> <span class="s s-Atom">up</span> <span class="s s-Atom">to</span> <span class="s s-Atom">several</span> <span class="s s-Atom">seconds</span> <span class="s s-Atom">depending</span> <span class="s s-Atom">on</span> <span class="s s-Atom">network</span>
+
+            <span class="s s-Atom">if</span> <span class="nn">count</span><span class="p">:</span>
+
+                <span class="s s-Atom">reversed_events</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="nf">reversed</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+                <span class="s s-Atom">res</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">reversed_events</span><span class="p">,</span> <span class="nv">None</span><span class="p">,</span> <span class="s s-Atom">count</span><span class="p">))[</span><span class="s s-Atom">::-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="s s-Atom">return</span> <span class="s s-Atom">res</span>
+
+            <span class="s s-Atom">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="s s-Atom">polling_interval</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="p">[]</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">only</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">**filters</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="s s-Atom">&#39;EventLog&#39;:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return new EventLog instance with given filters applied.</span>
+
+<span class="s2">        Kwargs names must be the same as Event slots.</span>
+
+<span class="s2">        Event log returned by this method will contain entries in</span>
+
+<span class="s2">        which attribute value is contained in appropriate filter</span>
+
+<span class="s2">        (if any).</span>
+
+<span class="s2">        Filters passed here will be ANDed during comparison. On</span>
+
+<span class="s2">        repeatable call of only, given filters which was also set</span>
+
+<span class="s2">        on previous call will be ORed, i.e. their values will be</span>
+
+<span class="s2">        concatenated.</span>
+
+<span class="s2">        In other words:</span>
+
+<span class="s2">        ```log.only(a=2, b=[&#39;x&#39;, &#39;y&#39;])` =&gt; filtering(entry.a == 2 AND entry.b in (&#39;x&#39;, &#39;y&#39;))```</span>
+
+<span class="s2">        ```log.only(a=2, b=[&#39;x&#39;, &#39;y&#39;]).only(a=3, b=5, c=1) =&gt;</span>
+
+<span class="s2">            filtering(entry.a in (2, 3) AND entry.b in (&#39;x&#39;, &#39;y&#39;, 5) and entry.c == 1)```</span>
+
+<span class="s2">        Ex: `new_log = log.only(door=1, event_type=221)`</span>
+
+<span class="s2">        :param filters:</span>
+
+<span class="s2">        :return: new fitlered EventLog instance</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">only_filters</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">merge_filters</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters</span><span class="p">,</span> <span class="s s-Atom">filters</span><span class="p">)</span>
+
+        <span class="s s-Atom">obj</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="nf">class__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="s s-Atom">sdk</span><span class="p">,</span>
+
+                             <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">buffer_size</span><span class="p">,</span>
+
+                             <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">.</span><span class="s s-Atom">maxlen</span><span class="p">,</span>
+
+                             <span class="s s-Atom">only_filters</span><span class="p">,</span>
+
+                             <span class="k">_</span><span class="s s-Atom">data</span><span class="o">=</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">obj</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">clear</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">None</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;Clear log&quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">.</span><span class="nf">clear</span><span class="p">()</span>
+
+    <span class="s s-Atom">@staticmethod</span>
+
+    <span class="s s-Atom">def</span> <span class="k">_</span><span class="nf">merge_filters</span><span class="p">(</span><span class="nn">initial</span><span class="p">:</span> <span class="s s-Atom">dict</span><span class="p">,</span> <span class="nn">fltr</span><span class="p">:</span> <span class="s s-Atom">dict</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">dict</span><span class="p">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Merge two filter dicts, fltr updates initial. Key-values  which</span>
+
+<span class="s2">        does not exist in initial will be copied. Value of existent</span>
+
+<span class="s2">        keys are combined (values always are lists).</span>
+
+<span class="s2">        :param initial: updating initial filter dict</span>
+
+<span class="s2">        :param fltr: filter dict which updates initial</span>
+
+<span class="s2">        :return: merged filter dict</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">seq_types</span> <span class="o">=</span> <span class="p">(</span><span class="s s-Atom">tuple</span><span class="p">,</span> <span class="s s-Atom">list</span><span class="p">,</span> <span class="s s-Atom">set</span><span class="p">,</span> <span class="s s-Atom">frozenset</span><span class="p">)</span>
+
+        <span class="s s-Atom">res</span> <span class="o">=</span> <span class="nf">deepcopy</span><span class="p">(</span><span class="s s-Atom">initial</span><span class="p">)</span>
+
+        <span class="s s-Atom">for</span> <span class="s s-Atom">key</span><span class="p">,</span> <span class="s s-Atom">value</span> <span class="s s-Atom">in</span> <span class="s s-Atom">fltr</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span><span class="s s-Atom">:</span>
+
+            <span class="s s-Atom">if</span> <span class="o">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">,</span> <span class="s s-Atom">seq_types</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+                <span class="s s-Atom">value</span> <span class="o">=</span> <span class="p">{</span><span class="s s-Atom">value</span><span class="p">}</span>
+
+            <span class="s s-Atom">if</span> <span class="s s-Atom">key</span> <span class="s s-Atom">in</span> <span class="nn">res</span><span class="p">:</span>
+
+                <span class="s s-Atom">res</span><span class="p">[</span><span class="s s-Atom">key</span><span class="p">].</span><span class="nf">update</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">)</span>
+
+            <span class="nn">else</span><span class="p">:</span>
+
+                <span class="s s-Atom">res</span><span class="p">[</span><span class="s s-Atom">key</span><span class="p">]</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">res</span>
+
+    <span class="s s-Atom">def</span> <span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">data</span><span class="p">:</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">])</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Apply current filters to given events and return only events</span>
+
+<span class="s2">        which meet them</span>
+
+<span class="s2">        :param data: unfiltered events</span>
+
+<span class="s2">        :return: filtered events</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">if</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters:</span>
+
+            <span class="s s-Atom">yield</span> <span class="s s-Atom">from</span> <span class="s s-Atom">data</span>
+
+            <span class="s s-Atom">return</span>
+
+        <span class="s s-Atom">for</span> <span class="s s-Atom">event</span> <span class="s s-Atom">in</span> <span class="nn">data</span><span class="p">:</span>
+
+            <span class="s s-Atom">if</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters:</span>
+
+                <span class="s s-Atom">yield</span> <span class="s s-Atom">event</span>
+
+            <span class="nn">else</span><span class="p">:</span>
+
+                <span class="s s-Atom">all_match</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="s s-Atom">event</span><span class="p">,</span> <span class="s s-Atom">field</span><span class="p">)</span> <span class="s s-Atom">in</span> <span class="s s-Atom">fltr</span>
+
+                                <span class="s s-Atom">for</span> <span class="s s-Atom">field</span><span class="p">,</span> <span class="s s-Atom">fltr</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span>
+
+                <span class="s s-Atom">if</span> <span class="s s-Atom">all_match:</span>
+
+                    <span class="s s-Atom">yield</span> <span class="s s-Atom">event</span>
+
+    <span class="s s-Atom">def</span> <span class="k">_</span><span class="nf">pull_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">events</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="s s-Atom">sdk</span><span class="p">.</span><span class="nf">get_rt_log</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">buffer_size</span><span class="p">)</span>
+
+        <span class="nf">return</span> <span class="p">(</span><span class="nv">Event</span><span class="p">(</span><span class="s s-Atom">s</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">s</span> <span class="s s-Atom">in</span> <span class="s s-Atom">events</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">getitem__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">item</span><span class="p">:</span> <span class="nv">Union</span><span class="p">[</span><span class="s s-Atom">int</span><span class="p">,</span> <span class="s s-Atom">slice</span><span class="p">])</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Union</span><span class="p">[</span><span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">],</span> <span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">seq</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">)</span>
+
+        <span class="s s-Atom">if</span> <span class="o">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="s s-Atom">item</span><span class="p">,</span> <span class="s s-Atom">slice</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+            <span class="nn">try</span><span class="p">:</span>
+
+                <span class="s s-Atom">return</span> <span class="nf">next</span><span class="p">(</span><span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">seq</span><span class="p">,</span> <span class="s s-Atom">item</span><span class="p">,</span> <span class="nv">None</span><span class="p">))</span>
+
+            <span class="s s-Atom">except</span> <span class="nv">StopIteration</span><span class="s s-Atom">:</span>
+
+                <span class="s s-Atom">raise</span> <span class="nv">IndexError</span><span class="p">(</span><span class="s s-Atom">&#39;Index is out of range&#39;</span><span class="p">)</span> <span class="s s-Atom">from</span> <span class="nv">None</span>
+
+        <span class="s s-Atom">start</span><span class="p">,</span> <span class="s s-Atom">stop</span><span class="p">,</span> <span class="s s-Atom">step</span> <span class="o">=</span> <span class="s s-Atom">item</span><span class="p">.</span><span class="s s-Atom">start</span><span class="p">,</span> <span class="s s-Atom">item</span><span class="p">.</span><span class="s s-Atom">stop</span><span class="p">,</span> <span class="s s-Atom">item</span><span class="p">.</span><span class="s s-Atom">step</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">seq</span><span class="p">,</span> <span class="s s-Atom">start</span><span class="p">,</span> <span class="s s-Atom">stop</span><span class="p">,</span> <span class="s s-Atom">step</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">len__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">int</span><span class="p">:</span>
+
+        <span class="s s-Atom">if</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters:</span>
+
+            <span class="s s-Atom">return</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="s s-Atom">for</span> <span class="k">_</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">iter__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">iter</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">str__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">items_str</span> <span class="o">=</span> <span class="s s-Atom">&#39;, &#39;</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="s s-Atom">x</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">x</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">[</span><span class="s s-Atom">:</span><span class="mi">3</span><span class="p">])</span>
+
+        <span class="s s-Atom">if</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">6</span><span class="s s-Atom">:</span>
+
+            <span class="s s-Atom">items_str</span> <span class="s s-Atom">+=</span> <span class="s s-Atom">&#39;, ..., &#39;</span> <span class="o">+</span> <span class="s s-Atom">&#39;, &#39;</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="s s-Atom">x</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">x</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">[</span><span class="mi">3</span><span class="s s-Atom">:</span><span class="p">])</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">&#39;EventLog[{}]({})&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">),</span> <span class="s s-Atom">items_str</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">repr__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="nf">str__</span><span class="p">()</span>
+</code></pre></div>
+
+
+</details>
+<h2 id="classes">Classes</h2>
+<h3 id="event">Event</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">Event</span><span class="p">(</span>
+    <span class="n">s</span>
+<span class="p">)</span>
+</code></pre></div>
+
+
+<p>One realtime event occured on the device
+Since the device returns event as string we need to parse it to the
+structured view. This class does this.</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nl">Event</span><span class="p">:</span><span class="w"></span>
+
+<span class="w">    </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">    One realtime event occured on the device</span>
+
+<span class="ss">    Since the device returns event as string we need to parse it to the</span>
+
+<span class="ss">    structured view. This class does this.</span>
+
+<span class="ss">    &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">__slots__</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;time&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;pin&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;card&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;door&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;event_type&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;entry_exit&#39;</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">        </span><span class="s1">&#39;verify_mode&#39;</span><span class="w"></span>
+
+<span class="w">    </span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        :param s: Event string to be parsed.</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">parsed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="nc">time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">datetime</span><span class="p">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">parsed</span><span class="o">[</span><span class="n">0</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;%Y-%m-%d %H:%M:%S&#39;</span><span class="p">)</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="nc">datetime</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">pin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parsed</span><span class="o">[</span><span class="n">1</span><span class="o">]</span><span class="w">   </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parsed</span><span class="o">[</span><span class="n">2</span><span class="o">]</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">door</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">int</span><span class="p">(</span><span class="n">parsed</span><span class="o">[</span><span class="n">3</span><span class="o">]</span><span class="p">)</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="nc">int</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">event_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EVENT_TYPES</span><span class="o">[</span><span class="n">int(parsed[4</span><span class="o">]</span><span class="p">)</span><span class="err">]</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="n">DocValue</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">entry_exit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">PassageDirection</span><span class="p">(</span><span class="nc">int</span><span class="p">(</span><span class="n">parsed</span><span class="o">[</span><span class="n">5</span><span class="o">]</span><span class="p">))</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="n">PassageDirection</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">self</span><span class="p">.</span><span class="n">verify_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">VerifyMode</span><span class="p">(</span><span class="nc">int</span><span class="p">(</span><span class="n">parsed</span><span class="o">[</span><span class="n">6</span><span class="o">]</span><span class="p">))</span><span class="w">  </span><span class="err">#</span><span class="w"> </span><span class="nl">type</span><span class="p">:</span><span class="w"> </span><span class="n">VerifyMode</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@property</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">description</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nf">str</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;Event[{}]: &quot;{}&quot; at door &quot;{}&quot; for card &quot;{}&quot; -- {}&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="w"></span>
+
+<span class="w">            </span><span class="nf">str</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nc">time</span><span class="p">),</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">event_type</span><span class="p">.</span><span class="n">doc</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">door</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">card</span><span class="p">,</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">self</span><span class="p">.</span><span class="n">entry_exit</span><span class="p">.</span><span class="n">name</span><span class="p">.</span><span class="n">capitalize</span><span class="p">()</span><span class="w"></span>
+
+<span class="w">        </span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">msg</span><span class="w"></span>
+
+<span class="w">    </span><span class="nv">@staticmethod</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="nl">event_line</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">Sequence</span><span class="o">[</span><span class="n">str</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Parse raw event string</span>
+
+<span class="ss">        :param event_line: event string</span>
+
+<span class="ss">        :return: parsed string parts of event string</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">event_line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">event_line</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="s1">&#39;\r\n&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">event_line</span><span class="p">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">7</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">raise</span><span class="w"> </span><span class="n">ValueError</span><span class="p">(</span><span class="ss">&quot;Event string must have exactly 7 parts: {}&quot;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="n">event_line</span><span class="p">))</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">items</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__eq__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">other</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span><span class="w"> </span><span class="n">Event</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="ow">all</span><span class="p">(</span><span class="n">getattr</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">attr</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">getattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span><span class="w"> </span><span class="n">attr</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">attr</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">__slots__</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">False</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__ne__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">other</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__str__</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="s1">&#39;Event(&#39;</span><span class="w"> </span><span class="err">\</span><span class="w"></span>
+
+<span class="w">               </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;, &#39;</span><span class="p">.</span><span class="k">join</span><span class="p">(</span><span class="s1">&#39;{}={}&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">getattr</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">))</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">__slots__</span><span class="p">)</span><span class="w"> </span><span class="err">\</span><span class="w"></span>
+
+<span class="w">               </span><span class="o">+</span><span class="w"> </span><span class="s1">&#39;)&#39;</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">__repr__</span><span class="p">(</span><span class="n">self</span><span class="p">)</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">__str__</span><span class="p">()</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<hr />
+<h4 id="static-methods">Static methods</h4>
+<h5 id="parse">parse</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span>
+    <span class="n">event_line</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+</code></pre></div>
+
+
+<p>Parse raw event string
+:param event_line: event string
+:return: parsed string parts of event string</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="nv">@staticmethod</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="nl">event_line</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">Sequence</span><span class="o">[</span><span class="n">str</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Parse raw event string</span>
+
+<span class="ss">        :param event_line: event string</span>
+
+<span class="ss">        :return: parsed string parts of event string</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">event_line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">event_line</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="s1">&#39;\r\n&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="n">items</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">event_line</span><span class="p">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">7</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">            </span><span class="n">raise</span><span class="w"> </span><span class="n">ValueError</span><span class="p">(</span><span class="ss">&quot;Event string must have exactly 7 parts: {}&quot;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="n">event_line</span><span class="p">))</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">items</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<h4 id="instance-variables">Instance variables</h4>
+<div class="codehilite"><pre><span></span><code><span class="n">card</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">description</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">door</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">entry_exit</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">event_type</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">pin</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">time</span>
+</code></pre></div>
+
+
+<div class="codehilite"><pre><span></span><code><span class="n">verify_mode</span>
+</code></pre></div>
+
+
+<h3 id="eventlog">EventLog</h3>
+<div class="codehilite"><pre><span></span><code><span class="k">class</span> <span class="nc">EventLog</span><span class="p">(</span>
+    <span class="n">sdk</span><span class="p">:</span> <span class="n">pyzkaccess</span><span class="o">.</span><span class="n">sdk</span><span class="o">.</span><span class="n">ZKSDK</span><span class="p">,</span>
+    <span class="n">buffer_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">maxlen</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">only_filters</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">_data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">collections</span><span class="o">.</span><span class="n">deque</span><span class="p">,</span> <span class="n">NoneType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span>
+</code></pre></div>
+
+
+<p>Log of realtime events</p>
+<p>Keep in mind that log is not filled out automatically and
+should be refreshed periodically by hand using <code>refresh()</code>
+method. This is because working with ZKAccess has
+request-response nature and cannot up a tunnel which may be
+used to feed events.</p>
+<p>But you can use <code>poll()</code> method which awaits new events from
+a device and return them if any.</p>
+<p>Log is implemented at top of deque structure, so accessing by
+index and filtering could be slow.</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="s s-Atom">class</span> <span class="nv">EventLog</span><span class="s s-Atom">:</span>
+
+    <span class="s2">&quot;&quot;&quot;Log of realtime events</span>
+
+<span class="s2">    Keep in mind that log is not filled out automatically and</span>
+
+<span class="s2">    should be refreshed periodically by hand using `refresh()`</span>
+
+<span class="s2">    method. This is because working with ZKAccess has</span>
+
+<span class="s2">    request-response nature and cannot up a tunnel which may be</span>
+
+<span class="s2">    used to feed events.</span>
+
+<span class="s2">    But you can use `poll()` method which awaits new events from</span>
+
+<span class="s2">    a device and return them if any.</span>
+
+<span class="s2">    Log is implemented at top of deque structure, so accessing by</span>
+
+<span class="s2">    index and filtering could be slow.</span>
+
+<span class="s2">    &quot;&quot;&quot;</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">init__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span>
+
+                 <span class="nn">sdk</span><span class="p">:</span> <span class="nv">ZKSDK</span><span class="p">,</span>
+
+                 <span class="s s-Atom">buffer_size:</span> <span class="s s-Atom">int</span><span class="p">,</span>
+
+                 <span class="nn">maxlen</span><span class="p">:</span> <span class="nv">Optional</span><span class="p">[</span><span class="s s-Atom">int</span><span class="p">]</span> <span class="o">=</span> <span class="nv">None</span><span class="p">,</span>
+
+                 <span class="s s-Atom">only_filters:</span> <span class="nv">Optional</span><span class="p">[</span><span class="s s-Atom">dict</span><span class="p">]</span> <span class="o">=</span> <span class="nv">None</span><span class="p">,</span>
+
+                 <span class="k">_</span><span class="nn">data</span><span class="p">:</span> <span class="nv">Optional</span><span class="p">[</span><span class="s s-Atom">deque</span><span class="p">]</span> <span class="o">=</span> <span class="nv">None</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">buffer_size</span> <span class="o">=</span> <span class="s s-Atom">buffer_size</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span> <span class="o">=</span> <span class="k">_</span><span class="s s-Atom">data</span> <span class="s s-Atom">if</span> <span class="k">_</span><span class="s s-Atom">data</span> <span class="o">is</span> <span class="o">not</span> <span class="nv">None</span> <span class="s s-Atom">else</span> <span class="nf">deque</span><span class="p">(</span><span class="s s-Atom">maxlen</span><span class="o">=</span><span class="s s-Atom">maxlen</span><span class="p">)</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters</span> <span class="o">=</span> <span class="s s-Atom">only_filters</span> <span class="s s-Atom">or</span> <span class="p">{}</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="s s-Atom">sdk</span> <span class="o">=</span> <span class="s s-Atom">sdk</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">int</span><span class="p">:</span>
+
+        <span class="s2">&quot;&quot;&quot;Make a request to a device for new records and append to the</span>
+
+<span class="s2">        end if any.</span>
+
+<span class="s2">        :return: count of records which was added</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">#</span> <span class="nv">ZKAccess</span> <span class="s s-Atom">always</span> <span class="s s-Atom">returns</span> <span class="s s-Atom">single</span> <span class="s s-Atom">event</span> <span class="s s-Atom">with</span> <span class="s s-Atom">code</span> <span class="mi">255</span>
+
+        <span class="s s-Atom">#</span> <span class="s s-Atom">on</span> <span class="s s-Atom">every</span> <span class="s s-Atom">log</span> <span class="s s-Atom">query</span> <span class="s s-Atom">if</span> <span class="s s-Atom">no</span> <span class="s s-Atom">other</span> <span class="s s-Atom">events</span> <span class="s s-Atom">occured</span><span class="p">.</span> <span class="nv">So</span><span class="p">,</span> <span class="s s-Atom">skip</span> <span class="s s-Atom">it</span>
+
+        <span class="s s-Atom">new_events</span> <span class="o">=</span> <span class="p">[</span><span class="s s-Atom">e</span> <span class="s s-Atom">for</span> <span class="s s-Atom">e</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">pull_events</span><span class="p">()</span> <span class="s s-Atom">if</span> <span class="s s-Atom">e</span><span class="p">.</span><span class="s s-Atom">event_type</span> <span class="p">!</span><span class="o">=</span> <span class="mi">255</span><span class="p">]</span>
+
+        <span class="s s-Atom">count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="s s-Atom">while</span> <span class="s s-Atom">new_events:</span>
+
+            <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">.</span><span class="nf">extend</span><span class="p">(</span><span class="s s-Atom">new_events</span><span class="p">)</span>
+
+            <span class="s s-Atom">count</span> <span class="s s-Atom">+=</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="s s-Atom">for</span> <span class="k">_</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">new_events</span><span class="p">))</span>
+
+            <span class="s s-Atom">new_events</span> <span class="o">=</span> <span class="p">[</span><span class="s s-Atom">e</span> <span class="s s-Atom">for</span> <span class="s s-Atom">e</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">pull_events</span><span class="p">()</span> <span class="s s-Atom">if</span> <span class="s s-Atom">e</span><span class="p">.</span><span class="s s-Atom">event_type</span> <span class="p">!</span><span class="o">=</span> <span class="mi">255</span><span class="p">]</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">count</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">after_time</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">after_time:</span> <span class="s s-Atom">datetime</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return events which was occured after given time</span>
+
+<span class="s2">        :param after_time: datetime object to filter (included)</span>
+
+<span class="s2">        :return:</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">filter</span><span class="p">(</span><span class="s s-Atom">lambda</span> <span class="nn">x</span><span class="p">:</span> <span class="s s-Atom">x</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">&gt;=</span> <span class="s s-Atom">after_time</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">before_time</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">before_time:</span> <span class="s s-Atom">datetime</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return events which was occured before given time</span>
+
+<span class="s2">        :param before_time: datetime object to filter (excluded)</span>
+
+<span class="s2">        :return:</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">filter</span><span class="p">(</span><span class="s s-Atom">lambda</span> <span class="nn">x</span><span class="p">:</span> <span class="s s-Atom">x</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">&lt;</span> <span class="s s-Atom">before_time</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">between_time</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">from_time:</span> <span class="s s-Atom">datetime</span><span class="p">,</span> <span class="s s-Atom">to_time:</span> <span class="s s-Atom">datetime</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return events which was occured between two given time moments</span>
+
+<span class="s2">        :param from_time: datetime object to filter (included)</span>
+
+<span class="s2">        :param to_time: datetime object to filter (excluded)</span>
+
+<span class="s2">        :return:</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">filter</span><span class="p">(</span><span class="s s-Atom">lambda</span> <span class="nn">x</span><span class="p">:</span> <span class="s s-Atom">from_time</span> <span class="s s-Atom">&lt;=</span> <span class="s s-Atom">x</span><span class="p">.</span><span class="s s-Atom">time</span> <span class="o">&lt;</span> <span class="s s-Atom">to_time</span><span class="p">,</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">poll</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">timeout</span><span class="p">:</span> <span class="s s-Atom">float</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="s s-Atom">polling_interval:</span> <span class="s s-Atom">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">List</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Wait for new events by making periodically requests to a device.</span>
+
+<span class="s2">        If events was appeared then return them. If no event was</span>
+
+<span class="s2">        appeared until timeout was expired then return empty iterable.</span>
+
+<span class="s2">        :param timeout: timeout in seconds. Default: 60 seconds</span>
+
+<span class="s2">        :param polling_interval: interval to make a requests in seconds.</span>
+
+<span class="s2">         Default: every 1 second</span>
+
+<span class="s2">        :return: iterable with new events if any or empty iterable if</span>
+
+<span class="s2">         timeout has expired</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">deadline</span> <span class="o">=</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">timestamp</span><span class="p">()</span> <span class="o">+</span> <span class="s s-Atom">timeout</span>
+
+        <span class="s s-Atom">while</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">timestamp</span><span class="p">()</span> <span class="o">&lt;</span> <span class="nn">deadline</span><span class="p">:</span>
+
+            <span class="s s-Atom">count</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="nf">refresh</span><span class="p">()</span>  <span class="s s-Atom">#</span> <span class="nv">Can</span> <span class="s s-Atom">run</span> <span class="s s-Atom">up</span> <span class="s s-Atom">to</span> <span class="s s-Atom">several</span> <span class="s s-Atom">seconds</span> <span class="s s-Atom">depending</span> <span class="s s-Atom">on</span> <span class="s s-Atom">network</span>
+
+            <span class="s s-Atom">if</span> <span class="nn">count</span><span class="p">:</span>
+
+                <span class="s s-Atom">reversed_events</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="nf">reversed</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+                <span class="s s-Atom">res</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">reversed_events</span><span class="p">,</span> <span class="nv">None</span><span class="p">,</span> <span class="s s-Atom">count</span><span class="p">))[</span><span class="s s-Atom">::-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="s s-Atom">return</span> <span class="s s-Atom">res</span>
+
+            <span class="s s-Atom">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="s s-Atom">polling_interval</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="p">[]</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">only</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="s s-Atom">**filters</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="s s-Atom">&#39;EventLog&#39;:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Return new EventLog instance with given filters applied.</span>
+
+<span class="s2">        Kwargs names must be the same as Event slots.</span>
+
+<span class="s2">        Event log returned by this method will contain entries in</span>
+
+<span class="s2">        which attribute value is contained in appropriate filter</span>
+
+<span class="s2">        (if any).</span>
+
+<span class="s2">        Filters passed here will be ANDed during comparison. On</span>
+
+<span class="s2">        repeatable call of only, given filters which was also set</span>
+
+<span class="s2">        on previous call will be ORed, i.e. their values will be</span>
+
+<span class="s2">        concatenated.</span>
+
+<span class="s2">        In other words:</span>
+
+<span class="s2">        ```log.only(a=2, b=[&#39;x&#39;, &#39;y&#39;])` =&gt; filtering(entry.a == 2 AND entry.b in (&#39;x&#39;, &#39;y&#39;))```</span>
+
+<span class="s2">        ```log.only(a=2, b=[&#39;x&#39;, &#39;y&#39;]).only(a=3, b=5, c=1) =&gt;</span>
+
+<span class="s2">            filtering(entry.a in (2, 3) AND entry.b in (&#39;x&#39;, &#39;y&#39;, 5) and entry.c == 1)```</span>
+
+<span class="s2">        Ex: `new_log = log.only(door=1, event_type=221)`</span>
+
+<span class="s2">        :param filters:</span>
+
+<span class="s2">        :return: new fitlered EventLog instance</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">only_filters</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">merge_filters</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters</span><span class="p">,</span> <span class="s s-Atom">filters</span><span class="p">)</span>
+
+        <span class="s s-Atom">obj</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="nf">class__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="s s-Atom">sdk</span><span class="p">,</span>
+
+                             <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">buffer_size</span><span class="p">,</span>
+
+                             <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">.</span><span class="s s-Atom">maxlen</span><span class="p">,</span>
+
+                             <span class="s s-Atom">only_filters</span><span class="p">,</span>
+
+                             <span class="k">_</span><span class="s s-Atom">data</span><span class="o">=</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">obj</span>
+
+    <span class="s s-Atom">def</span> <span class="nf">clear</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">None</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;Clear log&quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">.</span><span class="nf">clear</span><span class="p">()</span>
+
+    <span class="s s-Atom">@staticmethod</span>
+
+    <span class="s s-Atom">def</span> <span class="k">_</span><span class="nf">merge_filters</span><span class="p">(</span><span class="nn">initial</span><span class="p">:</span> <span class="s s-Atom">dict</span><span class="p">,</span> <span class="nn">fltr</span><span class="p">:</span> <span class="s s-Atom">dict</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">dict</span><span class="p">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Merge two filter dicts, fltr updates initial. Key-values  which</span>
+
+<span class="s2">        does not exist in initial will be copied. Value of existent</span>
+
+<span class="s2">        keys are combined (values always are lists).</span>
+
+<span class="s2">        :param initial: updating initial filter dict</span>
+
+<span class="s2">        :param fltr: filter dict which updates initial</span>
+
+<span class="s2">        :return: merged filter dict</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">seq_types</span> <span class="o">=</span> <span class="p">(</span><span class="s s-Atom">tuple</span><span class="p">,</span> <span class="s s-Atom">list</span><span class="p">,</span> <span class="s s-Atom">set</span><span class="p">,</span> <span class="s s-Atom">frozenset</span><span class="p">)</span>
+
+        <span class="s s-Atom">res</span> <span class="o">=</span> <span class="nf">deepcopy</span><span class="p">(</span><span class="s s-Atom">initial</span><span class="p">)</span>
+
+        <span class="s s-Atom">for</span> <span class="s s-Atom">key</span><span class="p">,</span> <span class="s s-Atom">value</span> <span class="s s-Atom">in</span> <span class="s s-Atom">fltr</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span><span class="s s-Atom">:</span>
+
+            <span class="s s-Atom">if</span> <span class="o">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">,</span> <span class="s s-Atom">seq_types</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+                <span class="s s-Atom">value</span> <span class="o">=</span> <span class="p">{</span><span class="s s-Atom">value</span><span class="p">}</span>
+
+            <span class="s s-Atom">if</span> <span class="s s-Atom">key</span> <span class="s s-Atom">in</span> <span class="nn">res</span><span class="p">:</span>
+
+                <span class="s s-Atom">res</span><span class="p">[</span><span class="s s-Atom">key</span><span class="p">].</span><span class="nf">update</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">)</span>
+
+            <span class="nn">else</span><span class="p">:</span>
+
+                <span class="s s-Atom">res</span><span class="p">[</span><span class="s s-Atom">key</span><span class="p">]</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="s s-Atom">value</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">res</span>
+
+    <span class="s s-Atom">def</span> <span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">data</span><span class="p">:</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">])</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Apply current filters to given events and return only events</span>
+
+<span class="s2">        which meet them</span>
+
+<span class="s2">        :param data: unfiltered events</span>
+
+<span class="s2">        :return: filtered events</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">if</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters:</span>
+
+            <span class="s s-Atom">yield</span> <span class="s s-Atom">from</span> <span class="s s-Atom">data</span>
+
+            <span class="s s-Atom">return</span>
+
+        <span class="s s-Atom">for</span> <span class="s s-Atom">event</span> <span class="s s-Atom">in</span> <span class="nn">data</span><span class="p">:</span>
+
+            <span class="s s-Atom">if</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters:</span>
+
+                <span class="s s-Atom">yield</span> <span class="s s-Atom">event</span>
+
+            <span class="nn">else</span><span class="p">:</span>
+
+                <span class="s s-Atom">all_match</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="s s-Atom">event</span><span class="p">,</span> <span class="s s-Atom">field</span><span class="p">)</span> <span class="s s-Atom">in</span> <span class="s s-Atom">fltr</span>
+
+                                <span class="s s-Atom">for</span> <span class="s s-Atom">field</span><span class="p">,</span> <span class="s s-Atom">fltr</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span>
+
+                <span class="s s-Atom">if</span> <span class="s s-Atom">all_match:</span>
+
+                    <span class="s s-Atom">yield</span> <span class="s s-Atom">event</span>
+
+    <span class="s s-Atom">def</span> <span class="k">_</span><span class="nf">pull_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">events</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="s s-Atom">sdk</span><span class="p">.</span><span class="nf">get_rt_log</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">buffer_size</span><span class="p">)</span>
+
+        <span class="nf">return</span> <span class="p">(</span><span class="nv">Event</span><span class="p">(</span><span class="s s-Atom">s</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">s</span> <span class="s s-Atom">in</span> <span class="s s-Atom">events</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">getitem__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">item</span><span class="p">:</span> <span class="nv">Union</span><span class="p">[</span><span class="s s-Atom">int</span><span class="p">,</span> <span class="s s-Atom">slice</span><span class="p">])</span> <span class="s s-Atom">-&gt;</span> <span class="nv">Union</span><span class="p">[</span><span class="nv">Iterable</span><span class="p">[</span><span class="nv">Event</span><span class="p">],</span> <span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">seq</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">)</span>
+
+        <span class="s s-Atom">if</span> <span class="o">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="s s-Atom">item</span><span class="p">,</span> <span class="s s-Atom">slice</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+            <span class="nn">try</span><span class="p">:</span>
+
+                <span class="s s-Atom">return</span> <span class="nf">next</span><span class="p">(</span><span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">seq</span><span class="p">,</span> <span class="s s-Atom">item</span><span class="p">,</span> <span class="nv">None</span><span class="p">))</span>
+
+            <span class="s s-Atom">except</span> <span class="nv">StopIteration</span><span class="s s-Atom">:</span>
+
+                <span class="s s-Atom">raise</span> <span class="nv">IndexError</span><span class="p">(</span><span class="s s-Atom">&#39;Index is out of range&#39;</span><span class="p">)</span> <span class="s s-Atom">from</span> <span class="nv">None</span>
+
+        <span class="s s-Atom">start</span><span class="p">,</span> <span class="s s-Atom">stop</span><span class="p">,</span> <span class="s s-Atom">step</span> <span class="o">=</span> <span class="s s-Atom">item</span><span class="p">.</span><span class="s s-Atom">start</span><span class="p">,</span> <span class="s s-Atom">item</span><span class="p">.</span><span class="s s-Atom">stop</span><span class="p">,</span> <span class="s s-Atom">item</span><span class="p">.</span><span class="s s-Atom">step</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">seq</span><span class="p">,</span> <span class="s s-Atom">start</span><span class="p">,</span> <span class="s s-Atom">stop</span><span class="p">,</span> <span class="s s-Atom">step</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">len__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nn">int</span><span class="p">:</span>
+
+        <span class="s s-Atom">if</span> <span class="o">not</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">only_filters:</span>
+
+            <span class="s s-Atom">return</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="s s-Atom">for</span> <span class="k">_</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">iter__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="nf">iter</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">str__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">items_str</span> <span class="o">=</span> <span class="s s-Atom">&#39;, &#39;</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="s s-Atom">x</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">x</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">[</span><span class="s s-Atom">:</span><span class="mi">3</span><span class="p">])</span>
+
+        <span class="s s-Atom">if</span> <span class="nf">len</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">6</span><span class="s s-Atom">:</span>
+
+            <span class="s s-Atom">items_str</span> <span class="s s-Atom">+=</span> <span class="s s-Atom">&#39;, ..., &#39;</span> <span class="o">+</span> <span class="s s-Atom">&#39;, &#39;</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="s s-Atom">x</span><span class="p">)</span> <span class="s s-Atom">for</span> <span class="s s-Atom">x</span> <span class="s s-Atom">in</span> <span class="s s-Atom">self</span><span class="p">[</span><span class="mi">3</span><span class="s s-Atom">:</span><span class="p">])</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">&#39;EventLog[{}]({})&#39;</span><span class="p">.</span><span class="nf">format</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">),</span> <span class="s s-Atom">items_str</span><span class="p">)</span>
+
+    <span class="s s-Atom">def</span> <span class="k">__</span><span class="nf">repr__</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">)</span><span class="s s-Atom">:</span>
+
+        <span class="s s-Atom">return</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">__</span><span class="nf">str__</span><span class="p">()</span>
+</code></pre></div>
+
+
+</details>
+<hr />
+<h4 id="methods">Methods</h4>
+<h5 id="after_time">after_time</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">after_time</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">after_time</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pyzkaccess</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">Event</span><span class="p">]</span>
+</code></pre></div>
+
+
+<p>Return events which was occured after given time
+:param after_time: datetime object to filter (included)
+:return:</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">after_time</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="nl">after_time</span><span class="p">:</span><span class="w"> </span><span class="nc">datetime</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Iterable</span><span class="o">[</span><span class="n">Event</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Return events which was occured after given time</span>
+
+<span class="ss">        :param after_time: datetime object to filter (included)</span>
+
+<span class="ss">        :return:</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">filter</span><span class="p">(</span><span class="n">lambda</span><span class="w"> </span><span class="nl">x</span><span class="p">:</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="nc">time</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">after_time</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_filtered_events</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="k">data</span><span class="p">))</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<h5 id="before_time">before_time</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">before_time</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">before_time</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pyzkaccess</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">Event</span><span class="p">]</span>
+</code></pre></div>
+
+
+<p>Return events which was occured before given time
+:param before_time: datetime object to filter (excluded)
+:return:</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">before_time</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="nl">before_time</span><span class="p">:</span><span class="w"> </span><span class="nc">datetime</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Iterable</span><span class="o">[</span><span class="n">Event</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Return events which was occured before given time</span>
+
+<span class="ss">        :param before_time: datetime object to filter (excluded)</span>
+
+<span class="ss">        :return:</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">filter</span><span class="p">(</span><span class="n">lambda</span><span class="w"> </span><span class="nl">x</span><span class="p">:</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="nc">time</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">before_time</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_filtered_events</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="k">data</span><span class="p">))</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<h5 id="between_time">between_time</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">between_time</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">from_time</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span>
+    <span class="n">to_time</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pyzkaccess</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">Event</span><span class="p">]</span>
+</code></pre></div>
+
+
+<p>Return events which was occured between two given time moments
+:param from_time: datetime object to filter (included)
+:param to_time: datetime object to filter (excluded)
+:return:</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code><span class="w">    </span><span class="n">def</span><span class="w"> </span><span class="n">between_time</span><span class="p">(</span><span class="n">self</span><span class="p">,</span><span class="w"> </span><span class="nl">from_time</span><span class="p">:</span><span class="w"> </span><span class="nc">datetime</span><span class="p">,</span><span class="w"> </span><span class="nl">to_time</span><span class="p">:</span><span class="w"> </span><span class="nc">datetime</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Iterable</span><span class="o">[</span><span class="n">Event</span><span class="o">]</span><span class="err">:</span><span class="w"></span>
+
+<span class="w">        </span><span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Return events which was occured between two given time moments</span>
+
+<span class="ss">        :param from_time: datetime object to filter (included)</span>
+
+<span class="ss">        :param to_time: datetime object to filter (excluded)</span>
+
+<span class="ss">        :return:</span>
+
+<span class="ss">        &quot;&quot;&quot;</span><span class="w"></span>
+
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="k">filter</span><span class="p">(</span><span class="n">lambda</span><span class="w"> </span><span class="nl">x</span><span class="p">:</span><span class="w"> </span><span class="n">from_time</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="nc">time</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">to_time</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p">.</span><span class="n">_filtered_events</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="k">data</span><span class="p">))</span><span class="w"></span>
+</code></pre></div>
+
+
+</details>
+<h5 id="clear">clear</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">clear</span><span class="p">(</span>
+    <span class="bp">self</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+
+<p>Clear log</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="n">def</span> <span class="n">clear</span><span class="p">(</span><span class="k">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="k">None</span><span class="p">:</span>
+
+        <span class="ss">&quot;&quot;&quot;Clear log&quot;&quot;&quot;</span>
+
+        <span class="k">self</span><span class="p">.</span><span class="k">data</span><span class="p">.</span><span class="n">clear</span><span class="p">()</span>
+</code></pre></div>
+
+
+</details>
+<h5 id="only">only</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">only</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">filters</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;EventLog&#39;</span>
+</code></pre></div>
+
+
+<p>Return new EventLog instance with given filters applied.
+Kwargs names must be the same as Event slots.</p>
+<p>Event log returned by this method will contain entries in
+which attribute value is contained in appropriate filter
+(if any).</p>
+<p>Filters passed here will be ANDed during comparison. On
+repeatable call of only, given filters which was also set
+on previous call will be ORed, i.e. their values will be
+concatenated.</p>
+<p>In other words:</p>
+<p><code>log.only(a=2, b=['x', 'y'])` =&gt; filtering(entry.a == 2 AND entry.b in ('x', 'y'))</code></p>
+<p><code>log.only(a=2, b=['x', 'y']).only(a=3, b=5, c=1) =&gt;
+    filtering(entry.a in (2, 3) AND entry.b in ('x', 'y', 5) and entry.c == 1)</code></p>
+<p>Ex: <code>new_log = log.only(door=1, event_type=221)</code>
+:param filters:
+:return: new fitlered EventLog instance</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="n">def</span> <span class="k">only</span><span class="p">(</span><span class="k">self</span><span class="p">,</span> <span class="o">**</span><span class="n">filters</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;EventLog&#39;</span><span class="p">:</span>
+
+        <span class="ss">&quot;&quot;&quot;</span>
+
+<span class="ss">        Return new EventLog instance with given filters applied.</span>
+
+<span class="ss">        Kwargs names must be the same as Event slots.</span>
+
+<span class="ss">        Event log returned by this method will contain entries in</span>
+
+<span class="ss">        which attribute value is contained in appropriate filter</span>
+
+<span class="ss">        (if any).</span>
+
+<span class="ss">        Filters passed here will be ANDed during comparison. On</span>
+
+<span class="ss">        repeatable call of only, given filters which was also set</span>
+
+<span class="ss">        on previous call will be ORed, i.e. their values will be</span>
+
+<span class="ss">        concatenated.</span>
+
+<span class="ss">        In other words:</span>
+
+<span class="ss">        ```log.only(a=2, b=[&#39;x&#39;, &#39;y&#39;])` =&gt; filtering(entry.a == 2 AND entry.b in (&#39;x&#39;, &#39;y&#39;))```</span>
+
+<span class="ss">        ```log.only(a=2, b=[&#39;x&#39;, &#39;y&#39;]).only(a=3, b=5, c=1) =&gt;</span>
+
+<span class="ss">            filtering(entry.a in (2, 3) AND entry.b in (&#39;x&#39;, &#39;y&#39;, 5) and entry.c == 1)```</span>
+
+<span class="ss">        Ex: `new_log = log.only(door=1, event_type=221)`</span>
+
+<span class="ss">        :param filters:</span>
+
+<span class="ss">        :return: new fitlered EventLog instance</span>
+
+<span class="ss">        &quot;&quot;&quot;</span>
+
+        <span class="n">only_filters</span> <span class="o">=</span> <span class="k">self</span><span class="p">.</span><span class="n">_merge_filters</span><span class="p">(</span><span class="k">self</span><span class="p">.</span><span class="n">only_filters</span><span class="p">,</span> <span class="n">filters</span><span class="p">)</span>
+
+        <span class="n">obj</span> <span class="o">=</span> <span class="k">self</span><span class="p">.</span><span class="n">__class__</span><span class="p">(</span><span class="k">self</span><span class="p">.</span><span class="n">_sdk</span><span class="p">,</span>
+
+                             <span class="k">self</span><span class="p">.</span><span class="n">buffer_size</span><span class="p">,</span>
+
+                             <span class="k">self</span><span class="p">.</span><span class="k">data</span><span class="p">.</span><span class="n">maxlen</span><span class="p">,</span>
+
+                             <span class="n">only_filters</span><span class="p">,</span>
+
+                             <span class="n">_data</span><span class="o">=</span><span class="k">self</span><span class="p">.</span><span class="k">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">obj</span>
+</code></pre></div>
+
+
+</details>
+<h5 id="poll">poll</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">poll</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="n">polling_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">pyzkaccess</span><span class="o">.</span><span class="n">event</span><span class="o">.</span><span class="n">Event</span><span class="p">]</span>
+</code></pre></div>
+
+
+<p>Wait for new events by making periodically requests to a device.
+If events was appeared then return them. If no event was
+appeared until timeout was expired then return empty iterable.
+:param timeout: timeout in seconds. Default: 60 seconds
+:param polling_interval: interval to make a requests in seconds.
+ Default: every 1 second
+:return: iterable with new events if any or empty iterable if
+ timeout has expired</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="s s-Atom">def</span> <span class="nf">poll</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">,</span> <span class="nn">timeout</span><span class="p">:</span> <span class="s s-Atom">float</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="s s-Atom">polling_interval:</span> <span class="s s-Atom">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="s s-Atom">-&gt;</span> <span class="nv">List</span><span class="p">[</span><span class="nv">Event</span><span class="p">]</span><span class="s s-Atom">:</span>
+
+        <span class="s2">&quot;&quot;&quot;</span>
+
+<span class="s2">        Wait for new events by making periodically requests to a device.</span>
+
+<span class="s2">        If events was appeared then return them. If no event was</span>
+
+<span class="s2">        appeared until timeout was expired then return empty iterable.</span>
+
+<span class="s2">        :param timeout: timeout in seconds. Default: 60 seconds</span>
+
+<span class="s2">        :param polling_interval: interval to make a requests in seconds.</span>
+
+<span class="s2">         Default: every 1 second</span>
+
+<span class="s2">        :return: iterable with new events if any or empty iterable if</span>
+
+<span class="s2">         timeout has expired</span>
+
+<span class="s2">        &quot;&quot;&quot;</span>
+
+        <span class="s s-Atom">deadline</span> <span class="o">=</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">timestamp</span><span class="p">()</span> <span class="o">+</span> <span class="s s-Atom">timeout</span>
+
+        <span class="s s-Atom">while</span> <span class="s s-Atom">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">timestamp</span><span class="p">()</span> <span class="o">&lt;</span> <span class="nn">deadline</span><span class="p">:</span>
+
+            <span class="s s-Atom">count</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="nf">refresh</span><span class="p">()</span>  <span class="s s-Atom">#</span> <span class="nv">Can</span> <span class="s s-Atom">run</span> <span class="s s-Atom">up</span> <span class="s s-Atom">to</span> <span class="s s-Atom">several</span> <span class="s s-Atom">seconds</span> <span class="s s-Atom">depending</span> <span class="s s-Atom">on</span> <span class="s s-Atom">network</span>
+
+            <span class="s s-Atom">if</span> <span class="nn">count</span><span class="p">:</span>
+
+                <span class="s s-Atom">reversed_events</span> <span class="o">=</span> <span class="s s-Atom">self</span><span class="p">.</span><span class="k">_</span><span class="nf">filtered_events</span><span class="p">(</span><span class="nf">reversed</span><span class="p">(</span><span class="s s-Atom">self</span><span class="p">.</span><span class="s s-Atom">data</span><span class="p">))</span>
+
+                <span class="s s-Atom">res</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="s s-Atom">itertools</span><span class="p">.</span><span class="nf">islice</span><span class="p">(</span><span class="s s-Atom">reversed_events</span><span class="p">,</span> <span class="nv">None</span><span class="p">,</span> <span class="s s-Atom">count</span><span class="p">))[</span><span class="s s-Atom">::-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="s s-Atom">return</span> <span class="s s-Atom">res</span>
+
+            <span class="s s-Atom">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="s s-Atom">polling_interval</span><span class="p">)</span>
+
+        <span class="s s-Atom">return</span> <span class="p">[]</span>
+</code></pre></div>
+
+
+</details>
+<h5 id="refresh">refresh</h5>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span>
+    <span class="bp">self</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
+</code></pre></div>
+
+
+<p>Make a request to a device for new records and append to the
+end if any.
+:return: count of records which was added</p>
+<details class="example"><summary>View Source</summary><div class="codehilite"><pre><span></span><code>    <span class="n">def</span> <span class="n">refresh</span><span class="p">(</span><span class="k">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+
+        <span class="ss">&quot;&quot;&quot;Make a request to a device for new records and append to the</span>
+
+<span class="ss">        end if any.</span>
+
+<span class="ss">        :return: count of records which was added</span>
+
+<span class="ss">        &quot;&quot;&quot;</span>
+
+        <span class="o">#</span> <span class="n">ZKAccess</span> <span class="n">always</span> <span class="k">returns</span> <span class="n">single</span> <span class="n">event</span> <span class="k">with</span> <span class="n">code</span> <span class="mi">255</span>
+
+        <span class="o">#</span> <span class="k">on</span> <span class="k">every</span> <span class="n">log</span> <span class="n">query</span> <span class="k">if</span> <span class="k">no</span> <span class="n">other</span> <span class="n">events</span> <span class="n">occured</span><span class="p">.</span> <span class="n">So</span><span class="p">,</span> <span class="n">skip</span> <span class="n">it</span>
+
+        <span class="n">new_events</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="k">in</span> <span class="k">self</span><span class="p">.</span><span class="n">_pull_events</span><span class="p">()</span> <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">event_type</span> <span class="o">!=</span> <span class="mi">255</span><span class="p">]</span>
+
+        <span class="k">count</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">while</span> <span class="n">new_events</span><span class="p">:</span>
+
+            <span class="k">self</span><span class="p">.</span><span class="k">data</span><span class="p">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_events</span><span class="p">)</span>
+
+            <span class="k">count</span> <span class="o">+=</span> <span class="k">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="k">in</span> <span class="k">self</span><span class="p">.</span><span class="n">_filtered_events</span><span class="p">(</span><span class="n">new_events</span><span class="p">))</span>
+
+            <span class="n">new_events</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="k">in</span> <span class="k">self</span><span class="p">.</span><span class="n">_pull_events</span><span class="p">()</span> <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">event_type</span> <span class="o">!=</span> <span class="mi">255</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="k">count</span>
+</code></pre></div>
+
+
+</details>
+            
+          
+        </div>
+      </div>
+    </div>
+    <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebarwrapper">
+        
+          
+            
+  <h1 class="logo"><a href="../../..">pyzkaccess</a></h1>
+
+
+
+          
+            
+
+
+
+<h3>Table Of Contents</h3>
+
+<nav>
+  
+  
+    <ul>
+    
+      <li><a href="#classes">Classes</a></li>
+      <ul>
+    
+      <li><a href="#event">Event</a></li>
+      <ul>
+    
+      <li><a href="#static-methods">Static methods</a></li>
+      <ul>
+    
+      <li><a href="#parse">parse</a></li>
+      <ul>
+    
+  </ul>
+    
+  </ul>
+    
+      <li><a href="#instance-variables">Instance variables</a></li>
+      <ul>
+    
+  </ul>
+    
+  </ul>
+    
+      <li><a href="#eventlog">EventLog</a></li>
+      <ul>
+    
+      <li><a href="#methods">Methods</a></li>
+      <ul>
+    
+      <li><a href="#after_time">after_time</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#before_time">before_time</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#between_time">between_time</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#clear">clear</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#only">only</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#poll">poll</a></li>
+      <ul>
+    
+  </ul>
+    
+      <li><a href="#refresh">refresh</a></li>
+      <ul>
+    
+  </ul>
+    
+  </ul>
+    
+  </ul>
+    
+  </ul>
+    
+  </ul>
+  
+
+  
+</nav>
+          
+            
+  <h3>Related Topics</h3>
+  <ul>
+    
+      <li>Previous: <a href="../enum/" title="previous chapter">
+        Enum
+      </a></li>
+    
+    
+      <li>Next: <a href="../exceptions/" title="next chapter">
+        Exceptions
+      </a></li>
+    
+  </ul>
+
+          
+            <div id="searchbox" style="display: none;" role="search">
+  <h3>Quick search</h3>
+  <form class="search" action="../../../search.html" method="get">
+    <input name="q" type="text">
+    <input value="Go" type="submit">
+  </form>
+  <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+  </p>
+</div>
+<script type="text/javascript">
+  document.getElementById("searchbox").style.display = "block";
+</script>
+          
+        
+      </div>
+    </div>
+    <div class="clearer"></div>
+  </div>
+
+  
+    <div class="footer">
+      
+      
+        
+        Powered by <a href="http://www.mkdocs.org">mkdocs 1.1.2</a>
+        &amp; <a href="https://github.com/iamale/mkdocs-alabaster">mkdocs-alabaster</a>
+      
+    </div>
+  
+
+  <!--
+  MkDocs version      : 1.1.2
+  Docs Build Date UTC : 2020-09-07 18:53:08.823585+00:00
+  -->
+</body>
+</html>

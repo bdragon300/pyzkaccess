@@ -1,0 +1,279 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+    <title>Home &mdash; pyzkaccess</title>
+
+    <link rel="shortcut icon" href="./img/favicon.ico">
+    <link rel="stylesheet" href="./css/alabaster.css" type="text/css">
+    <link rel="stylesheet" href="./css/alabaster-overrides.css" type="text/css">
+
+    
+
+    
+      <script src="search/main.js"></script>
+    
+
+    
+
+    <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+    
+  
+</head>
+<body>
+
+  <div class="document">
+    <div class="documentwrapper">
+      <div class="bodywrapper">
+        <div class="body" role="main">
+          
+            <h1 id="pyzkaccess">pyzkaccess</h1>
+<p><strong>pyzkaccess</strong> is small library for low-level operating the ZKTeco ZKAccess C3 family access control panels. Python 3 is used.</p>
+<p>Now implemented:</p>
+<ul>
+<li>Relay switching</li>
+<li>Device inputs state read and events retrieving</li>
+</ul>
+<p>The ZKTeco's PULL SDK (plcommpro.dll) is used as machinery. Therefore the code must execute in Windows environment or Wine. Tested on C3-400.</p>
+<h1 id="installing">Installing</h1>
+<p><code>pip3 install -r requirements.txt</code></p>
+<h1 id="sdk-installing">SDK installing</h1>
+<p>First, download current version of PULL SDK: <a href="https://www.zkteco.eu/index.php/downloads/software-downloads">ZKTeco software downloads</a>.</p>
+<p>Extract archive and place all pl<em>.dll files to the system directory, usually </em>windows/system32*.</p>
+<p>On *nix systems you can use Wine.</p>
+<h1 id="usage">Usage</h1>
+<p>Turn on the relay:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">pyzkaccess</span> <span class="kn">import</span> <span class="n">ZKAccess</span><span class="p">,</span> <span class="n">RelayGroup</span>
+
+<span class="n">connstr</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd=&#39;</span>
+<span class="k">with</span> <span class="n">ZKAccess</span><span class="p">(</span><span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">,</span> <span class="n">connstr</span><span class="p">)</span> <span class="k">as</span> <span class="n">zk</span><span class="p">:</span>
+    <span class="n">zk</span><span class="o">.</span><span class="n">enable_relay</span><span class="p">(</span><span class="n">RelayGroup</span><span class="o">.</span><span class="n">lock</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>  <span class="c1"># Turn on the first relay in &#39;lock&#39; group for 16 seconds</span>
+</code></pre></div>
+
+
+<p>Read aux input state:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">pyzkaccess</span> <span class="kn">import</span> <span class="n">ZKAccess</span>
+
+<span class="n">connstr</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd=&#39;</span>
+<span class="k">with</span> <span class="n">ZKAccess</span><span class="p">(</span><span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">,</span> <span class="n">connstr</span><span class="p">)</span> <span class="k">as</span> <span class="n">zk</span><span class="p">:</span>
+    <span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="n">zk</span><span class="o">.</span><span class="n">read_events</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="s1">&#39;221&#39;</span> <span class="ow">and</span> <span class="n">e</span><span class="o">.</span><span class="n">door</span> <span class="o">==</span> <span class="s1">&#39;1&#39;</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Auxiliary input on door {} shorted at {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">door</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">time</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">e</span><span class="o">.</span><span class="n">event_type</span> <span class="o">==</span> <span class="s1">&#39;220&#39;</span> <span class="ow">and</span> <span class="n">e</span><span class="o">.</span><span class="n">door</span> <span class="o">==</span> <span class="s1">&#39;1&#39;</span><span class="p">:</span>
+                <span class="k">print</span><span class="p">(</span><span class="s2">&quot;Auxiliary input on door {} released at {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">door</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">time</span><span class="p">))</span>
+
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+
+<p>The default model is C3-400. How to use another model, e.g. C3-200:</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">pyzkaccess</span> <span class="kn">import</span> <span class="n">ZKAccess</span><span class="p">,</span> <span class="n">ZK200</span>
+
+<span class="n">connstr</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;protocol=TCP,ipaddress=172.16.1.1,port=4370,timeout=4000,passwd=&#39;</span>
+<span class="k">with</span> <span class="n">ZKAccess</span><span class="p">(</span><span class="s1">&#39;plcommpro.dll&#39;</span><span class="p">,</span> <span class="n">connstr</span><span class="p">,</span> <span class="n">device_model</span><span class="o">=</span><span class="n">ZK200</span><span class="p">)</span> <span class="k">as</span> <span class="n">zk</span><span class="p">:</span>
+    <span class="o">...</span>
+</code></pre></div>
+
+
+<h1 id="author">Author</h1>
+<p>Igor Derkach, <a href="&#109;&#97;&#105;&#108;&#116;&#111;&#58;&#103;&#111;&#115;&#104;&#97;&#55;&#53;&#51;&#57;&#53;&#49;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;">&#103;&#111;&#115;&#104;&#97;&#55;&#53;&#51;&#57;&#53;&#49;&#64;&#103;&#109;&#97;&#105;&#108;&#46;&#99;&#111;&#109;</a></p>
+<h1 id="bugs">Bugs</h1>
+<p>Please report any bugs or feature requests to the author.</p>
+            
+              <h2>Navigation</h2>
+
+
+<ul>
+  
+      
+        <li>
+          <a href="">Home</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="docs/installing/">Installing</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="docs/summary/">Summary</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="docs/usage/">Usage</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="">Img</a>
+        </li>
+      
+    
+      
+        <li>
+          Reference
+          <ul>
+  
+      
+        <li>
+          Pyzkaccess
+          <ul>
+  
+      
+        <li>
+          <a href="reference/pyzkaccess/aux_input/">Aux Input</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/common/">Common</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/ctypes/">Ctypes</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/device/">Device</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/door/">Door</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/enum/">Enum</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/event/">Event</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/exceptions/">Exceptions</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/">Index</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/param/">Param</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/pyzkaccess/">Pyzkaccess</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/reader/">Reader</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/relay/">Relay</a>
+        </li>
+      
+    
+      
+        <li>
+          <a href="reference/pyzkaccess/sdk/">Sdk</a>
+        </li>
+      
+    
+  </ul>
+        </li>
+      
+    
+  </ul>
+        </li>
+      
+    
+  </ul>
+            
+          
+        </div>
+      </div>
+    </div>
+    <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+      <div class="sphinxsidebarwrapper">
+        
+          
+            
+  <h1 class="logo"><a href=".">pyzkaccess</a></h1>
+
+
+
+          
+            <div id="searchbox" style="display: none;" role="search">
+  <h3>Quick search</h3>
+  <form class="search" action="./search.html" method="get">
+    <input name="q" type="text">
+    <input value="Go" type="submit">
+  </form>
+  <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+  </p>
+</div>
+<script type="text/javascript">
+  document.getElementById("searchbox").style.display = "block";
+</script>
+          
+        
+      </div>
+    </div>
+    <div class="clearer"></div>
+  </div>
+
+  
+    <div class="footer">
+      
+      
+        
+        Powered by <a href="http://www.mkdocs.org">mkdocs 1.1.2</a>
+        &amp; <a href="https://github.com/iamale/mkdocs-alabaster">mkdocs-alabaster</a>
+      
+    </div>
+  
+
+  <!--
+  MkDocs version      : 1.1.2
+  Docs Build Date UTC : 2020-09-07 18:53:08.582084+00:00
+  -->
+</body>
+</html>
