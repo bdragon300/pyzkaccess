@@ -34,7 +34,7 @@ jobs:
         branch: master
   - stage: deploy
     script: skip
-    after_success: skip
+    after_success: true  # https://travis-ci.community/t/does-skipping-everything-else-in-a-job-skip-deploy/6461/2
     deploy:
       provider: pypi
       edge: true
