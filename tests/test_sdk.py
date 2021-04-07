@@ -2,7 +2,7 @@ from unittest.mock import patch, call, ANY
 
 import pytest
 
-from pyzkaccess.enum import ControlOperation
+from pyzkaccess.enums import ControlOperation
 from pyzkaccess.exceptions import ZKSDKError
 
 

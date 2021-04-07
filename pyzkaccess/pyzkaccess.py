@@ -7,7 +7,7 @@ from typing import Optional, Sequence
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
 from .door import Door, DoorList
-from .enum import ControlOperation
+from .enums import ControlOperation
 from .event import EventLog
 from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList

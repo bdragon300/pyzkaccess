@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 
 from .device import ZKModel
-from .enum import SensorType, VerifyMode
+from .enums import SensorType, VerifyMode
 from .sdk import ZKSDK
 
 

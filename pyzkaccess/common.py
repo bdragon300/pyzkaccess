@@ -100,6 +100,7 @@ class DocValueMeta(_ObjectProxyMetaType):
 
         new_class = super().__new__(cls, name, bases, attrs)
         type.__setattr__(new_class, '__doc__', doc_prop)
+        type.__setattr__(new_class, '__module__', '')
         return new_class
 
 

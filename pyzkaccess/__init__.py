@@ -2,7 +2,7 @@ from .aux_input import *
 from .common import *
 from .device import *
 from .door import *
-from .enum import *
+from .enums import *
 from .event import *
 from .exceptions import *
 from .param import *

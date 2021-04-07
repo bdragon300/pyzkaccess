@@ -3,7 +3,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
-from pyzkaccess.enum import RelayGroup, ControlOperation
+from pyzkaccess.enums import RelayGroup, ControlOperation
 from pyzkaccess.relay import Relay, RelayList
 
 

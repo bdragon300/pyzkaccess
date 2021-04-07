@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Iterable, Union
 
 from .common import UserTuple
-from .enum import RelayGroup, ControlOperation
+from .enums import RelayGroup, ControlOperation
 from .sdk import ZKSDK
 
 

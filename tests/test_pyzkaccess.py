@@ -6,7 +6,7 @@ from pyzkaccess import ZKAccess
 from pyzkaccess.aux_input import AuxInput, AuxInputList
 from pyzkaccess.device import ZK400, ZK200, ZK100, ZKDevice
 from pyzkaccess.door import Door, DoorList
-from pyzkaccess.enum import ControlOperation
+from pyzkaccess.enums import ControlOperation
 from pyzkaccess.event import EventLog
 from pyzkaccess.param import DeviceParameters
 from pyzkaccess.reader import Reader, ReaderList

@@ -6,7 +6,7 @@ import pytest
 from pyzkaccess.aux_input import AuxInput, AuxInputList
 from pyzkaccess.device import ZK200
 from pyzkaccess.door import Door, DoorList
-from pyzkaccess.enum import RelayGroup
+from pyzkaccess.enums import RelayGroup
 from pyzkaccess.event import EventLog
 from pyzkaccess.param import DoorParameters
 from pyzkaccess.reader import Reader, ReaderList

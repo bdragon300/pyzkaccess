@@ -1,7 +1,7 @@
 __all__ = [
     'ZKSDKError'
 ]
-from .enum import PULL_SDK_ERRORS, WSA_ERROR_CODES
+from .enums import PULL_SDK_ERRORS, WSA_ERROR_CODES
 
 
 class ZKSDKError(Exception):

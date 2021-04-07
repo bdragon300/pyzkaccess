@@ -5,7 +5,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from pyzkaccess.device import ZK400
-from pyzkaccess.enum import SensorType, VerifyMode
+from pyzkaccess.enums import SensorType, VerifyMode
 from pyzkaccess.param import (
     DaylightSavingMomentMode1,
     DaylightSavingMomentMode2,

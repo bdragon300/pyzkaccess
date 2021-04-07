@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional, List, Iterable, Union, Sequence
 
 from .common import DocValue
-from .enum import VerifyMode, PassageDirection, EVENT_TYPES
+from .enums import VerifyMode, PassageDirection, EVENT_TYPES
 from .sdk import ZKSDK
 
 

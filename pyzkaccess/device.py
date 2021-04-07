@@ -8,7 +8,7 @@ __all__ = [
 from typing import Mapping, Optional
 
 from .common import DocDict
-from .enum import RelayGroup
+from .enums import RelayGroup
 
 
 class ZKModel:
