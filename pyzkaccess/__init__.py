@@ -1,6 +1,7 @@
 from .aux_input import *
 from .common import *
 from .device import *
+from .device_data import *
 from .door import *
 from .enums import *
 from .event import *

@@ -2,10 +2,9 @@ __all__ = [
     'ZKSDK'
 ]
 from collections import OrderedDict
-from typing import Sequence, Mapping, Any, Generator
+from typing import Sequence, Mapping, Any, Generator, Tuple
 
 import pyzkaccess.ctypes as ctypes
-from .device_data.tables import QueryFilter
 from .exceptions import ZKSDKError
 
 
@@ -18,8 +17,8 @@ class ZKSDK:
         """
         :param dllpath: path to a DLL file. Typically "plcommpro.dll"
         """
-        self.dll = ctypes.WinDLL(dllpath)
         self.handle = None
+        self.dll = ctypes.WinDLL(dllpath)
 
     @property
     def is_connected(self) -> bool:
@@ -198,7 +197,7 @@ class ZKSDK:
             self,
             table_name: str,
             fields: Sequence[str],
-            filters: Sequence[QueryFilter],
+            filters: Sequence[Tuple[str, str, str]],
             buffer_size: int,
             new_records_only: bool = False) -> Generator[OrderedDict[str, str], None, None]:
         """
@@ -215,6 +214,7 @@ class ZKSDK:
          records in table, otherwise all records will be considered
         :return: ordered dicts with table records
         """
+        print('get_device_data', table_name, fields, filters, buffer_size, new_records_only)
         buf = ctypes.create_string_buffer(buffer_size)
         if not fields:
             fields = ('*', )
@@ -234,8 +234,10 @@ class ZKSDK:
             return
 
         *lines, _ = raw.split('\r\n')
-        headers = lines.pop(0)
+        headers = lines.pop(0).split(',')
+        print('headers', headers)
         for line in lines:
+            print(line)
             cols = line.split(',')  # FIXME: check actual
             yield OrderedDict(zip(headers, cols))
 
@@ -248,6 +250,7 @@ class ZKSDK:
         :param records: sequence of data records
         :return:
         """
+        print('set_device_data', table_name, records)
         query_table = table_name.encode()
         query_records = '\r\n'.join(
             '\t'.join('{}={}'.format(k, v) for k, v in rec.items()) for rec in records
@@ -266,13 +269,14 @@ class ZKSDK:
         :param table_name: name of table to get records count from
         :return: count of records
         """
+        print('get_device_data_count', table_name)
         query_table = table_name.encode()
 
         # `Filter` and `Options` parameters should be null according to SDK docs
         err = self.dll.GetDeviceDataCount(self.handle, query_table, '', '')
         if err < 0:
             raise ZKSDKError('GetDeviceDataCount failed', err)
-
+        print('res', err)
         return err
 
     def delete_device_data(self, table_name: str, records: Sequence[OrderedDict[str, str]]) -> None:
@@ -284,6 +288,7 @@ class ZKSDK:
         :param records: sequence of data records to delete
         :return:
         """
+        print('delete_device_data', table_name, records)
         query_table = table_name.encode()
         query_records = '\r\n'.join(
             '\t'.join('{}={}'.format(k, v) for k, v in rec.items()) for rec in records

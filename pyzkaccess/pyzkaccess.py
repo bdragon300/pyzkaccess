@@ -2,7 +2,7 @@ __all__ = [
     'ZKAccess'
 ]
 import pyzkaccess.ctypes as ctypes
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union, Type
 
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
@@ -12,6 +12,8 @@ from .event import EventLog
 from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
+from .device_data.tables import DataTable, data_table_classes
+from .device_data.queryset import QuerySet
 import pyzkaccess.sdk
 
 
@@ -21,6 +23,10 @@ class ZKAccess:
     #: Size in bytes of c-string buffer which is used to accept
     #: text data from PULL SDK functions
     buffer_size = 4096
+
+    query_buffer_size = None
+
+    queryset_class = QuerySet
 
     def __init__(self,
                  connstr: Optional[str] = None,
@@ -55,6 +61,22 @@ class ZKAccess:
 
         if self.connstr:
             self.connect(self.connstr)
+
+    def query(self, table: Union[Type[DataTable], DataTable, str]) -> QuerySet:
+        """Return a query set object that binded to a given data table.
+        This object helps to build a query to a table and to iterate
+        on results
+        :param table: data table name or DataTable object/class
+        :return: queryset object
+        """
+        if isinstance(table, str):
+            table = data_table_classes[table]
+        elif isinstance(table, DataTable):
+            table = table.__class__
+        elif not (isinstance(table, type) and issubclass(table, DataTable)):
+            raise TypeError('Table must be either a data table object/class or a table name')
+
+        return self.queryset_class(self.sdk, table, self.query_buffer_size)
 
     @property
     def doors(self):
