@@ -1,8 +1,12 @@
 import math
-from typing import Type, Union, Optional, Iterator, Generator, Mapping, Any
+from collections import namedtuple
+from copy import copy
+from typing import Type, Union, Optional, Iterator, Generator, Mapping, Any, Sequence
 
 from .tables import DataTable, Field
 from ..sdk import ZKSDK
+
+QueryFilter = namedtuple('QueryFilter', ['field', 'operator', 'value'])
 
 
 class ModelIterator(Iterator):
@@ -16,9 +20,9 @@ class ModelIterator(Iterator):
             self._stop = self._item + 1
         if isinstance(self._item, slice):
             # FIXME: start, stop, step < 0; step == 0; stop < start
-            self._start = self._item.start
+            self._start = self._item.start or 0
             self._stop = self._item.stop
-            self._step = self._item.step
+            self._step = self._item.step or 1
 
         self._item_iter = None
 
@@ -39,11 +43,11 @@ class QuerySet:
         self._cache = None
         self._results_iter = None
 
-        # Query set parameters
-        self._only_fields = set()
-        self._filters = []
-        self._only_unread = False
+        # Query parameters
         self._buffer_size = buffer_size
+        self._only_fields = set()
+        self._filters = {}
+        self._only_unread = False
 
     def only_fields(self, *fields: Union[Field, str]) -> 'QuerySet':
         res = self.copy()
@@ -52,7 +56,7 @@ class QuerySet:
             if isinstance(field, str):
                 if field not in table_fields:
                     raise ValueError(
-                        'Unknown field {}.{}'.format(self._table_cls.table_name, field)
+                        'No such field {}.{}'.format(self._table_cls.__name__, field)
                     )
                 field = getattr(self._table_cls, field)
             elif not isinstance(field, Field):
@@ -62,12 +66,17 @@ class QuerySet:
 
         return res
 
-    def where(self, filter_expr: Field) -> 'QuerySet':
-        if not filter_expr.filters:
+    def where(self, **kwargs) -> 'QuerySet':
+        if not kwargs:
             raise ValueError('Empty field expression')
 
         res = self.copy()
-        res._filters.extend(filter_expr.filters)
+        for key, fval in kwargs.items():
+            field = getattr(self._table_cls, key, None)
+            if field is None:
+                raise TypeError('No such field {}.{}', self._table_cls.__name__, key)
+
+            res._filters[field.raw_name] = fval
         return res
 
     def unread(self) -> 'QuerySet':
@@ -75,10 +84,39 @@ class QuerySet:
         res._only_unread = True
         return res
 
-    def clear_cache(self) -> 'QuerySet':
-        res = self.copy()
-        res._cache = None
-        return res
+    def insert(self, records: Sequence[Union[DataTable, Mapping[str, Any]]]) -> None:
+        """
+
+        :param records:
+        :return:
+        """
+        items_generator = self._sdk.set_device_data(self._table_cls.table_name)
+        if not records:
+            return
+
+        items_generator.send(None)
+        # TODO: records can be mapping, datatable
+        for record in records:
+            if isinstance(record, DataTable):
+                record = record.raw_data
+            elif isinstance(record, Mapping):
+                fields_mapping = self._table_cls.fields_mapping()
+
+                extra_keys = record.keys() - fields_mapping.keys()
+                if extra_keys:
+                    raise TypeError(
+                        'Extra keys was passed in a record: {}'.format(list(extra_keys))
+                    )
+
+                record = {fields_mapping[key]: val for key, val in record.items()}
+            else:
+                raise TypeError('Records must be either a DataTable object or a mapping')
+            items_generator.send(record)
+
+        try:
+            items_generator.send(None)
+        except StopIteration:
+            pass
 
     def __iter__(self):
         if self._cache is None:
@@ -92,7 +130,10 @@ class QuerySet:
         if isinstance(item, slice):
             return self._iterator_class(self, item)
 
-        return next(self._iterator_class(self, item))
+        try:
+            return next(self._iterator_class(self, item))
+        except StopIteration:
+            raise IndexError("list index is out of range") from None
 
     def __len__(self):
         # https://stackoverflow.com/questions/37189968/how-to-have-list-consume-iter-without-calling-len
@@ -109,14 +150,17 @@ class QuerySet:
             # Get buffer size based on table records count and
             # estimated record length and round up to the nearest
             # power of 2
-            if records_count == 0:
-                return
-            estimated_size = self._estimate_record_length * records_count
-            buffer_size = 2 ** math.ceil(math.log2(estimated_size))
+
+            # if records_count == 0:
+            #     return
+            buffer_size = 1024
+            if records_count > 0:
+                estimated_size = self._estimate_record_length * records_count
+                buffer_size = 2 ** math.ceil(math.log2(estimated_size))
 
         fields = ['*']  # Query all fields if no fields was given
         if self._only_fields:
-            fields = [f.name for f in self._only_fields]
+            fields = [f.raw_name for f in self._only_fields]
 
         self._results_iter = iter(self._sdk.get_device_data(
             self._table_cls.table_name,
@@ -126,7 +170,7 @@ class QuerySet:
             self._only_unread
         ))
 
-    def _iter_cache(self, start, stop, step) -> Generator[Mapping[str, Any], None, None]:
+    def _iter_cache(self, start: int, stop: Optional[int], step: int) -> Generator[Mapping[str, Any], None, None]:
         for i in self._cache[start:stop:step]:
             yield i
 
@@ -142,4 +186,9 @@ class QuerySet:
             i += 1
 
     def copy(self) -> 'QuerySet':
-        return self.__class__(self._sdk, self._table_cls)  # FIXME: copy, not new!
+        res = self.__class__(self._sdk, self._table_cls, self._buffer_size)
+        res._only_fields = copy(self._only_fields)
+        res._filters = copy(self._filters)
+        res._only_unread = self._only_unread
+
+        return res

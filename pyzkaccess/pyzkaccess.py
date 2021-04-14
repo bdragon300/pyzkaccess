@@ -2,7 +2,7 @@ __all__ = [
     'ZKAccess'
 ]
 import pyzkaccess.ctypes as ctypes
-from typing import Optional, Sequence, Union, Type
+from typing import Optional, Sequence, Union, Type, Mapping, Any
 
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
@@ -62,24 +62,18 @@ class ZKAccess:
         if self.connstr:
             self.connect(self.connstr)
 
-    def query(self, table: Union[Type[DataTable], DataTable, str]) -> QuerySet:
+    def table(self, table: Union[Type[DataTable], DataTable, str]) -> QuerySet:
         """Return a query set object that binded to a given data table.
         This object helps to build a query to a table and to iterate
         on results
         :param table: data table name or DataTable object/class
         :return: queryset object
         """
-        if isinstance(table, str):
-            table = data_table_classes[table]
-        elif isinstance(table, DataTable):
-            table = table.__class__
-        elif not (isinstance(table, type) and issubclass(table, DataTable)):
-            raise TypeError('Table must be either a data table object/class or a table name')
-
+        table = self._get_table(table)
         return self.queryset_class(self.sdk, table, self.query_buffer_size)
 
     @property
-    def doors(self):
+    def doors(self) -> DoorList:
         """Door object list, depends on device model.
         Door object incapsulates access to appropriate relays, reader,
         aux input, and also its events and parameters
@@ -106,7 +100,7 @@ class ZKAccess:
         return DoorList(self.sdk, event_log=self._event_log, doors=doors)
 
     @property
-    def relays(self) -> 'RelayList':
+    def relays(self) -> RelayList:
         """Relay object list, depends on device model
 
         You can work with one object as with a slice. E.g. switch on
@@ -118,7 +112,7 @@ class ZKAccess:
         return RelayList(sdk=self.sdk, relays=relays)
 
     @property
-    def readers(self) -> 'ReaderList':
+    def readers(self) -> ReaderList:
         """Reader object list, depends on device model
 
         You can work with one object as with a slice. E.g. get events
@@ -129,7 +123,7 @@ class ZKAccess:
         return ReaderList(sdk=self.sdk, event_log=self._event_log, readers=readers)
 
     @property
-    def aux_inputs(self):
+    def aux_inputs(self) -> AuxInputList:
         """Aux input object list, depends on device model
 
         You can work with one object as with a slice. E.g. get events
@@ -161,7 +155,7 @@ class ZKAccess:
         return self._event_log
 
     @property
-    def parameters(self):
+    def parameters(self) -> DeviceParameters:
         """Parameters related to the whole device such as datetime,
         connection settings and so forth. Door-specific parameters are
         accesible by `doors` property.
@@ -245,6 +239,17 @@ class ZKAccess:
     def restart(self) -> None:
         """Restart a device"""
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
+
+    @staticmethod
+    def _get_table(table: Union[Type[DataTable], DataTable, str]) -> Type[DataTable]:
+        if isinstance(table, str):
+            table = data_table_classes[table]
+        elif isinstance(table, DataTable):
+            table = table.__class__
+        elif not (isinstance(table, type) and issubclass(table, DataTable)):
+            raise TypeError('Table must be either a data table object/class or a table name')
+
+        return table
 
     def __enter__(self):
         return self

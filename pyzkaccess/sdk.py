@@ -2,7 +2,7 @@ __all__ = [
     'ZKSDK'
 ]
 from collections import OrderedDict
-from typing import Sequence, Mapping, Any, Generator, Tuple
+from typing import Sequence, Mapping, Any, Generator
 
 import pyzkaccess.ctypes as ctypes
 from .exceptions import ZKSDKError
@@ -197,7 +197,7 @@ class ZKSDK:
             self,
             table_name: str,
             fields: Sequence[str],
-            filters: Sequence[Tuple[str, str, str]],
+            filters: Mapping[str, str],
             buffer_size: int,
             new_records_only: bool = False) -> Generator[OrderedDict[str, str], None, None]:
         """
@@ -220,8 +220,8 @@ class ZKSDK:
             fields = ('*', )
 
         query_table = table_name.encode()
-        query_fields = ';'.join(fields).encode()
-        query_conditions = ','.join('{0}{1}{2}'.format(*x) for x in filters).encode()
+        query_fields = '\t'.join(fields).encode()
+        query_conditions = '\t'.join('{}={}'.format(k, v) for k, v in filters.items()).encode()
         query_options = ('NewRecord' if new_records_only else '').encode()
 
         err = self.dll.GetDeviceData(self.handle, buf, buffer_size, query_table,
@@ -235,26 +235,33 @@ class ZKSDK:
 
         *lines, _ = raw.split('\r\n')
         headers = lines.pop(0).split(',')
-        print('headers', headers)
+        print(headers)
         for line in lines:
-            print(line)
             cols = line.split(',')  # FIXME: check actual
             yield OrderedDict(zip(headers, cols))
 
-    def set_device_data(self, table_name: str, records: Sequence[OrderedDict[str, str]]) -> None:
+    def set_device_data(self, table_name: str) -> Generator[None, Mapping[str, str], None]:
         """
         Insert records to a given data table
 
         SDK: SetDeviceData()
         :param table_name: name of table to write data to
-        :param records: sequence of data records
         :return:
         """
-        print('set_device_data', table_name, records)
+        print('set_device_data', table_name)
         query_table = table_name.encode()
-        query_records = '\r\n'.join(
-            '\t'.join('{}={}'.format(k, v) for k, v in rec.items()) for rec in records
-        ).encode()
+        query_records = []
+        record = yield
+        while record is not None:
+            print('>', record)
+            query_records.append(
+                '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
+            )
+            record = yield
+
+        query_records = '\r\n'.join(query_records).encode()
+        query_records += b'\r\n'
+        print(query_records)
 
         # `Options` parameter should be null according to SDK docs
         err = self.dll.SetDeviceData(self.handle, query_table, query_records, '')
