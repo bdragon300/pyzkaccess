@@ -9,32 +9,7 @@ from ..sdk import ZKSDK
 QueryFilter = namedtuple('QueryFilter', ['field', 'operator', 'value'])
 
 
-class ModelIterator(Iterator):
-    def __init__(self, qs: 'QuerySet', item: Optional[Union[slice, int]] = None):
-        self._qs = qs
-        self._item = item
-        self._start, self._stop, self._step = 0, None, 1
-
-        if isinstance(self._item, int):
-            self._start = self._item
-            self._stop = self._item + 1
-        if isinstance(self._item, slice):
-            # FIXME: start, stop, step < 0; step == 0; stop < start
-            self._start = self._item.start or 0
-            self._stop = self._item.stop
-            self._step = self._item.step or 1
-
-        self._item_iter = None
-
-    def __next__(self):
-        if self._item_iter is None:
-            self._item_iter = self._qs._iter_cache(self._start, self._stop, self._step)
-
-        return self._qs._table_cls().with_raw_data(next(self._item_iter))
-
-
 class QuerySet:
-    _iterator_class = ModelIterator
     _estimate_record_length = 256
 
     def __init__(self, sdk: ZKSDK, table: Type[DataTable], buffer_size: Optional[int] = None):
@@ -84,17 +59,17 @@ class QuerySet:
         res._only_unread = True
         return res
 
-    def insert(self, records: Sequence[Union[DataTable, Mapping[str, Any]]]) -> None:
+    def upsert(self, records: Sequence[Union[DataTable, Mapping[str, Any]]]) -> None:
         """
 
         :param records:
         :return:
         """
-        items_generator = self._sdk.set_device_data(self._table_cls.table_name)
+        gen = self._sdk.set_device_data(self._table_cls.table_name)
         if not records:
             return
 
-        items_generator.send(None)
+        gen.send(None)
         # TODO: records can be mapping, datatable
         for record in records:
             if isinstance(record, DataTable):
@@ -110,13 +85,16 @@ class QuerySet:
 
                 record = {fields_mapping[key]: val for key, val in record.items()}
             else:
-                raise TypeError('Records must be either a DataTable object or a mapping')
-            items_generator.send(record)
+                raise TypeError('Records must be either a data table object or a mapping')
+            gen.send(record)
 
         try:
-            items_generator.send(None)
+            gen.send(None)
         except StopIteration:
             pass
+
+    def count(self) -> int:
+        return self._sdk.get_device_data_count(self._table_cls.table_name)
 
     def __iter__(self):
         if self._cache is None:
@@ -140,7 +118,7 @@ class QuerySet:
         [x for x in self]  # noqa
         return len(self._cache)
 
-    def _fetch_data(self):
+    def _fetch_data(self) -> None:
         self._cache = []
         self._results_iter = iter(())
 
@@ -170,7 +148,9 @@ class QuerySet:
             self._only_unread
         ))
 
-    def _iter_cache(self, start: int, stop: Optional[int], step: int) -> Generator[Mapping[str, Any], None, None]:
+    def _iter_cache(
+            self, start: int, stop: Optional[int], step: int
+    ) -> Generator[Mapping[str, Any], None, None]:
         for i in self._cache[start:stop:step]:
             yield i
 
@@ -192,3 +172,30 @@ class QuerySet:
         res._only_unread = self._only_unread
 
         return res
+
+    class DataTableIterator(Iterator):
+        def __init__(self, qs: 'QuerySet', item: Optional[Union[slice, int]] = None):
+            self._qs = qs
+            self._item = item
+            self._start, self._stop, self._step = 0, None, 1
+
+            if isinstance(self._item, int):
+                self._start = self._item
+                self._stop = self._item + 1
+            if isinstance(self._item, slice):
+                # FIXME: start, stop, step < 0; step == 0; stop < start
+                self._start = self._item.start or 0
+                self._stop = self._item.stop
+                self._step = self._item.step or 1
+
+            self._item_iter = None
+
+        def __next__(self):
+            if self._item_iter is None:
+                self._item_iter = self._qs._iter_cache(self._start, self._stop, self._step)
+
+            return self._qs._table_cls().with_raw_data(
+                next(self._item_iter), dirty=False
+            ).with_sdk(self._qs._sdk)
+
+    _iterator_class = DataTableIterator

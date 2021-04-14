@@ -1,7 +1,6 @@
 __all__ = [
     'ZKSDK'
 ]
-from collections import OrderedDict
 from typing import Sequence, Mapping, Any, Generator
 
 import pyzkaccess.ctypes as ctypes
@@ -199,7 +198,7 @@ class ZKSDK:
             fields: Sequence[str],
             filters: Mapping[str, str],
             buffer_size: int,
-            new_records_only: bool = False) -> Generator[OrderedDict[str, str], None, None]:
+            new_records_only: bool = False) -> Generator[Mapping[str, str], None, None]:
         """
         Retrieve records from a given data table
 
@@ -238,7 +237,7 @@ class ZKSDK:
         print(headers)
         for line in lines:
             cols = line.split(',')  # FIXME: check actual
-            yield OrderedDict(zip(headers, cols))
+            yield dict(zip(headers, cols))
 
     def set_device_data(self, table_name: str) -> Generator[None, Mapping[str, str], None]:
         """
@@ -286,20 +285,27 @@ class ZKSDK:
         print('res', err)
         return err
 
-    def delete_device_data(self, table_name: str, records: Sequence[OrderedDict[str, str]]) -> None:
+    def delete_device_data(self, table_name: str) -> Generator[None, Mapping[str, str], None]:
         """
         Delete given records from a data table
 
         SDK: DeleteDeviceData()
         :param table_name: name of table to delete data from
-        :param records: sequence of data records to delete
         :return:
         """
-        print('delete_device_data', table_name, records)
+        print('delete_device_data', table_name)
         query_table = table_name.encode()
-        query_records = '\r\n'.join(
-            '\t'.join('{}={}'.format(k, v) for k, v in rec.items()) for rec in records
-        ).encode()
+        query_records = []
+        record = yield
+        while record is not None:
+            print('>', record)
+            query_records.append(
+                '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
+            )
+            record = yield
+
+        query_records = '\r\n'.join(query_records).encode()
+        query_records += b'\r\n'
 
         # `Options` parameter should be null according to SDK docs
         err = self.dll.DeleteDeviceData(self.handle, query_table, query_records, '')

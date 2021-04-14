@@ -26,9 +26,10 @@ class Field:
             return
 
         if not isinstance(value, self._data_type):
-            raise TypeError('Value must be of type {}'.format(self._data_type))
+            value = self._data_type(value)
 
         instance._data[self._raw_name] = value
+        instance._dirty = True
 
 
 class DataTableMetadata(type):
@@ -47,10 +48,40 @@ class DataTable(metaclass=DataTableMetadata):
     table_name = None
 
     def __init__(self, **fields):
+        self._sdk = None
+        self._dirty = True
         self._data = {}
         if fields:
             self._data = {self._fields_mapping[field]: fields[field]
                           for field in fields.keys() & self._fields_mapping.keys()}
+
+    def delete(self):
+        if self._sdk is None:
+            raise TypeError('Unable to delete a manually created data table record')
+
+        gen = self._sdk.delete_device_data(self.table_name)
+        gen.send(None)
+        gen.send(self.raw_data)
+        try:
+            gen.send(None)
+        except StopIteration:
+            pass
+
+        self._dirty = True
+
+    def save(self):
+        if self._sdk is None:
+            raise TypeError('Unable to save a manually created data table record')
+
+        gen = self._sdk.set_device_data(self.table_name)
+        gen.send(None)
+        gen.send(self.raw_data)
+        try:
+            gen.send(None)
+        except StopIteration:
+            pass
+
+        self._dirty = False
 
     @property
     def data(self) -> Mapping[str, Any]:
@@ -65,13 +96,19 @@ class DataTable(metaclass=DataTableMetadata):
     def fields_mapping(cls) -> Mapping[str, str]:
         return cls._fields_mapping
 
-    def with_raw_data(self, data: Mapping[str, str]) -> 'DataTable':
+    def with_raw_data(self, data: Mapping[str, str], dirty: bool = True) -> 'DataTable':
         self._data = data  # TODO: cast to field types
+        self._dirty = dirty
+        return self
+
+    def with_sdk(self, sdk) -> 'DataTable':
+        self._sdk = sdk
         return self
 
     def __repr__(self):
-        return '{}({})'.format(self.__class__.__name__,
-                               ', '.join('{}={}'.format(k, v) for k, v in self.data.items()))
+        return '{}{}({})'.format('*' if self._dirty else '',
+                                 self.__class__.__name__,
+                                 ', '.join('{}={}'.format(k, v) for k, v in self.data.items()))
 
 
 class User(DataTable):
