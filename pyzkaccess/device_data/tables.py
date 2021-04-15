@@ -115,20 +115,20 @@ class User(DataTable):
     """Card number information table"""
     table_name = 'user'
     card = Field('CardNo')
-    pin = Field('Pin')  # TODO: primary key
+    pin = Field('Pin')
     password = Field('Password')
-    group = Field('Group')  # TODO: int
+    group = Field('Group')
     start_time = Field('StartTime')  # TODO: datetime
     end_time = Field('EndTime')  # TODO: datetime
-    super_authorize = Field('SuperAuthorize')  # TODO: bool
+    super_authorize = Field('SuperAuthorize')  # TODO: zkbool
 
 
 class UserAuthorize(DataTable):
     """Access privilege list"""
     table_name = 'userauthorize'
     pin = Field('Pin')
-    timezone_id = Field('AuthorizeTimezoneId')
-    door_id = Field('AuthorizeDoorId')  # TODO: new type with doors device-specific combinations (bitmask)
+    timezone_id = Field('AuthorizeTimezoneId', int)
+    door = Field('AuthorizeDoorId')  # TODO: new type with doors device-specific combinations (bitmask)
 
 
 class Holiday(DataTable):
@@ -158,7 +158,7 @@ class Transaction(DataTable):
     card = Field('Cardno')
     pin = Field('Pin')
     verify_mode = Field('Verified')  # TODO: enum
-    door = Field('DoorID')  # TODO: int
+    door = Field('DoorID', int)
     event_type = Field('EventType')  # TODO: enum
     entry_exit = Field('InOutState')  # TODO: enum
     time = Field('Time_second')  # TODO: datetime
@@ -167,16 +167,16 @@ class Transaction(DataTable):
 class FirstCard(DataTable):
     """First-card door opening"""
     table_name = 'firstcard'
-    door = Field('DoorID')
+    door = Field('DoorID', int)
     pin = Field('Pin')
-    timezone_id = Field('TimezoneID')
+    timezone_id = Field('TimezoneID', int)
 
 
 class MultiCard(DataTable):
     """Multi-card door opening"""
-    table_name = 'multimcard'   # Yes, table name has typo
+    table_name = 'multimcard'   # Yes, typo in table name
     index = Field('Index')
-    door = Field('DoorId')
+    door = Field('DoorId', int)
     group1 = Field('Group1')
     group2 = Field('Group2')
     group3 = Field('Group3')
