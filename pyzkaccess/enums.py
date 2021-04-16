@@ -4,9 +4,13 @@ __all__ = [
     'SensorType',
     'VerifyMode',
     'PassageDirection',
+    'HolidayLoop',
+    'TransactionsRelayGroup',
+    'TRANSACTIONS_INPUT',
+    'TRANSACTIONS_OUTPUT',
     'EVENT_TYPES',
     'PULL_SDK_ERRORS',
-    'WSA_ERROR_CODES'
+    'WSA_ERROR_CODES',
 ]
 from enum import Enum
 from .common import DocDict
@@ -56,6 +60,33 @@ class PassageDirection(Enum):
     entry = 0
     exit = 1
     none = 2
+
+
+class HolidayLoop(Enum):
+    annual = 1
+    not_annual = 2
+
+
+class TransactionsRelayGroup(Enum):
+    lock = 0
+    aux = 1
+
+
+TRANSACTIONS_INPUT = DocDict({
+    0: 'Any input',
+    1: 'Input 1',
+    2: 'Input 2',
+    3: 'Input 3',
+    4: 'Input 4',
+})
+
+TRANSACTIONS_OUTPUT = DocDict({
+    0: 'Any output',
+    1: 'Output 1',
+    2: 'Output 2',
+    3: 'Output 3',
+    4: 'Output 4',
+})
 
 
 #: Type of event which is returned by GetRTLog function
