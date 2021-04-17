@@ -1,7 +1,7 @@
 __all__ = [
     'ZKSDK'
 ]
-from typing import Sequence, Mapping, Any, Generator
+from typing import Sequence, Mapping, Any, Generator, Optional
 
 import pyzkaccess.ctypes as ctypes
 from .exceptions import ZKSDKError
@@ -236,10 +236,12 @@ class ZKSDK:
         headers = lines.pop(0).split(',')
         print(headers)
         for line in lines:
-            cols = line.split(',')  # FIXME: check actual
+            cols = line.split(',')
             yield dict(zip(headers, cols))
 
-    def set_device_data(self, table_name: str) -> Generator[None, Mapping[str, str], None]:
+    def set_device_data(
+            self, table_name: str
+    ) -> Generator[None, Optional[Mapping[str, str]], None]:
         """
         Insert records to a given data table
 
@@ -285,7 +287,9 @@ class ZKSDK:
         print('res', err)
         return err
 
-    def delete_device_data(self, table_name: str) -> Generator[None, Mapping[str, str], None]:
+    def delete_device_data(
+            self, table_name: str
+    ) -> Generator[None, Optional[Mapping[str, str]], None]:
         """
         Delete given records from a data table
 

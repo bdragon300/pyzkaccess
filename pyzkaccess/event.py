@@ -9,7 +9,7 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Optional, List, Iterable, Union, Sequence
 
-from .common import DocValue
+from .common import DocValue, ZKDatetimeUtils
 from .enums import VerifyMode, PassageDirection, EVENT_TYPES
 from .sdk import ZKSDK
 
@@ -36,7 +36,7 @@ class Event:
         """
         parsed = self.parse(s)
 
-        self.time = datetime.strptime(parsed[0], '%Y-%m-%d %H:%M:%S')  # type: datetime
+        self.time = ZKDatetimeUtils.time_string_to_datetime(parsed[0])  # type: datetime
         self.pin = parsed[1]   # type: str
         self.card = parsed[2]  # type: str
         self.door = int(parsed[3])  # type: int

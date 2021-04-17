@@ -1,7 +1,7 @@
 import math
 from collections import namedtuple
 from copy import copy
-from typing import Type, Union, Optional, Iterator, Generator, Mapping, Any, Sequence
+from typing import Type, Union, Optional, Iterator, Generator, Mapping, Any, Sequence, TypeVar
 
 from .tables import DataTable, Field
 from ..sdk import ZKSDK
@@ -25,7 +25,7 @@ class QuerySet:
         self._only_unread = False
 
     def only_fields(self, *fields: Union[Field, str]) -> 'QuerySet':
-        res = self.copy()
+        qs = self.copy()
         table_fields = set(self._table_cls._fields_mapping.keys())
         for field in fields:
             if isinstance(field, str):
@@ -37,64 +37,69 @@ class QuerySet:
             elif not isinstance(field, Field):
                 raise TypeError('Field must be either a table field object or a field name')
 
-            res._only_fields.add(field)
+            qs._only_fields.add(field)
 
-        return res
+        return qs
 
     def where(self, **kwargs) -> 'QuerySet':
         if not kwargs:
             raise ValueError('Empty field expression')
 
-        res = self.copy()
+        qs = self.copy()
+        filters = {}
         for key, fval in kwargs.items():
             field = getattr(self._table_cls, key, None)
             if field is None:
                 raise TypeError('No such field {}.{}', self._table_cls.__name__, key)
+            filters[field.raw_name] = field.to_raw_value(fval)
 
-            res._filters[field.raw_name] = fval
-        return res
+        qs._filters.update(filters)
+
+        return qs
 
     def unread(self) -> 'QuerySet':
-        res = self.copy()
-        res._only_unread = True
-        return res
+        qs = self.copy()
+        qs._only_unread = True
+        return qs
 
-    def upsert(self, records: Sequence[Union[DataTable, Mapping[str, Any]]]) -> None:
-        """
+    _DataTableArgT = TypeVar('_DataTableArgT', DataTable, Mapping[str, Any])
 
-        :param records:
-        :return:
-        """
-        gen = self._sdk.set_device_data(self._table_cls.table_name)
+    def upsert(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]) -> None:
         if not records:
             return
+        gen = self._sdk.set_device_data(self._table_cls.table_name)
+        return self._bulk_operation(gen, records)
 
+    def delete(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]):
+        if not records:
+            return
+        gen = self._sdk.delete_device_data(self._table_cls.table_name)
+        return self._bulk_operation(gen, records)
+
+    def count(self) -> int:
+        return self._sdk.get_device_data_count(self._table_cls.table_name)
+
+    def _bulk_operation(self,
+                        gen: Generator[None, Optional[Mapping[str, str]], None],
+                        records: Union[Sequence[_DataTableArgT], _DataTableArgT]):
         gen.send(None)
-        # TODO: records can be mapping, datatable
+        if isinstance(records, (Mapping, DataTable)):
+            records = (records, )
+
         for record in records:
             if isinstance(record, DataTable):
                 record = record.raw_data
             elif isinstance(record, Mapping):
-                fields_mapping = self._table_cls.fields_mapping()
-
-                extra_keys = record.keys() - fields_mapping.keys()
-                if extra_keys:
-                    raise TypeError(
-                        'Extra keys was passed in a record: {}'.format(list(extra_keys))
-                    )
-
-                record = {fields_mapping[key]: val for key, val in record.items()}
+                record = self._table_cls(**record).raw_data
             else:
                 raise TypeError('Records must be either a data table object or a mapping')
+
             gen.send(record)
 
         try:
             gen.send(None)
         except StopIteration:
             pass
-
-    def count(self) -> int:
-        return self._sdk.get_device_data_count(self._table_cls.table_name)
 
     def __iter__(self):
         if self._cache is None:
