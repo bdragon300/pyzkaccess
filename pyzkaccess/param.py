@@ -12,6 +12,7 @@ from enum import Enum
 from .device import ZKModel
 from .enums import SensorType, VerifyMode
 from .sdk import ZKSDK
+from .common import ZKDatetimeUtils
 
 
 def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
@@ -305,40 +306,14 @@ class DeviceParameters(BaseParameters):
             setattr(t, attr, getattr(value, attr))
 
     def _set_datetime(self, value: datetime):
-        # Amazing DIY ctime calculating from ZKTeco guys.
-        # Simply put this is a count of seconds starting from
-        # 2000-01-01T00:00:00 without considering leap years/seconds
-        # or different length of months (always 31 day)
-        # See PULL SDK docs
-        if value.year < 2000:
-            raise ValueError('Minimum year is 2000')
-
-        value = sum((
-            sum((
-                (value.year - 2000) * 12 * 31,
-                (value.month - 1) * 31,
-                (value.day - 1)
-            )) * 24 * 60 * 60,
-            value.hour * 60 * 60,
-            value.minute * 60,
-            value.second
-        ))
-
-        self._sdk.set_device_param(parameters={'DateTime': str(value)})
+        self._sdk.set_device_param(
+            parameters={'DateTime': str(ZKDatetimeUtils.datetime_to_zkctime(value))}
+        )
 
     def _get_datetime(self):
         res = self._sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)
         res = int(res['DateTime'])
-
-        dt = datetime(
-            year=res // 32140800 + 2000,
-            month=(res // 2678400) % 12 + 1,
-            day=(res // 86400) % 31 + 1,
-            hour=(res // 3600) % 24,
-            minute=(res // 60) % 60,
-            second=res % 60
-        )
-        return dt
+        return ZKDatetimeUtils.zkctime_to_datetime(res)
 
     datetime = property(_get_datetime, _set_datetime, None, 'Current datetime (read-write)')
 

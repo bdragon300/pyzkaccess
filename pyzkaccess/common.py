@@ -1,10 +1,13 @@
 __all__ = [
     'UserTuple',
     'DocValue',
-    'DocDict'
+    'DocDict',
+    'ZKDatetimeUtils'
 ]
 from copy import copy, deepcopy
-from typing import Sequence, Union, Iterable
+from typing import Sequence, Union, Iterable, NamedTuple
+from datetime import datetime, time
+from collections import namedtuple
 
 from wrapt import ObjectProxy
 from wrapt.wrappers import _ObjectProxyMetaType  # noqa
@@ -165,3 +168,107 @@ class DocDict(dict):
     """
     def __init__(self, initdict: dict):
         super().__init__({k: DocValue(k, v) for k, v in initdict.items()})
+
+
+class ZKDatetimeUtils:
+    """
+    Utility functions to work with date/time types in ZKAccess SDK.
+
+    ZK devices has various ways to work with dates and time. In
+    order to make working with dates more convenient in user's code,
+    these functions converts standard python objects from datetime
+    module into a specific format.
+    """
+    @staticmethod
+    def zkctime_to_datetime(ctime: Union[str, int]) -> datetime:
+        """Convert ZK-specific ctime integer value to a datetime object.
+
+        Simply put this ctime is a count of seconds starting from
+        `2000-01-01 00:00:00` without considering leap years/seconds
+        and days count in months (always 31 day)
+        :param ctime: ZK ctime integer or string value
+        :return: datetime object
+        """
+        if isinstance(ctime, str):
+            ctime = int(ctime)
+
+        if ctime < 0:
+            raise ValueError('Value must be a positive number')
+
+        return datetime(
+            year=ctime // 32140800 + 2000,
+            month=(ctime // 2678400) % 12 + 1,
+            day=(ctime // 86400) % 31 + 1,
+            hour=(ctime // 3600) % 24,
+            minute=(ctime // 60) % 60,
+            second=ctime % 60
+        )
+
+    @staticmethod
+    def datetime_to_zkctime(dt: datetime) -> int:
+        """Converts datetime object to a ZK-specific ctime value.
+        Such type can be found in device parameters and data tables.
+
+        Simply put this ctime is a count of seconds starting from
+        `2000-01-01 00:00:00` without considering leap years/seconds
+        and days count in months (always 31 day)
+        :param dt: datetime object
+        :return: ZK ctime integer value
+        """
+        if dt.year < 2000:
+            raise ValueError('Cannot get zkctime from a date earlier than a midnight of 2000-01-01')
+
+        return sum((
+            sum((
+                (dt.year - 2000) * 12 * 31,
+                (dt.month - 1) * 31,
+                (dt.day - 1)
+            )) * 24 * 60 * 60,
+            dt.hour * 60 * 60,
+            dt.minute * 60,
+            dt.second
+        ))
+
+    @staticmethod
+    def time_string_to_datetime(dt_string: str) -> datetime:
+        """Parses datetime string and return datetime object. Such value
+        is used in events list. Datetime string has ISO date format.
+        :param dt_string: datetime string such as `2021-04-15 21:21:00`
+        :return: datetime object
+        """
+        return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S')
+
+    @staticmethod
+    def zktimerange_to_times(tr: Union[str, int]) -> (time, time):
+        """Decode 4-byte time range into time objects couple.
+        Such approach is used in Timezone table.
+
+        Simply put, the higher 2 bytes are "from" part of range,
+        the lower 2 bytes are "to" part. Time part is encoded as
+        `(hour * 100) + minutes`.
+        :param tr: encoded time range as integer or as number in string
+        :return: time objects from-to couple (without timezone)
+        """
+        if isinstance(tr, str):
+            tr = int(tr)
+
+        to_num = tr & 0xffff
+        from_num = (tr >> 16) & 0xffff
+        from_t = time(hour=from_num // 100, minute=from_num - from_num // 100)
+        to_t = time(hour=to_num // 100, minute=to_num - to_num // 100)
+
+        return from_t, to_t
+
+    @staticmethod
+    def times_to_zktimerange(from_t: Union[datetime, time], to_t: Union[datetime, time]) -> int:
+        """Encode time range in time/datetime objects into one 4-byte
+        integer. Such approach is used in Timezone table.
+
+        Simply put, the higher 2 bytes are "from" part of range,
+        the lower 2 bytes are "to" part. Time part is encoded as
+        `(hour * 100) + minutes`.
+        :param from_t: time/datetime "from" part of time range
+        :param to_t: time/datetime "to" part of time range
+        :return: encoded 4-byte integer
+        """
+        return ((from_t.hour * 100 + from_t.minute) << 16) + (to_t.hour * 100 + to_t.minute)
