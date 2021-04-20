@@ -18,13 +18,17 @@ import pyzkaccess.sdk
 
 
 class ZKAccess:
-    """Interface to a connected device"""
+    """Interface to a connected ZKAccess device"""
 
-    #: Size in bytes of c-string buffer which is used to accept
-    #: text data from PULL SDK functions
     buffer_size = 4096
+    """Size in bytes of c-string buffer which is used to accept
+    text data from PULL SDK functions
+    """
 
     query_buffer_size = None
+    """Size in bytes of c-string buffer for result of query to
+    data tables. If None then size will be guessed automatically
+    """
 
     queryset_class = QuerySet
 
@@ -63,9 +67,7 @@ class ZKAccess:
             self.connect(self.connstr)
 
     def table(self, table: Union[Type[DataTable], DataTable, str]) -> QuerySet:
-        """Return a query set object that binded to a given data table.
-        This object helps to build a query to a table and to iterate
-        on results
+        """Return a QuerySet object for a given table
         :param table: data table name or DataTable object/class
         :return: queryset object
         """

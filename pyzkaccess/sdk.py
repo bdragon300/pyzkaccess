@@ -243,7 +243,15 @@ class ZKSDK:
             self, table_name: str
     ) -> Generator[None, Optional[Mapping[str, str]], None]:
         """
-        Insert records to a given data table
+        Insert records to a given data table. Records are received
+        through a generator.
+
+        Example:
+            g = sdk.set_device_data('user')
+            g.send(None)  # Initialize generator
+            for rec in records:
+                g.send(rec)
+            g.send(None)   # Trigger sdk call
 
         SDK: SetDeviceData()
         :param table_name: name of table to write data to
@@ -291,7 +299,15 @@ class ZKSDK:
             self, table_name: str
     ) -> Generator[None, Optional[Mapping[str, str]], None]:
         """
-        Delete given records from a data table
+        Delete given records from a data table. Records are received
+        through a generator.
+
+        Example:
+            g = sdk.delete_device_data('user')
+            g.send(None)  # Initialize generator
+            for rec in records:
+                g.send(rec)
+            g.send(None)   # Trigger sdk call
 
         SDK: DeleteDeviceData()
         :param table_name: name of table to delete data from

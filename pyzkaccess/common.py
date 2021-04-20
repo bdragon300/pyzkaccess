@@ -5,9 +5,8 @@ __all__ = [
     'ZKDatetimeUtils'
 ]
 from copy import copy, deepcopy
-from typing import Sequence, Union, Iterable, NamedTuple
-from datetime import datetime, time
-from collections import namedtuple
+from datetime import datetime, time, date
+from typing import Sequence, Union, Iterable
 
 from wrapt import ObjectProxy
 from wrapt.wrappers import _ObjectProxyMetaType  # noqa
@@ -180,28 +179,28 @@ class ZKDatetimeUtils:
     module into a specific format.
     """
     @staticmethod
-    def zkctime_to_datetime(ctime: Union[str, int]) -> datetime:
+    def zkctime_to_datetime(zkctime: Union[str, int]) -> datetime:
         """Convert ZK-specific ctime integer value to a datetime object.
 
         Simply put this ctime is a count of seconds starting from
         `2000-01-01 00:00:00` without considering leap years/seconds
         and days count in months (always 31 day)
-        :param ctime: ZK ctime integer or string value
+        :param zkctime: ZK ctime integer or string value
         :return: datetime object
         """
-        if isinstance(ctime, str):
-            ctime = int(ctime)
+        if isinstance(zkctime, str):
+            zkctime = int(zkctime)
 
-        if ctime < 0:
+        if zkctime < 0:
             raise ValueError('Value must be a positive number')
 
         return datetime(
-            year=ctime // 32140800 + 2000,
-            month=(ctime // 2678400) % 12 + 1,
-            day=(ctime // 86400) % 31 + 1,
-            hour=(ctime // 3600) % 24,
-            minute=(ctime // 60) % 60,
-            second=ctime % 60
+            year=zkctime // 32140800 + 2000,
+            month=(zkctime // 2678400) % 12 + 1,
+            day=(zkctime // 86400) % 31 + 1,
+            hour=(zkctime // 3600) % 24,
+            minute=(zkctime // 60) % 60,
+            second=zkctime % 60
         )
 
     @staticmethod
@@ -239,21 +238,21 @@ class ZKDatetimeUtils:
         return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S')
 
     @staticmethod
-    def zktimerange_to_times(tr: Union[str, int]) -> (time, time):
+    def zktimerange_to_times(zktr: Union[str, int]) -> (time, time):
         """Decode 4-byte time range into time objects couple.
         Such approach is used in Timezone table.
 
         Simply put, the higher 2 bytes are "from" part of range,
         the lower 2 bytes are "to" part. Time part is encoded as
         `(hour * 100) + minutes`.
-        :param tr: encoded time range as integer or as number in string
+        :param zktr: encoded time range as integer or as number in string
         :return: time objects from-to couple (without timezone)
         """
-        if isinstance(tr, str):
-            tr = int(tr)
+        if isinstance(zktr, str):
+            zktr = int(zktr)
 
-        to_num = tr & 0xffff
-        from_num = (tr >> 16) & 0xffff
+        to_num = zktr & 0xffff
+        from_num = (zktr >> 16) & 0xffff
         from_t = time(hour=from_num // 100, minute=from_num - from_num // 100)
         to_t = time(hour=to_num // 100, minute=to_num - to_num // 100)
 
@@ -272,3 +271,25 @@ class ZKDatetimeUtils:
         :return: encoded 4-byte integer
         """
         return ((from_t.hour * 100 + from_t.minute) << 16) + (to_t.hour * 100 + to_t.minute)
+
+    @staticmethod
+    def zkdate_to_date(zkd: str) -> date:
+        """Parse date string and return date object. Such format is
+        used in User table.
+
+        Date format is simple: 'YYYYMMDD'
+        :param zkd: date string
+        :return: parsed date object
+        """
+        return datetime.strptime(zkd, '%Y%m%d').date()
+
+    @staticmethod
+    def date_to_zkdate(d: Union[date, datetime]) -> str:
+        """Make a date string from a given date/datetime object. Such
+        format is used in User table.
+
+        Date format is simple: 'YYYYMMDD'
+        :param d: date/datetime object
+        :return: date string
+        """
+        return d.strftime('%Y%m%d')

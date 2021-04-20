@@ -5,9 +5,9 @@ __all__ = [
     'VerifyMode',
     'PassageDirection',
     'HolidayLoop',
-    'TransactionsRelayGroup',
-    'TRANSACTIONS_INPUT',
-    'TRANSACTIONS_OUTPUT',
+    'InOutFunRelayGroup',
+    'INOUTFUN_INPUT',
+    'INOUTFUN_OUTPUT',
     'EVENT_TYPES',
     'PULL_SDK_ERRORS',
     'WSA_ERROR_CODES',
@@ -63,16 +63,21 @@ class PassageDirection(Enum):
 
 
 class HolidayLoop(Enum):
+    """Holiday type -- annual or not"""
     annual = 1
     not_annual = 2
 
 
-class TransactionsRelayGroup(Enum):
+class InOutFunRelayGroup(Enum):
+    """Device relay group which was triggered -- lock relays
+    (door output) or aux relays (aux output)
+    """
     lock = 0
     aux = 1
 
 
-TRANSACTIONS_INPUT = DocDict({
+#: Input number which triggered the log event
+INOUTFUN_INPUT = DocDict({
     0: 'Any input',
     1: 'Input 1',
     2: 'Input 2',
@@ -80,7 +85,9 @@ TRANSACTIONS_INPUT = DocDict({
     4: 'Input 4',
 })
 
-TRANSACTIONS_OUTPUT = DocDict({
+
+#: Output number which was became active in log event
+INOUTFUN_OUTPUT = DocDict({
     0: 'Any output',
     1: 'Output 1',
     2: 'Output 2',

@@ -1,16 +1,46 @@
 import math
 from collections import namedtuple
 from copy import copy
-from typing import Type, Union, Optional, Iterator, Generator, Mapping, Any, Sequence, TypeVar
+from typing import (
+    Type,
+    Union,
+    Optional,
+    Iterator,
+    Generator,
+    Mapping,
+    Any,
+    Sequence,
+    TypeVar,
+    Iterable
+)
 
 from .tables import DataTable, Field
 from ..sdk import ZKSDK
 
-QueryFilter = namedtuple('QueryFilter', ['field', 'operator', 'value'])
-
 
 class QuerySet:
-    _estimate_record_length = 256
+    """Provides interface to perform queries to data tables, iterate
+    over results and insert/delete records in tables
+
+    QuerySet using "fluent interface" in most of its methods. Many
+    ORMs use this approach, so working with tables and records may look
+    familiar.
+    Example:
+        records = zk.table('User').where(card='123456').only_fields('card', 'password').unread()
+        for record in records:
+            print(record.password)
+
+    For table and fields you can use either objects or their names.
+    For example, the following code has the same meaning as the previous
+    one:
+        from zkaccess.tables import User
+        records = zk.table(User).where(card='123456').only_fields(User.card, User.password).unread()
+        for record in records:
+            print(record.password)
+
+    Also QuerySet can do upsert/delete operations
+    """
+    _estimate_record_buffer = 256
 
     def __init__(self, sdk: ZKSDK, table: Type[DataTable], buffer_size: Optional[int] = None):
         self._sdk = sdk
@@ -25,6 +55,12 @@ class QuerySet:
         self._only_unread = False
 
     def only_fields(self, *fields: Union[Field, str]) -> 'QuerySet':
+        """Query given fields only from a table. Arguments can be
+        field instances or their names
+
+        Example:
+            zk.table(Table1).only_fields('field1', Table1.field2)
+        """
         qs = self.copy()
         table_fields = set(self._table_cls._fields_mapping.keys())
         for field in fields:
@@ -42,6 +78,15 @@ class QuerySet:
         return qs
 
     def where(self, **kwargs) -> 'QuerySet':
+        """Return a new QuerySet instance with given fields filters.
+        If current QuerySet already has some filters with the same
+        fields as given, they will be rewritten with new values.
+
+        Only "equal" compare operation is available.
+
+        In example below filters will be card == '111' AND super_authorize == False:
+            zk.table('User').where(card='123456').where(card='111', super_authorize=False)
+        """
         if not kwargs:
             raise ValueError('Empty field expression')
 
@@ -58,6 +103,13 @@ class QuerySet:
         return qs
 
     def unread(self) -> 'QuerySet':
+        """Return only unread records instead of all.
+
+        Every table on device has a pointer which is set to the last
+        record on each query. If no records have been inserted to
+        a table since last read, the "unread" query will return
+        nothing
+        """
         qs = self.copy()
         qs._only_unread = True
         return qs
@@ -65,23 +117,72 @@ class QuerySet:
     _DataTableArgT = TypeVar('_DataTableArgT', DataTable, Mapping[str, Any])
 
     def upsert(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]) -> None:
+        """Update/insert given records (or upsert) to a table.
+
+        Every table on a device has primary key. Typically, it is "pin"
+        field.
+
+        Upsert means that when you try to upsert a record with primary
+        key field which does not contain in table, then this record
+        will be inserted. Otherwise it will be updated.
+
+        Examples:
+            zk.table(User).upsert({'pin': '0', 'card': '123456'})
+            zk.table(User).upsert([{'pin': '0', 'card': '123456'}, {'pin': '1', 'card': '654321'}])
+            zk.table(User).upsert(User(pin='0', card='123456'))
+            zk.table(User).upsert([User(pin='0', card='123456'), User(pin='1', card='654321')])
+        :param records: record dict, DataTable instance or a sequence
+         of those
+        :return: None
+        """
         if not records:
             return
         gen = self._sdk.set_device_data(self._table_cls.table_name)
         return self._bulk_operation(gen, records)
 
-    def delete(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]):
+    def delete(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]) -> None:
+        """Delete given records from a table.
+
+        Every table on a device has primary key. Typically, it is "pin"
+        field. Deletion of record is performed by a field which is
+        primary key for this table. Other fields seems are ignored.
+
+        Examples:
+            zk.table(User).delete({'pin': '0', 'card': '123456'})
+            zk.table(User).delete([{'pin': '0', 'card': '123456'}, {'pin': '1', 'card': '654321'}])
+            zk.table(User).delete(User(pin='0', card='123456'))
+            zk.table(User).delete([User(pin='0', card='123456'), User(pin='1', card='654321')])
+        :param records:
+        :return: None
+        """
         if not records:
             return
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         return self._bulk_operation(gen, records)
 
+    def delete_all(self) -> None:
+        """Make a query to a table using this QuerySet and delete all
+        matched records.
+
+        Query in example below deletes records with password='123':
+            zk.table('User').where(password='123').delete_all()
+        :return:
+        """
+        gen = self._sdk.delete_device_data(self._table_cls.table_name)
+        return self._bulk_operation(gen, self)
+
     def count(self) -> int:
+        """Return just a number of records in table without considering
+        filters
+
+        Unlike len(qs) this method does not fetch data, but makes
+        simple request, like `SELECT COUNT(*)` in SQL.
+        """
         return self._sdk.get_device_data_count(self._table_cls.table_name)
 
     def _bulk_operation(self,
                         gen: Generator[None, Optional[Mapping[str, str]], None],
-                        records: Union[Sequence[_DataTableArgT], _DataTableArgT]):
+                        records: Union[Iterable[_DataTableArgT], _DataTableArgT]):
         gen.send(None)
         if isinstance(records, (Mapping, DataTable)):
             records = (records, )
@@ -119,6 +220,10 @@ class QuerySet:
             raise IndexError("list index is out of range") from None
 
     def __len__(self):
+        """Return a size of queryset. In order to get this size, all
+        records will be preliminary fetched
+        """
+        # Fill out cache
         # https://stackoverflow.com/questions/37189968/how-to-have-list-consume-iter-without-calling-len
         [x for x in self]  # noqa
         return len(self._cache)
@@ -134,12 +239,10 @@ class QuerySet:
             # estimated record length and round up to the nearest
             # power of 2
 
-            # if records_count == 0:
-            #     return
-            buffer_size = 1024
-            if records_count > 0:
-                estimated_size = self._estimate_record_length * records_count
-                buffer_size = 2 ** math.ceil(math.log2(estimated_size))
+            if records_count == 0:
+                return
+            estimated_size = self._estimate_record_buffer * records_count
+            buffer_size = 2 ** math.ceil(math.log2(estimated_size))
 
         fields = ['*']  # Query all fields if no fields was given
         if self._only_fields:
@@ -156,6 +259,13 @@ class QuerySet:
     def _iter_cache(
             self, start: int, stop: Optional[int], step: int
     ) -> Generator[Mapping[str, Any], None, None]:
+        if step == 0:
+            raise ValueError('slice step cannot be zero')
+        if start and start < 0 or stop and stop < 0 or step and step < 0:
+            raise ValueError('negative indexes or step does not supported')
+        if start is not None and stop is not None and start > stop:
+            return
+
         for i in self._cache[start:stop:step]:
             yield i
 
@@ -166,11 +276,12 @@ class QuerySet:
             except StopIteration:
                 return
             self._cache.append(item)
-            if i >= start and i % step == 0:
+            if (start is None or i >= start) and i % step == 0:
                 yield item
             i += 1
 
     def copy(self) -> 'QuerySet':
+        """Return a copy of current QuerySet with empty cache"""
         res = self.__class__(self._sdk, self._table_cls, self._buffer_size)
         res._only_fields = copy(self._only_fields)
         res._filters = copy(self._filters)
@@ -188,7 +299,6 @@ class QuerySet:
                 self._start = self._item
                 self._stop = self._item + 1
             if isinstance(self._item, slice):
-                # FIXME: start, stop, step < 0; step == 0; stop < start
                 self._start = self._item.start or 0
                 self._stop = self._item.stop
                 self._step = self._item.step or 1
