@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Mapping, MutableMapping, Callable, Optional, Type, TypeVar, Any
 
-data_table_classes = {}  # type: MutableMapping[str, Type[DataTable]]
+data_tables_registry = {}  # type: MutableMapping[str, Type[DataTable]]
 
 
 FieldDataT = TypeVar('FieldDataT')
@@ -145,19 +145,19 @@ class Field:
             instance._dirty = True
 
 
-class DataTableMetadata(type):
+class DataTableMeta(type):
     def __new__(mcs, name, bases, attrs):
         attrs['_fields_mapping'] = {}
         for attr_name, attr in attrs.items():
             if isinstance(attr, Field):
                 attrs['_fields_mapping'][attr_name] = attr.raw_name
 
-        klass = super(DataTableMetadata, mcs).__new__(mcs, name, bases, attrs)
-        data_table_classes[name] = klass  # noqa
+        klass = super(DataTableMeta, mcs).__new__(mcs, name, bases, attrs)
+        data_tables_registry[name] = klass  # noqa
         return klass
 
 
-class DataTable(metaclass=DataTableMetadata):
+class DataTable(metaclass=DataTableMeta):
     """Base class for models that represent device data tables.
 
     A concrete model contains device table name and field definitions.
@@ -176,14 +176,30 @@ class DataTable(metaclass=DataTableMetadata):
 
         fm = self._fields_mapping
         if fields:
-            extra_keys = fields.keys() - fm.keys()
-            if extra_keys:
-                raise TypeError('Unknown fields: {}'.format(tuple(extra_keys)))
+            unknown_fields = fields.keys() - fm.keys()
+            if unknown_fields:
+                raise TypeError('Unknown fields: {}'.format(tuple(unknown_fields)))
 
             self._raw_data = {
                 fm[field]: getattr(self.__class__, field).to_raw_value(fields.get(field))
                 for field in fm.keys() & fields.keys()
             }
+
+    @property
+    def data(self) -> Mapping[str, FieldDataT]:
+        """Return record data as a dict"""
+        return {field: getattr(self, field) for field in self._fields_mapping.keys()}
+
+    @property
+    def raw_data(self) -> Mapping[str, str]:
+        """Return raw data written directly to the device table on
+        save"""
+        return self._raw_data
+
+    @classmethod
+    def fields_mapping(cls) -> Mapping[str, str]:
+        """Mapping between model fields and their raw fields"""
+        return cls._fields_mapping
 
     def delete(self):
         """Delete this record from a table"""
@@ -215,23 +231,6 @@ class DataTable(metaclass=DataTableMetadata):
 
         self._dirty = False
 
-    @property
-    def data(self) -> Mapping[str, FieldDataT]:
-        """Return record data as a dict"""
-        return {field: self._raw_data.get(key)
-                for field, key in self._fields_mapping.items()}
-
-    @property
-    def raw_data(self) -> Mapping[str, str]:
-        """Return raw data written directly to the device table on
-        save"""
-        return self._raw_data
-
-    @classmethod
-    def fields_mapping(cls) -> Mapping[str, str]:
-        """Mapping between model fields and their raw fields"""
-        return cls._fields_mapping
-
     def with_raw_data(self, raw_data: Mapping[str, str], dirty: bool = True) -> 'DataTable':
         self._raw_data = raw_data
         self._dirty = dirty
@@ -241,9 +240,15 @@ class DataTable(metaclass=DataTableMetadata):
         self._sdk = sdk
         return self
 
+    # TODO: tests
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+
+        return self._raw_data == other._raw_data and self.table_name == other.table_name
+
     def __repr__(self):
-        return '{}{}({})'.format('*' if self._dirty else '',
-                                 self.__class__.__name__,
-                                 ', '.join('{}={}'.format(k, v) for k, v in self.data.items()))
-
-
+        data = ', '.join(
+            '{}={}'.format(k, self.raw_data.get(k)) for k in self.fields_mapping().keys()
+        )
+        return '{}{}({})'.format('*' if self._dirty else '', self.__class__.__name__, data)

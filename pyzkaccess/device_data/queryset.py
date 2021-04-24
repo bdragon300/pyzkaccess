@@ -1,5 +1,4 @@
 import math
-from collections import namedtuple
 from copy import copy
 from typing import (
     Type,
@@ -15,11 +14,10 @@ from typing import (
 )
 
 from .tables import DataTable, Field
-from ..sdk import ZKSDK
 
 
 class QuerySet:
-    """Provides interface to perform queries to data tables, iterate
+    """Interface to perform queries to data tables, iterate
     over results and insert/delete records in tables
 
     QuerySet using "fluent interface" in most of its methods. Many
@@ -42,7 +40,7 @@ class QuerySet:
     """
     _estimate_record_buffer = 256
 
-    def __init__(self, sdk: ZKSDK, table: Type[DataTable], buffer_size: Optional[int] = None):
+    def __init__(self, sdk, table: Type[DataTable], buffer_size: Optional[int] = None):
         self._sdk = sdk
         self._table_cls = table
         self._cache = None
@@ -138,7 +136,7 @@ class QuerySet:
         if not records:
             return
         gen = self._sdk.set_device_data(self._table_cls.table_name)
-        return self._bulk_operation(gen, records)
+        self._bulk_operation(gen, records)
 
     def delete(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]) -> None:
         """Delete given records from a table.
@@ -158,7 +156,7 @@ class QuerySet:
         if not records:
             return
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
-        return self._bulk_operation(gen, records)
+        self._bulk_operation(gen, records)
 
     def delete_all(self) -> None:
         """Make a query to a table using this QuerySet and delete all
@@ -169,7 +167,7 @@ class QuerySet:
         :return:
         """
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
-        return self._bulk_operation(gen, self)
+        self._bulk_operation(gen, self)
 
     def count(self) -> int:
         """Return just a number of records in table without considering
@@ -238,7 +236,7 @@ class QuerySet:
             # Get buffer size based on table records count and
             # estimated record length and round up to the nearest
             # power of 2
-
+            # Ex: 5(count) * 70(estimated len) = 350 => buffer_size==512
             if records_count == 0:
                 return
             estimated_size = self._estimate_record_buffer * records_count
@@ -259,11 +257,7 @@ class QuerySet:
     def _iter_cache(
             self, start: int, stop: Optional[int], step: int
     ) -> Generator[Mapping[str, Any], None, None]:
-        if step == 0:
-            raise ValueError('slice step cannot be zero')
-        if start and start < 0 or stop and stop < 0 or step and step < 0:
-            raise ValueError('negative indexes or step does not supported')
-        if start is not None and stop is not None and start > stop:
+        if stop is not None and start >= stop:
             return
 
         for i in self._cache[start:stop:step]:
@@ -290,6 +284,7 @@ class QuerySet:
         return res
 
     class DataTableIterator(Iterator):
+        """Iterator for iterating over QuerySet results"""
         def __init__(self, qs: 'QuerySet', item: Optional[Union[slice, int]] = None):
             self._qs = qs
             self._item = item
@@ -304,6 +299,13 @@ class QuerySet:
                 self._step = self._item.step or 1
 
             self._item_iter = None
+
+            if self._step == 0:
+                raise ValueError('slice step cannot be zero')
+            if self._start and self._start < 0 \
+                    or self._stop and self._stop < 0 \
+                    or self._step and self._step < 0:
+                raise ValueError('negative indexes or step does not supported')
 
         def __next__(self):
             if self._item_iter is None:

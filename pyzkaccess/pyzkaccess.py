@@ -12,7 +12,7 @@ from .event import EventLog
 from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
-from .device_data.tables import DataTable, data_table_classes
+from .device_data.tables import DataTable, data_tables_registry
 from .device_data.queryset import QuerySet
 import pyzkaccess.sdk
 
@@ -245,7 +245,7 @@ class ZKAccess:
     @staticmethod
     def _get_table(table: Union[Type[DataTable], DataTable, str]) -> Type[DataTable]:
         if isinstance(table, str):
-            table = data_table_classes[table]
+            table = data_tables_registry[table]
         elif isinstance(table, DataTable):
             table = table.__class__
         elif not (isinstance(table, type) and issubclass(table, DataTable)):

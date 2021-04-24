@@ -1,0 +1,465 @@
+from collections import OrderedDict
+from copy import deepcopy
+from datetime import datetime
+from enum import Enum
+from unittest.mock import Mock
+
+import pytest
+
+from pyzkaccess.device_data.tables import Field, DataTable
+
+
+class TestEnum(Enum):
+    val1 = 123
+    val2 = 456
+
+
+class DataTableStub(DataTable):
+    table_name = 'table1'
+    incremented_field = Field(
+        'IncField', int, lambda x: int(x) + 1, lambda x: x - 1, lambda x: x > 0
+    )
+    append_foo_field = Field(
+        'FooField', str, lambda x: x + 'Foo', lambda x: x[:-3], lambda x: len(x) > 0
+    )
+
+
+class TestField:
+    def test_init__should_set_properties(self):
+        field_datatype, get_cb, set_cb, validation_cb = Mock(), Mock(), Mock(), Mock()
+        obj = Field('my_name', field_datatype, get_cb, set_cb, validation_cb)
+
+        assert obj._raw_name == 'my_name'
+        assert obj._field_datatype is field_datatype
+        assert obj._get_cb is get_cb
+        assert obj._set_cb is set_cb
+        assert obj._validation_cb is validation_cb
+
+    def test_init__should_set_default_properties(self):
+        obj = Field('my_name')
+
+        assert obj._raw_name == 'my_name'
+        assert obj._field_datatype == str
+        assert obj._get_cb is None
+        assert obj._set_cb is None
+        assert obj._validation_cb is None
+
+    def test_raw_name_prop__should_return_raw_name(self):
+        obj = Field('my_name')
+
+        assert obj.raw_name == 'my_name'
+
+    def test_to_raw_value__on_all_defaults__should_return_the_same_string(self):
+        obj = Field('my_name')
+
+        res = obj.to_raw_value('value1')
+
+        assert res == 'value1'
+
+    @pytest.mark.parametrize('datatype,value', (
+        (str, '123'),
+        (int, 123),
+        (datetime, datetime(2020, 12, 12, 12, 12, 12)),
+        (tuple, (1, 2, 3))
+    ))
+    def test_to_raw_value__if_type_set__should_return_string_representation(self, datatype, value):
+        obj = Field('my_name', datatype)
+
+        res = obj.to_raw_value(value)
+
+        assert type(res) == str and res == str(value)
+
+    def test_to_raw_value__if_type_is_enum__should_return_its_value_string_representation(self):
+        obj = Field('my_name', TestEnum)
+
+        res = obj.to_raw_value(TestEnum.val2)
+
+        assert res == '456'
+
+    @pytest.mark.parametrize('datatype,value,set_cb,expect', (
+        (str, '123', int, '123'),  # str=>int=>str
+        (int, 123, lambda x: x + 1, '124'),  # int=>[increment]=>str
+        (datetime, datetime(2020, 12, 12, 12, 12, 12), lambda x: x.day, '12'),  # dtime=>[.day]=>str
+        (tuple, ('1', '2', '3'), lambda x: ''.join(x), '123'),  # tuple=>[join to string]=>str
+        (Enum, TestEnum.val2, lambda x: x+1, '457')  # Enum=>[.value]=>[increment]=>str
+    ))
+    def test_to_raw_value__if_set_cb_set__should_use_its_value_and_return_string(
+        self, datatype, value, set_cb, expect
+    ):
+        get_cb = Mock()
+        obj = Field('my_name', datatype, get_cb, set_cb)
+
+        res = obj.to_raw_value(value)
+
+        assert res == expect and type(res) == type(expect)
+        get_cb.assert_not_called()
+
+    @pytest.mark.parametrize('datatype,value,set_cb,expect', (
+        (str, '123', int, '123'),  # str=>int=>str
+        (int, 123, lambda x: x + 1, '124'),  # int=>[increment]=>str
+        (datetime, datetime(2020, 12, 12, 12, 12, 12), lambda x: x.day, '12'),  # dtime=>[.day]=>str
+        (tuple, ('1', '2', '3'), lambda x: ''.join(x), '123'),  # tuple=>[join to string]=>str
+        (Enum, TestEnum.val2, lambda x: x+1, '457')  # Enum=>[.value]=>[increment]=>str
+    ))
+    def test_to_raw_value__if_set_cb_and_validation_cb_passed__should_return_string_of_get_cb_value(
+        self, datatype, value, set_cb, expect
+    ):
+        get_cb = Mock()
+        validation_cb = Mock(return_value=True)
+        obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
+        expect_validation_cb_param = value.value if isinstance(value, Enum) else value
+
+        res = obj.to_raw_value(value)
+
+        assert res == expect and type(res) == type(expect)
+        get_cb.assert_not_called()
+        validation_cb.assert_called_once_with(expect_validation_cb_param)
+
+    @pytest.mark.parametrize('datatype,value', (
+        (str, '123'),
+        (int, 123),
+        (datetime, datetime(2020, 12, 12, 12, 12, 12)),
+        (tuple, (1, 2, 3)),
+        (Enum, TestEnum.val2)
+    ))
+    def test_to_raw_value__if_set_cb_and_validation_cb_failed__should_raise_error(
+        self, datatype, value
+    ):
+        get_cb = Mock()
+        set_cb = Mock(return_value=555)
+        validation_cb = Mock(return_value=False)
+        obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
+
+        with pytest.raises(ValueError):
+            obj.to_raw_value(value)
+
+    @pytest.mark.parametrize('datatype,value', (
+        (str, 123),
+        (str, None),
+        (int, '123'),
+        (datetime, 5),
+        (tuple, datetime.now()),
+        (Enum, 456)
+    ))
+    def test_to_raw_value__if_value_has_another_type__should_raise_error(self, datatype, value):
+        get_cb = Mock()
+        set_cb = Mock(return_value=555)
+        validation_cb = Mock(return_value=False)
+        obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
+
+        with pytest.raises(TypeError):
+            obj.to_raw_value(value)
+
+    def test_to_field_value__on_all_defaults__should_return_the_same_string(self):
+        obj = Field('my_name')
+
+        res = obj.to_field_value('value1')
+
+        assert res == 'value1'
+
+    @pytest.mark.parametrize('datatype,value,expect', (
+        (str, '123', '123'),
+        (int, '123', 123),
+        (Enum, 456, TestEnum.val2)
+    ))
+    def test_to_field_value__if_type_set__should_return_value_of_this_type(
+            self, datatype, value, expect
+    ):
+        obj = Field('my_name', datatype)
+
+        res = obj.to_field_value(value)
+
+        assert res == expect and type(res) == type(expect)
+
+    @pytest.mark.parametrize('datatype,value,get_cb,expect', (
+        (
+            datetime,
+            '2020-12-13 14:15:16',
+            lambda x: datetime.fromisoformat(x),
+            datetime(2020, 12, 13, 14, 15, 16)
+        ),  # str=>datetime
+        (tuple, '123', lambda x: tuple(x), ('1', '2', '3')),  # str=> tuple
+        (Enum, '456', lambda x: TestEnum(int(x)), TestEnum.val2),  # str=>Enum
+        (bool, '1', lambda x: bool(int(x)), True),  # str=>bool
+        (bool, '0', lambda x: bool(int(x)), False)  # str=>bool
+    ))
+    def test_to_raw_value__if_get_cb_returns_value_of_datatype__should_convert_value(
+        self, datatype, value, get_cb, expect
+    ):
+        set_cb = Mock()
+        validation_cb = Mock()
+        obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
+
+        res = obj.to_raw_value(value)
+
+        assert res == expect and type(res) == type(expect)
+        set_cb.assert_not_called()
+        validation_cb.assert_not_called()
+
+    @pytest.mark.parametrize('datatype,value,get_cb,expect', (
+        (
+            str,
+            '2020-12-13 14:15:16',
+            lambda x: datetime.fromisoformat(x),
+            '2020-12-13 14:15:16'
+        ),  # str=>datetime=>str
+        (tuple, '123', lambda x: list(x), ('1', '2', '3')),  # str=>list=>tuple
+        (Enum, '456', int, TestEnum.val2),  # str=>int=>Enum
+        (bool, '1', int, True),  # str=>int=>bool
+        (bool, '0', int, False)  # str=>int=>bool
+    ))
+    def test_to_raw_value__if_get_cb_returns_value_not_of_datatype__should_also_cast_to_datatype(
+        self, datatype, value, get_cb, expect
+    ):
+        set_cb = Mock()
+        validation_cb = Mock()
+        obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
+
+        res = obj.to_raw_value(value)
+
+        assert res == expect and type(res) == type(expect)
+        set_cb.assert_not_called()
+        validation_cb.assert_not_called()
+
+    def test_hash__should_be_hashable(self):
+        obj = Field('my_name')
+
+        assert hash(obj) == hash('my_name')
+
+    def test_get_descriptor__should_correct_field_values(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
+
+        assert obj._dirty is False
+        assert obj.append_foo_field == 'MagicFoo'
+        assert obj.incremented_field == 124
+        assert obj._dirty is False
+
+    def test_get_descriptor__if_no_such_raw_field__should_return_none(self):
+        obj = DataTableStub().with_raw_data({'FooField': 'Magic'})
+
+        assert obj.incremented_field is None
+
+    def test_get_descriptor__if_class_instance__should_return_itself(self):
+        assert isinstance(DataTableStub.incremented_field, Field)
+
+    def test_set_descriptor__should_set_raw_data(self):
+        obj = DataTableStub()
+
+        obj.append_foo_field = 123
+        obj.incremented_field = "WowFoo"
+
+        assert obj.raw_data == {'IncField': '122', 'FooField': 'Wow'}
+
+    def test_set_descriptor__should_set_dirty_flag(self):
+        obj = DataTableStub().with_raw_data({}, False)
+        assert obj._dirty is False
+
+        obj.append_foo_field = 123
+
+        assert obj._dirty is True
+
+    def test_set_descriptor__if_none_is_given__should_delete_field_from_raw_data(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+
+        obj.incremented_field = None
+
+        assert obj.raw_data == {'FooField': 'Magic'}
+
+    def test_set_descriptor__should_consider_field_validation(self):
+        obj = DataTableStub()
+
+        with pytest.raises(ValueError):
+            obj.incremented_field = -1
+
+    def test_set_descriptor__if_class_instance__should_do_nothing(self):
+        class DataTableStub2(DataTable):
+            table_name = 'test'
+            field1 = Field('field')
+
+        DataTableStub2.field1 = 'testvalue'
+
+        assert object.__getattribute__(DataTableStub2, 'field1') == 'testvalue'
+
+    def test_del_descriptor__should_delete_field_from_raw_data(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+
+        del obj.incremented_field
+
+        assert obj.raw_data == {'FooField': 'Magic'}
+
+    def test_del_descriptor__should_set_dirty_flag(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
+        assert obj._dirty is False
+
+        del obj.incremented_field
+
+        assert obj._dirty is True
+
+    def test_del_descriptor__if_class_instance__should_do_nothing(self):
+        class DataTableStub2(DataTable):
+            table_name = 'test'
+            field1 = Field('field')
+
+        del DataTableStub2.field1
+
+        with pytest.raises(AttributeError):
+            object.__getattribute__(DataTableStub2, 'field1')
+
+
+class TestDataTableMeta:
+    @pytest.fixture
+    def test_registry(self):
+        global data_tables_registry
+        orig_data_table_classes = deepcopy(data_tables_registry)
+        data_tables_registry = {}
+
+        yield data_tables_registry
+
+        data_tables_registry = orig_data_table_classes
+
+    def test_metaclass__should_add_class_to_registry(self, test_registry):
+        class MyDataTable(DataTable):
+            table_name = 'test'
+            field1 = Field('FieldOne')
+
+        assert test_registry == {'MyDataTable': MyDataTable}
+
+    def test_metaclass__should_fill_fields_mapping_for_each_class(self):
+        class MyDataTable(DataTable):
+            table_name = 'test'
+            field1 = Field('FieldOne')
+            field2 = Field('FieldTwo')
+
+        class MyDataTable2(DataTable):
+            table_name = 'test'
+            field3 = Field('FieldThree')
+            field4 = Field('FieldFour')
+
+        assert MyDataTable._fields_mapping == {'field1': 'FieldOne', 'field2': 'FieldTwo'}
+        assert MyDataTable2._fields_mapping == {'field3': 'FieldThree', 'field4': 'FieldFour'}
+
+
+class TestDataTable:
+    def test_init__should_set_default_attributes(self):
+        obj = DataTableStub()
+
+        assert obj._sdk is None
+        assert obj._dirty is True
+        assert obj._raw_data == {}
+
+    def test_init__if_fields_has_passed__should_initialize_raw_data_only_with_given_fields(self):
+        obj = DataTableStub(incremented_field=123)
+
+        assert obj.raw_data == {'IncField': '122'}
+
+    def test_init__if_unknown_fields_has_passed__should_raise_error(self):
+        with pytest.raises(TypeError):
+            DataTableStub(incremented_field=123, unknown_field=3)
+
+    def test_init__should_consider_fields_validation(self):
+        with pytest.raises(ValueError):
+            DataTableStub(incremented_field=-1)
+
+    def test_data__should_return_fields_value(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+
+        assert obj.data == {'incremented_field': 124, 'append_foo_field': 'MagicFoo'}
+
+    def test_data__if_no_certain_field_in_raw_data__should_return_nones(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123'})
+
+        assert obj.data == {'incremented_field': 124, 'append_foo_field': None}
+
+    def test_raw_data__should_return_raw_data(self):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+
+        assert obj.raw_data == {'IncField': '123', 'FooField': 'Magic'}
+
+    def test_fields_mapping__should_return_fields_mapping(self):
+        assert DataTableStub.fields_mapping() == {
+            'incremented_field': 'IncField', 'append_foo_field': 'FooField'
+        }
+        assert DataTableStub().fields_mapping() == {
+            'incremented_field': 'IncField', 'append_foo_field': 'FooField'
+        }
+
+    def test_delete__should_delete_current_record_and_set_dirty_flag(
+            self, generator_sends_collector
+    ):
+        items = []
+        sdk = Mock()
+        sdk.delete_device_data.side_effect = generator_sends_collector(items)
+        obj = DataTableStub().with_sdk(sdk).with_raw_data(
+            {'IncField': '123', 'FooField': 'Magic'}, False
+        )
+        assert obj._dirty is False
+
+        obj.delete()
+
+        sdk.delete_device_data.assert_called_once_with('table1')
+        assert items == [{'IncField': '123', 'FooField': 'Magic'}, None]
+        assert obj._dirty is True
+
+    def test_delete__if_manually_created_record__should_raise_error(self):
+        obj = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+
+        with pytest.raises(TypeError):
+            obj.delete()
+
+    def test_save__should_upsert_current_record_and_reset_dirty_flag(
+            self, generator_sends_collector
+    ):
+        items = []
+        sdk = Mock()
+        sdk.set_device_data.side_effect = generator_sends_collector(items)
+        obj = DataTableStub().with_sdk(sdk).with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+        assert obj._dirty is True
+
+        obj.save()
+
+        sdk.set_device_data.assert_called_once_with('table1')
+        assert items == [{'IncField': '123', 'FooField': 'Magic'}, None]
+        assert obj._dirty is False
+
+    def test_save__if_manually_created_record__should_raise_error(self):
+        obj = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+
+        with pytest.raises(TypeError):
+            obj.save()
+
+    @pytest.mark.parametrize('dirty_flag', (True, False))
+    def test_with_raw_data__should_set_raw_data_and_dirty_flag(self, dirty_flag):
+        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, dirty_flag)
+
+        assert obj.raw_data == {'IncField': '123', 'FooField': 'Magic'}
+        assert obj._dirty == dirty_flag
+
+    def test_with_raw_data__should_return_self(self):
+        obj = DataTableStub()
+
+        assert obj.with_raw_data({}) is obj
+
+    def test_with_sdk__should_set_sdk(self):
+        sdk = Mock()
+        obj = DataTableStub().with_raw_data({'A': 'val1'}, False).with_sdk(sdk)
+
+        assert obj._sdk is sdk
+        assert obj.raw_data == {'A': 'val1'}
+        assert obj._dirty is False
+
+    def test_with_sdk__should_return_self(self):
+        obj = DataTableStub()
+
+        assert obj.with_sdk(Mock()) is obj
+
+    def test_repr__should_return_data_table_name_and_fields_and_their_raw_values(self):
+        raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))
+        obj = DataTableStub().with_raw_data(raw_data, False)
+
+        assert repr(obj) == 'DataTableStub(incremented_field=123, append_foo_field=Magic)'
+
+    def test_repr__if_dirty_flag_is_set__should_reflect_this_fact_in_string(self):
+        raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))
+        obj = DataTableStub().with_raw_data(raw_data, True)
+
+        assert repr(obj) == '*DataTableStub(incremented_field=123, append_foo_field=Magic)'

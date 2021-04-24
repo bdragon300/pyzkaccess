@@ -215,11 +215,9 @@ class ZKSDK:
         """
         print('get_device_data', table_name, fields, filters, buffer_size, new_records_only)
         buf = ctypes.create_string_buffer(buffer_size)
-        if not fields:
-            fields = ('*', )
 
         query_table = table_name.encode()
-        query_fields = '\t'.join(fields).encode()
+        query_fields = '\t'.join(fields).encode() if fields else b'*'
         query_conditions = '\t'.join('{}={}'.format(k, v) for k, v in filters.items()).encode()
         query_options = ('NewRecord' if new_records_only else '').encode()
 
@@ -229,15 +227,13 @@ class ZKSDK:
             raise ZKSDKError('GetDeviceData failed', err)
 
         raw = buf.value.decode('utf-8')
-        if raw == '\r\n':
-            return
 
         *lines, _ = raw.split('\r\n')
         headers = lines.pop(0).split(',')
         print(headers)
         for line in lines:
             cols = line.split(',')
-            yield dict(zip(headers, cols))
+            yield {k: v for k, v in zip(headers, cols) if not fields or k in fields}
 
     def set_device_data(
             self, table_name: str
@@ -251,7 +247,7 @@ class ZKSDK:
             g.send(None)  # Initialize generator
             for rec in records:
                 g.send(rec)
-            g.send(None)   # Trigger sdk call
+            g.send(None)   # Invoke sdk call
 
         SDK: SetDeviceData()
         :param table_name: name of table to write data to
@@ -267,6 +263,9 @@ class ZKSDK:
                 '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
             )
             record = yield
+
+        if not query_records:
+            return
 
         query_records = '\r\n'.join(query_records).encode()
         query_records += b'\r\n'
@@ -307,7 +306,7 @@ class ZKSDK:
             g.send(None)  # Initialize generator
             for rec in records:
                 g.send(rec)
-            g.send(None)   # Trigger sdk call
+            g.send(None)   # Invoke sdk call
 
         SDK: DeleteDeviceData()
         :param table_name: name of table to delete data from
@@ -323,6 +322,9 @@ class ZKSDK:
                 '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
             )
             record = yield
+
+        if not query_records:
+            return
 
         query_records = '\r\n'.join(query_records).encode()
         query_records += b'\r\n'

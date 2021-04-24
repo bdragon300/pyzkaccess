@@ -251,6 +251,9 @@ class ZKDatetimeUtils:
         if isinstance(zktr, str):
             zktr = int(zktr)
 
+        if zktr < 0:
+            raise ValueError('time range cannot be a negative number')
+
         to_num = zktr & 0xffff
         from_num = (zktr >> 16) & 0xffff
         from_t = time(hour=from_num // 100, minute=from_num - from_num // 100)
