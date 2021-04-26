@@ -6,10 +6,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from pyzkaccess.device_data.tables import Field, DataTable
+from pyzkaccess.device_data.tables import Field, DataTable, data_tables_registry
 
 
-class TestEnum(Enum):
+class EnumStub(Enum):
     val1 = 123
     val2 = 456
 
@@ -70,9 +70,9 @@ class TestField:
         assert type(res) == str and res == str(value)
 
     def test_to_raw_value__if_type_is_enum__should_return_its_value_string_representation(self):
-        obj = Field('my_name', TestEnum)
+        obj = Field('my_name', EnumStub)
 
-        res = obj.to_raw_value(TestEnum.val2)
+        res = obj.to_raw_value(EnumStub.val2)
 
         assert res == '456'
 
@@ -81,9 +81,9 @@ class TestField:
         (int, 123, lambda x: x + 1, '124'),  # int=>[increment]=>str
         (datetime, datetime(2020, 12, 12, 12, 12, 12), lambda x: x.day, '12'),  # dtime=>[.day]=>str
         (tuple, ('1', '2', '3'), lambda x: ''.join(x), '123'),  # tuple=>[join to string]=>str
-        (Enum, TestEnum.val2, lambda x: x+1, '457')  # Enum=>[.value]=>[increment]=>str
+        (Enum, EnumStub.val2, lambda x: x + 1, '457')  # Enum=>[.value]=>[increment]=>str
     ))
-    def test_to_raw_value__if_set_cb_set__should_use_its_value_and_return_string(
+    def test_to_raw_value__if_set_cb_set__should_use_its_value_and_cast_to_string(
         self, datatype, value, set_cb, expect
     ):
         get_cb = Mock()
@@ -99,7 +99,7 @@ class TestField:
         (int, 123, lambda x: x + 1, '124'),  # int=>[increment]=>str
         (datetime, datetime(2020, 12, 12, 12, 12, 12), lambda x: x.day, '12'),  # dtime=>[.day]=>str
         (tuple, ('1', '2', '3'), lambda x: ''.join(x), '123'),  # tuple=>[join to string]=>str
-        (Enum, TestEnum.val2, lambda x: x+1, '457')  # Enum=>[.value]=>[increment]=>str
+        (Enum, EnumStub.val2, lambda x: x + 1, '457')  # Enum=>[.value]=>[increment]=>str
     ))
     def test_to_raw_value__if_set_cb_and_validation_cb_passed__should_return_string_of_get_cb_value(
         self, datatype, value, set_cb, expect
@@ -107,20 +107,19 @@ class TestField:
         get_cb = Mock()
         validation_cb = Mock(return_value=True)
         obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
-        expect_validation_cb_param = value.value if isinstance(value, Enum) else value
 
         res = obj.to_raw_value(value)
 
         assert res == expect and type(res) == type(expect)
         get_cb.assert_not_called()
-        validation_cb.assert_called_once_with(expect_validation_cb_param)
+        validation_cb.assert_called_once_with(value)
 
     @pytest.mark.parametrize('datatype,value', (
         (str, '123'),
         (int, 123),
         (datetime, datetime(2020, 12, 12, 12, 12, 12)),
         (tuple, (1, 2, 3)),
-        (Enum, TestEnum.val2)
+        (Enum, EnumStub.val2)
     ))
     def test_to_raw_value__if_set_cb_and_validation_cb_failed__should_raise_error(
         self, datatype, value
@@ -160,7 +159,7 @@ class TestField:
     @pytest.mark.parametrize('datatype,value,expect', (
         (str, '123', '123'),
         (int, '123', 123),
-        (Enum, 456, TestEnum.val2)
+        (EnumStub, 456, EnumStub.val2)
     ))
     def test_to_field_value__if_type_set__should_return_value_of_this_type(
             self, datatype, value, expect
@@ -172,50 +171,50 @@ class TestField:
         assert res == expect and type(res) == type(expect)
 
     @pytest.mark.parametrize('datatype,value,get_cb,expect', (
-        (
+            (
             datetime,
             '2020-12-13 14:15:16',
             lambda x: datetime.fromisoformat(x),
             datetime(2020, 12, 13, 14, 15, 16)
         ),  # str=>datetime
-        (tuple, '123', lambda x: tuple(x), ('1', '2', '3')),  # str=> tuple
-        (Enum, '456', lambda x: TestEnum(int(x)), TestEnum.val2),  # str=>Enum
-        (bool, '1', lambda x: bool(int(x)), True),  # str=>bool
-        (bool, '0', lambda x: bool(int(x)), False)  # str=>bool
+            (tuple, '123', lambda x: tuple(x), ('1', '2', '3')),  # str=>tuple
+            (EnumStub, '456', lambda x: EnumStub(int(x)), EnumStub.val2),  # str=>Enum
+            (bool, '1', lambda x: bool(int(x)), True),  # str=>bool
+            (bool, '0', lambda x: bool(int(x)), False)  # str=>bool
     ))
-    def test_to_raw_value__if_get_cb_returns_value_of_datatype__should_convert_value(
+    def test_to_field_value__if_get_cb_returns_value_of_datatype__should_convert_value(
         self, datatype, value, get_cb, expect
     ):
         set_cb = Mock()
         validation_cb = Mock()
         obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
 
-        res = obj.to_raw_value(value)
+        res = obj.to_field_value(value)
 
         assert res == expect and type(res) == type(expect)
         set_cb.assert_not_called()
         validation_cb.assert_not_called()
 
     @pytest.mark.parametrize('datatype,value,get_cb,expect', (
-        (
+            (
             str,
             '2020-12-13 14:15:16',
             lambda x: datetime.fromisoformat(x),
             '2020-12-13 14:15:16'
         ),  # str=>datetime=>str
-        (tuple, '123', lambda x: list(x), ('1', '2', '3')),  # str=>list=>tuple
-        (Enum, '456', int, TestEnum.val2),  # str=>int=>Enum
-        (bool, '1', int, True),  # str=>int=>bool
-        (bool, '0', int, False)  # str=>int=>bool
+            (tuple, '123', lambda x: list(x), ('1', '2', '3')),  # str=>list=>tuple
+            (EnumStub, '456', int, EnumStub.val2),  # str=>int=>Enum
+            (bool, '1', int, True),  # str=>int=>bool
+            (bool, '0', int, False)  # str=>int=>bool
     ))
-    def test_to_raw_value__if_get_cb_returns_value_not_of_datatype__should_also_cast_to_datatype(
+    def test_to_field_value__if_get_cb_returns_value_not_of_datatype__should_also_cast_to_datatype(
         self, datatype, value, get_cb, expect
     ):
         set_cb = Mock()
         validation_cb = Mock()
         obj = Field('my_name', datatype, get_cb, set_cb, validation_cb)
 
-        res = obj.to_raw_value(value)
+        res = obj.to_field_value(value)
 
         assert res == expect and type(res) == type(expect)
         set_cb.assert_not_called()
@@ -245,8 +244,8 @@ class TestField:
     def test_set_descriptor__should_set_raw_data(self):
         obj = DataTableStub()
 
-        obj.append_foo_field = 123
-        obj.incremented_field = "WowFoo"
+        obj.append_foo_field = "WowFoo"
+        obj.incremented_field = 123
 
         assert obj.raw_data == {'IncField': '122', 'FooField': 'Wow'}
 
@@ -254,7 +253,7 @@ class TestField:
         obj = DataTableStub().with_raw_data({}, False)
         assert obj._dirty is False
 
-        obj.append_foo_field = 123
+        obj.incremented_field = 123
 
         assert obj._dirty is True
 
@@ -309,13 +308,13 @@ class TestField:
 class TestDataTableMeta:
     @pytest.fixture
     def test_registry(self):
-        global data_tables_registry
         orig_data_table_classes = deepcopy(data_tables_registry)
-        data_tables_registry = {}
+        data_tables_registry.clear()
 
         yield data_tables_registry
 
-        data_tables_registry = orig_data_table_classes
+        data_tables_registry.clear()
+        data_tables_registry.update(orig_data_table_classes)
 
     def test_metaclass__should_add_class_to_registry(self, test_registry):
         class MyDataTable(DataTable):
@@ -451,6 +450,28 @@ class TestDataTable:
         obj = DataTableStub()
 
         assert obj.with_sdk(Mock()) is obj
+
+    def test_eq_ne__if_raw_data_and_table_are_equal__should_return_true(self):
+        obj1 = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj2 = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+
+        assert obj1 == obj2
+        assert not(obj1 != obj2)
+
+    @pytest.mark.parametrize('table_name,kwargs', (
+        ('table1', {'incremented_field': 1, 'append_foo_field': 'Magic'}),
+        ('table2', {'incremented_field': 122, 'append_foo_field': 'Magic'}),
+        ('table2', {'incremented_field': 1, 'append_foo_field': 'Magic'}),
+    ))
+    def test_eq_ne__if_raw_data_or_table_are_not_equal__should_return_false(
+        self, table_name, kwargs
+    ):
+        obj1 = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj2 = DataTableStub(**kwargs)
+        obj2.table_name = table_name
+
+        assert obj1 != obj2
+        assert not(obj1 == obj2)
 
     def test_repr__should_return_data_table_name_and_fields_and_their_raw_values(self):
         raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))

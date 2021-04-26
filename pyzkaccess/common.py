@@ -256,8 +256,8 @@ class ZKDatetimeUtils:
 
         to_num = zktr & 0xffff
         from_num = (zktr >> 16) & 0xffff
-        from_t = time(hour=from_num // 100, minute=from_num - from_num // 100)
-        to_t = time(hour=to_num // 100, minute=to_num - to_num // 100)
+        from_t = time(hour=from_num // 100, minute=from_num % 100)
+        to_t = time(hour=to_num // 100, minute=to_num % 100)
 
         return from_t, to_t
 

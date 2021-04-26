@@ -213,7 +213,6 @@ class ZKSDK:
          records in table, otherwise all records will be considered
         :return: ordered dicts with table records
         """
-        print('get_device_data', table_name, fields, filters, buffer_size, new_records_only)
         buf = ctypes.create_string_buffer(buffer_size)
 
         query_table = table_name.encode()
@@ -230,7 +229,6 @@ class ZKSDK:
 
         *lines, _ = raw.split('\r\n')
         headers = lines.pop(0).split(',')
-        print(headers)
         for line in lines:
             cols = line.split(',')
             yield {k: v for k, v in zip(headers, cols) if not fields or k in fields}
@@ -253,12 +251,10 @@ class ZKSDK:
         :param table_name: name of table to write data to
         :return:
         """
-        print('set_device_data', table_name)
         query_table = table_name.encode()
         query_records = []
         record = yield
         while record is not None:
-            print('>', record)
             query_records.append(
                 '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
             )
@@ -269,7 +265,6 @@ class ZKSDK:
 
         query_records = '\r\n'.join(query_records).encode()
         query_records += b'\r\n'
-        print(query_records)
 
         # `Options` parameter should be null according to SDK docs
         err = self.dll.SetDeviceData(self.handle, query_table, query_records, '')
@@ -284,14 +279,12 @@ class ZKSDK:
         :param table_name: name of table to get records count from
         :return: count of records
         """
-        print('get_device_data_count', table_name)
         query_table = table_name.encode()
 
         # `Filter` and `Options` parameters should be null according to SDK docs
         err = self.dll.GetDeviceDataCount(self.handle, query_table, '', '')
         if err < 0:
             raise ZKSDKError('GetDeviceDataCount failed', err)
-        print('res', err)
         return err
 
     def delete_device_data(
@@ -312,12 +305,10 @@ class ZKSDK:
         :param table_name: name of table to delete data from
         :return:
         """
-        print('delete_device_data', table_name)
         query_table = table_name.encode()
         query_records = []
         record = yield
         while record is not None:
-            print('>', record)
             query_records.append(
                 '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
             )

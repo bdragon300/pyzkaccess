@@ -401,7 +401,7 @@ class TestZKSDK:
         headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
 
         def se(*a, **kw):
-            a[1].value = headers + raw_records
+            a[1].value = (headers + raw_records).encode()
             return 0
 
         self.t.handle = handle = 12345
@@ -420,7 +420,7 @@ class TestZKSDK:
         expect = [{'CardNo': '13', 'Group': ''}, {'CardNo': '14', 'Group': '4'}]
 
         def se(*a, **kw):
-            a[1].value = headers + data
+            a[1].value = (headers + data).encode()
             return 0
 
         self.t.handle = handle = 12345
@@ -435,7 +435,7 @@ class TestZKSDK:
 
     def test_get_device_data__if_filters_has_specified__should_query_with_fields(self):
         headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
-        data = '13,3,,,20210422,20220422,0\r\n13,4,,4,20210423,20220423,1\r\n'
+        data = '13,3,,,20210422,20220422,0\r\n14,4,,4,20210423,20220423,1\r\n'
         expect = [{
             'CardNo': '13', 'Pin': '3', 'Password': '', 'Group': '',
             'StartTime': '20210422', 'EndTime': '20220422', 'SuperAuthorize': '0'
@@ -446,7 +446,7 @@ class TestZKSDK:
         filters = OrderedDict((('CardNo', '13'), ('Password', '')))
 
         def se(*a, **kw):
-            a[1].value = headers + data
+            a[1].value = (headers + data).encode()
             return 0
 
         self.t.handle = handle = 12345
@@ -461,7 +461,7 @@ class TestZKSDK:
 
     def test_get_device_data__if_new_record_is_true__should_query_new_records(self):
         headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
-        data = '13,3,,,20210422,20220422,0\r\n13,4,,4,20210423,20220423,1\r\n'
+        data = '13,3,,,20210422,20220422,0\r\n14,4,,4,20210423,20220423,1\r\n'
         expect = [{
             'CardNo': '13', 'Pin': '3', 'Password': '', 'Group': '',
             'StartTime': '20210422', 'EndTime': '20220422', 'SuperAuthorize': '0'
@@ -471,7 +471,7 @@ class TestZKSDK:
         }]
 
         def se(*a, **kw):
-            a[1].value = headers + data
+            a[1].value = (headers + data).encode()
             return 0
 
         self.t.handle = handle = 12345
@@ -498,14 +498,14 @@ class TestZKSDK:
     @pytest.mark.parametrize('data,expect', (
         (
             [OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', '')))],
-            'Fiele1=11,Field2=value12,Field3=\r\n'
+            b'Field1=11\tField2=value12\tField3=\r\n'
         ),
         (
             [
                 OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', ''))),
                 OrderedDict((('Field1', '21'), ('Field2', ''), ('Field3', 'value23')))
             ],
-            'Fiele1=11,Field2=value12,Field3=\r\nFiele1=21,Field2=,Field3=value23\r\n'
+            b'Field1=11\tField2=value12\tField3=\r\nField1=21\tField2=\tField3=value23\r\n'
         )
     ))
     def test_set_device_data__should_make_query_with_accepted_data(self, data, expect):
@@ -548,7 +548,7 @@ class TestZKSDK:
     @pytest.mark.parametrize('records_count', (123, 0))
     def test_get_device_data_count__should_return_table_records_count(self, records_count):
         self.t.handle = 12345
-        self.dll_mock.SetDeviceData.return_value = records_count
+        self.dll_mock.GetDeviceDataCount.return_value = records_count
 
         res = self.t.get_device_data_count('table1')
 
@@ -557,7 +557,7 @@ class TestZKSDK:
     def test_get_device_data_count__on_failure__should_raise_error(self):
         errno = -2
         self.t.handle = 12345
-        self.dll_mock.SetDeviceData.return_value = errno
+        self.dll_mock.GetDeviceDataCount.return_value = errno
 
         with pytest.raises(ZKSDKError) as e:
             self.t.get_device_data_count('table1')
@@ -568,14 +568,14 @@ class TestZKSDK:
     @pytest.mark.parametrize('data,expect', (
         (
             [OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', '')))],
-            'Fiele1=11,Field2=value12,Field3=\r\n'
+            b'Field1=11\tField2=value12\tField3=\r\n'
         ),
         (
             [
                 OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', ''))),
                 OrderedDict((('Field1', '21'), ('Field2', ''), ('Field3', 'value23')))
             ],
-            'Fiele1=11,Field2=value12,Field3=\r\nFiele1=21,Field2=,Field3=value23\r\n'
+            b'Field1=11\tField2=value12\tField3=\r\nField1=21\tField2=\tField3=value23\r\n'
         )
     ))
     def test_delete_device_data__should_make_query_with_accepted_data(self, data, expect):

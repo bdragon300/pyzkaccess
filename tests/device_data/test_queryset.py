@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
@@ -19,6 +19,7 @@ class DataTableStub(DataTable):
 class DataTableStub2(DataTable):
     table_name = 'table2'
     field1 = Field('Field1')
+    incremented_field = Field('IncField')
 
 
 class TestQuerySet:
@@ -31,7 +32,7 @@ class TestQuerySet:
         obj = QuerySet(self.sdk, DataTableStub, 123)
 
         assert obj._sdk is self.sdk
-        assert obj._table_cls is self.table
+        assert obj._table_cls is DataTableStub
         assert obj._cache is None
         assert obj._results_iter is None
         assert obj._buffer_size == 123
@@ -56,7 +57,7 @@ class TestQuerySet:
             ('incremented_field', 'append_foo_field'),
             {DataTableStub.incremented_field, DataTableStub.append_foo_field}
         ),
-        (DataTableStub.incremented_field, {DataTableStub.incremented_field}),
+        ((DataTableStub.incremented_field, ), {DataTableStub.incremented_field}),
         (
             (DataTableStub.incremented_field, DataTableStub.append_foo_field),
             {DataTableStub.incremented_field, DataTableStub.append_foo_field}
@@ -91,9 +92,9 @@ class TestQuerySet:
 
     def test_only_fields__should_return_another_empty_queryset_and_not_modify_original_one(self):
         data = [{'IncField': '123', 'FooField': 'Magic'}]
-        self.obj._cache = []
-        self.obj._results_iter = original_iter = iter(data)
         obj = self.obj.where(incremented_field=3).unread()
+        obj._cache = []
+        obj._results_iter = original_iter = iter(data)
         res = obj.only_fields('incremented_field')
 
         assert res is not obj
@@ -105,7 +106,7 @@ class TestQuerySet:
         assert res._buffer_size is None and obj._buffer_size is None
         assert res._only_fields == {DataTableStub.incremented_field} and obj._only_fields == set()
         assert res._filters == {'IncField': '2'} and obj._filters == {'IncField': '2'}
-        assert res._only_unread is False and obj._only_unread is False
+        assert res._only_unread is True and obj._only_unread is True
 
     def test_only_fields__should_call_sdk_with_right_params_on_iteration_start(self):
         data = [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
@@ -116,7 +117,7 @@ class TestQuerySet:
 
         self.sdk.get_device_data_count.assert_called_once_with('table1')
         self.sdk.get_device_data.assert_called_once_with(
-            'table1', ['incremented_field', 'append_foo_field'], {}, 512, False
+            'table1', ['FooField', 'IncField'], {}, 512, False
         )
 
     @pytest.mark.parametrize('args', (
@@ -129,7 +130,8 @@ class TestQuerySet:
 
     @pytest.mark.parametrize('args', (
         ('incremented_field', 'unknown_field'),
-        ('incremented_field', DataTableStub2.field1)
+        ('incremented_field', DataTableStub2.field1),
+        ('incremented_field', DataTableStub2.incremented_field),
     ))
     def test_only_fields__if_unknown_fields_were_given__should_raise_error(self, args):
         with pytest.raises(ValueError):
@@ -140,8 +142,7 @@ class TestQuerySet:
         (
             {'incremented_field': 3, 'append_foo_field': 'MagicFoo'},
             {'IncField': '2', 'FooField': 'Magic'}
-        ),
-        ({}, {})
+        )
     ))
     def test_where__should_set_filters(self, kwargs, expect):
         res = self.obj.where(**kwargs)
@@ -154,23 +155,22 @@ class TestQuerySet:
         (
             {'incremented_field': 3, 'append_foo_field': 'MagicFoo'},
             {'IncField': '2', 'FooField': 'Magic'}
-        ),
-        ({}, {})
+        )
     ))
     def test_where__on_repeated_calls__should_update_previous_filters(self, kwargs, expect):
         res = self.obj.where(incremented_field=777).where(**kwargs)
 
-        assert res._only_fields == expect
+        assert res._filters == expect
 
     def test_where__should_return_another_empty_queryset(self):
         data = [{'IncField': '123', 'FooField': 'Magic'}]
-        self.obj._cache = []
-        self.obj._results_iter = original_iter = iter(data)
         obj = self.obj.only_fields('incremented_field').unread()
+        obj._cache = []
+        obj._results_iter = original_iter = iter(data)
+
         res = obj.where(incremented_field=3)
 
         assert res is not obj
-
         assert res._sdk is self.sdk and obj._sdk is self.sdk
         assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
         assert res._cache is None and obj._cache == []
@@ -179,7 +179,7 @@ class TestQuerySet:
         assert res._only_fields == {DataTableStub.incremented_field} \
                and obj._only_fields == {DataTableStub.incremented_field}
         assert res._filters == {'IncField': '2'} and obj._filters == {}
-        assert res._only_unread is False and obj._only_unread is False
+        assert res._only_unread is True and obj._only_unread is True
 
     def test_where__should_call_sdk_with_right_params_on_iteration_start(self):
         data = [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
@@ -198,8 +198,12 @@ class TestQuerySet:
         {'unknown_field': 'value1'}
     ))
     def test_where__if_unknown_fields_were_given__should_raise_error(self, kwargs):
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             self.obj.where(**kwargs)
+
+    def test_where__if_parameters_are_empty__should_raise_error(self):
+        with pytest.raises(TypeError):
+            self.obj.where()
 
     def test_unread__should_set_unread_flag(self):
         res = self.obj.unread()
@@ -213,13 +217,13 @@ class TestQuerySet:
 
     def test_unread__should_return_another_empty_queryset_and_not_modify_original_one(self):
         data = [{'IncField': '123', 'FooField': 'Magic'}]
-        self.obj._cache = []
-        self.obj._results_iter = original_iter = iter(data)
         obj = self.obj.where(incremented_field=3).only_fields('incremented_field')
+        obj._cache = []
+        obj._results_iter = original_iter = iter(data)
+
         res = obj.unread()
 
         assert res is not obj
-
         assert res._sdk is self.sdk and obj._sdk is self.sdk
         assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
         assert res._cache is None and obj._cache == []
@@ -250,12 +254,12 @@ class TestQuerySet:
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         ),
         (
-            DataTableStub(incremented_field=3, append_foo_field='MagicFoo'),
+            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
             [{'IncField': '122', 'FooField': 'Magic'}]
         ),
         (
             [
-                DataTableStub(incremented_field=3, append_foo_field='MagicFoo'),
+                DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
                 DataTableStub(incremented_field=5)
             ],
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
@@ -269,23 +273,29 @@ class TestQuerySet:
         self.sdk.set_device_data.assert_called_once_with('table1')
         assert items == expect + [None]
 
-    @pytest.mark.parametrize('data', (
-        {'incremented_field': 123, 'append_foo_field': ''},
-        [{'incremented_field': 123, 'append_foo_field': 'MagicFoo'}, {'incremented_field': -1}],
+    @pytest.mark.parametrize('data,expect', (
+        ({'incremented_field': 123, 'append_foo_field': ''}, []),
+        (
+            [{'incremented_field': 123, 'append_foo_field': 'MagicFoo'}, {'incremented_field': -1}],
+            [{'FooField': 'Magic', 'IncField': '122'}]
+        )
     ))
-    def test_upsert__should_consider_field_validation(self, data, generator_sends_collector):
+    def test_upsert__if_validation_has_failed__should_raise_error_and_not_to_commit_changes(
+            self, data, expect, generator_sends_collector
+    ):
         items = []
         self.sdk.set_device_data.side_effect = generator_sends_collector(items)
 
         with pytest.raises(ValueError):
             self.obj.upsert(data)
 
-        assert items == []
+        assert items == expect
 
     @pytest.mark.parametrize('data', (
         (('incremented_field', 123), ('append_foo_field', '')),
         None,
-        object()
+        object(),
+        0
     ))
     def test_upsert__on_bad_record_type__should_raise_error(self, data, generator_sends_collector):
         items = []
@@ -306,12 +316,12 @@ class TestQuerySet:
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         ),
         (
-            DataTableStub(incremented_field=3, append_foo_field='MagicFoo'),
+            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
             [{'IncField': '122', 'FooField': 'Magic'}]
         ),
         (
             [
-                DataTableStub(incremented_field=3, append_foo_field='MagicFoo'),
+                DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
                 DataTableStub(incremented_field=5)
             ],
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
@@ -326,23 +336,29 @@ class TestQuerySet:
         self.sdk.delete_device_data.assert_called_once_with('table1')
         assert items == expect + [None]
 
-    @pytest.mark.parametrize('data', (
-        {'incremented_field': 123, 'append_foo_field': ''},
-        [{'incremented_field': 123, 'append_foo_field': 'MagicFoo'}, {'incremented_field': -1}],
+    @pytest.mark.parametrize('data,expect', (
+        ({'incremented_field': 123, 'append_foo_field': ''}, []),
+        (
+            [{'incremented_field': 123, 'append_foo_field': 'MagicFoo'}, {'incremented_field': -1}],
+            [{'FooField': 'Magic', 'IncField': '122'}]
+        )
     ))
-    def test_delete__should_consider_field_validation(self, data, generator_sends_collector):
+    def test_delete__if_validation_failed__should_raise_error_and_not_to_commit_changes(
+            self, data, expect, generator_sends_collector
+    ):
         items = []
         self.sdk.delete_device_data.side_effect = generator_sends_collector(items)
 
         with pytest.raises(ValueError):
             self.obj.delete(data)
 
-        assert items == []
+        assert items == expect
 
     @pytest.mark.parametrize('data', (
-        (('incremented_field', 123), ('append_foo_field', '')),
+        (('incremented_field', '123'), ('append_foo_field', '')),
         None,
-        object()
+        object(),
+        0
     ))
     def test_delete__on_bad_record_type__should_raise_error(self, data, generator_sends_collector):
         items = []
@@ -371,7 +387,7 @@ class TestQuerySet:
 
     def test_count__should_return_table_records_count_from_sdk(self):
         self.obj._cache = []
-        self.obj._results_iter = Mock()
+        self.obj._results_iter = MagicMock()
         self.sdk.get_device_data_count.return_value = 5
 
         res = self.obj.count()
@@ -389,7 +405,7 @@ class TestQuerySet:
         ]
         self.sdk.get_device_data_count.return_value = 5
         self.sdk.get_device_data.return_value = (x for x in raw_data)
-        assert self.sdk._cache is None
+        assert self.obj._cache is None
 
         res = len(self.obj)
 
@@ -404,9 +420,9 @@ class TestQuerySet:
             {'IncField': '422'},
             {'IncField': '522', 'FooField': 'Breath'}
         ]
-        self.sdk._cache = raw_data
-        self.sdk._results_iter = Mock()
-        self.sdk._results_iter.__next__.size_effect = StopIteration
+        self.obj._cache = raw_data
+        self.obj._results_iter = MagicMock()
+        self.obj._results_iter.__next__.side_effect = StopIteration
 
         res = len(self.obj)
 
@@ -417,13 +433,13 @@ class TestQuerySet:
 
     def test_copy__should_copy_of_current_object_with_empty_cache_and_not_modify_original_one(self):
         data = [{'IncField': '123', 'FooField': 'Magic'}]
-        self.obj._cache = []
-        self.obj._results_iter = original_iter = iter(data)
         obj = self.obj.where(incremented_field=3).only_fields('incremented_field').unread()
+        obj._cache = []
+        obj._results_iter = original_iter = iter(data)
+
         res = obj.copy()
 
         assert res is not obj
-
         assert res._sdk is self.sdk and obj._sdk is self.sdk
         assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
         assert res._cache is None and obj._cache == []
@@ -432,7 +448,7 @@ class TestQuerySet:
         assert res._only_fields == {DataTableStub.incremented_field} \
                and obj._only_fields == {DataTableStub.incremented_field}
         assert res._filters == {'IncField': '2'} and obj._filters == {'IncField': '2'}
-        assert res._only_unread is False and obj._only_unread is False
+        assert res._only_unread is True and obj._only_unread is True
 
 
 class TestQuerySetIterations:
@@ -489,7 +505,7 @@ class TestQuerySetIterations:
             DataTableStub(incremented_field=223, append_foo_field='DangerousFoo')
         ]
         self.obj._cache = raw_data
-        self.obj._results_iter = Mock()
+        self.obj._results_iter = MagicMock()
         self.obj._results_iter.__next__.side_effect = StopIteration
 
         res = list(self.obj)
@@ -586,10 +602,10 @@ class TestQuerySetIterations:
             DataTableStub(incremented_field=523, append_foo_field='BreathFoo'),
         ]
         self.obj._cache = raw_data
-        self.obj._results_iter = Mock()
+        self.obj._results_iter = MagicMock()
         self.obj._results_iter.__next__.side_effect = StopIteration
 
-        res = self.obj[1:4]
+        res = list(self.obj[1:4])
 
         assert res == expect[1:4]
         self.sdk.get_device_data_count.assert_not_called()
@@ -668,21 +684,20 @@ class TestQuerySetDataTableIterator:
             for i in range(100):
                 res.append(next(obj))
 
-        assert i == 6
+        assert i == 5
         assert res == expect
         assert self.qs._cache == self.raw_data
 
     @pytest.mark.parametrize('item,cache_slice', (
-        (2, slice(None, 3)),
         (slice(None, 3), slice(None, 3)),
         (slice(1, 3), slice(None, 3)),
         (slice(1, 4, 2), slice(None, 4))
     ))
-    def test_next__if_cache_is_empty_and_getting_a_part_of_data__should_fill_only_needed_items(
+    def test_next__if_cache_is_empty_and_getting_a_slice_should_fill_only_needed_items(
         self, item, cache_slice
     ):
         expect = self.data
-        self.qs._cache = self.raw_data
+        self.qs._cache = []
         self.qs._results_iter = iter(self.raw_data)
         obj = QuerySet.DataTableIterator(self.qs, item)
 
@@ -691,13 +706,25 @@ class TestQuerySetDataTableIterator:
             for i in range(100):
                 res.append(next(obj))
 
-        assert i == 6
         assert res == expect[item]
         assert self.qs._cache == self.raw_data[cache_slice]
 
+    def test_next__if_cache_is_empty_and_getting_an_item_should_fill_only_needed_items(self):
+        expect = self.data
+        self.qs._cache = []
+        self.qs._results_iter = iter(self.raw_data)
+        obj = QuerySet.DataTableIterator(self.qs, 2)
+
+        res = []
+        with pytest.raises(StopIteration):
+            for i in range(100):
+                res.append(next(obj))
+
+        assert len(res) == 1
+        assert res[0] == expect[2]
+        assert self.qs._cache == self.raw_data[:3]
+
     @pytest.mark.parametrize('item,cache_slice', (
-        (0, slice(None, 3)),  # [:3] is already filled
-        (3, slice(None, 4)),
         (slice(None, 1), slice(None, 3)),  # [:3] is already filled
         (slice(None, 2), slice(None, 3)),  # [:3] is already filled
         (slice(None, 4), slice(None, 4)),
@@ -705,12 +732,12 @@ class TestQuerySetDataTableIterator:
         (slice(1, 4), slice(None, 4)),
         (slice(1, 4, 2), slice(None, 4))
     ))
-    def test_next__if_cache_is_partially_filled_and_getting_a_part_of_data__should_fill_only_needed_items(
+    def test_next__if_cache_is_partially_filled_and_getting_a_slice__should_fill_only_needed_items(
         self, item, cache_slice
     ):
         expect = self.data
         self.qs._cache = self.raw_data[:3]
-        self.qs._results_iter = iter(self.raw_data)
+        self.qs._results_iter = iter(self.raw_data[3:])
         obj = QuerySet.DataTableIterator(self.qs, item)
 
         res = []
@@ -718,6 +745,26 @@ class TestQuerySetDataTableIterator:
             for i in range(100):
                 res.append(next(obj))
 
-        assert i == 6
         assert res == expect[item]
+        assert self.qs._cache == self.raw_data[cache_slice]
+
+    @pytest.mark.parametrize('item,cache_slice', (
+        (0, slice(None, 3)),  # [:3] is already filled
+        (3, slice(None, 4)),
+    ))
+    def test_next__if_cache_is_partially_filled_and_getting_an_item__should_fill_only_needed_items(
+        self, item, cache_slice
+    ):
+        expect = self.data
+        self.qs._cache = self.raw_data[:3]
+        self.qs._results_iter = iter(self.raw_data[3:])
+        obj = QuerySet.DataTableIterator(self.qs, item)
+
+        res = []
+        with pytest.raises(StopIteration):
+            for i in range(100):
+                res.append(next(obj))
+
+        assert len(res) == 1
+        assert res[0] == expect[item]
         assert self.qs._cache == self.raw_data[cache_slice]

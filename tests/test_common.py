@@ -102,9 +102,14 @@ class TestZKDatetimeUtils:
     def test_time_string_to_datetime__should_convert_datetime(self, value, expect):
         assert ZKDatetimeUtils.time_string_to_datetime(value) == expect
 
-    @pytest.mark.parametrize('value', ('asdf', '', '2000-02-02 15:09:', 0))
+    @pytest.mark.parametrize('value', (None, 0, object()))
+    def test_time_string_to_datetime__if_type_is_invalid__should_raise_error(self, value):
+        with pytest.raises(TypeError):
+            ZKDatetimeUtils.time_string_to_datetime(value)
+
+    @pytest.mark.parametrize('value', ('asdf', '', '2000-02-02 15:09:'))
     def test_time_string_to_datetime__if_value_is_invalid__should_raise_error(self, value):
-        with pytest.raises(ValueError, TypeError):
+        with pytest.raises(ValueError):
             ZKDatetimeUtils.time_string_to_datetime(value)
 
     @pytest.mark.parametrize('value,expect', (
@@ -132,9 +137,14 @@ class TestZKDatetimeUtils:
     def test_zkdate_to_date__should_convert_to_date(self):
         assert ZKDatetimeUtils.zkdate_to_date('20200412') == date(2020, 4, 12)
 
-    @pytest.mark.parametrize('value', ('0', '', 0, None))
+    @pytest.mark.parametrize('value', (0, None, object()))
+    def test_zkdate_to_date__on_bad_value_type__should_raise_error(self, value):
+        with pytest.raises(TypeError):
+            ZKDatetimeUtils.zkdate_to_date(value)
+
+    @pytest.mark.parametrize('value', ('0', ''))
     def test_zkdate_to_date__on_bad_value__should_raise_error(self, value):
-        with pytest.raises(ValueError, TypeError):
+        with pytest.raises(ValueError):
             ZKDatetimeUtils.zkdate_to_date(value)
 
     @pytest.mark.parametrize('value', (date(2020, 4, 12), datetime(2020, 4, 12)))

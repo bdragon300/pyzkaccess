@@ -240,7 +240,6 @@ class DataTable(metaclass=DataTableMeta):
         self._sdk = sdk
         return self
 
-    # TODO: tests
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
@@ -249,6 +248,6 @@ class DataTable(metaclass=DataTableMeta):
 
     def __repr__(self):
         data = ', '.join(
-            '{}={}'.format(k, self.raw_data.get(k)) for k in self.fields_mapping().keys()
+            '{}={}'.format(f, self.raw_data.get(k)) for f, k in self.fields_mapping().items()
         )
         return '{}{}({})'.format('*' if self._dirty else '', self.__class__.__name__, data)

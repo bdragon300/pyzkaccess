@@ -60,19 +60,26 @@ class QuerySet:
             zk.table(Table1).only_fields('field1', Table1.field2)
         """
         qs = self.copy()
-        table_fields = set(self._table_cls._fields_mapping.keys())
+        only_fields = set()
+        fields_mapping = self._table_cls.fields_mapping()
         for field in fields:
             if isinstance(field, str):
-                if field not in table_fields:
-                    raise ValueError(
-                        'No such field {}.{}'.format(self._table_cls.__name__, field)
-                    )
+                if field not in fields_mapping.keys():
+                    raise ValueError('No such field {}.{}'.format(self._table_cls.__name__, field))
                 field = getattr(self._table_cls, field)
-            elif not isinstance(field, Field):
+
+            elif isinstance(field, Field):
+                reverse_mapping = {v: k for k, v in fields_mapping.items()}
+                field_name = reverse_mapping.get(field.raw_name)
+                if field_name is None or getattr(self._table_cls, field_name, None) is not field:
+                    raise ValueError('No such field {}.{}'.format(self._table_cls.__name__, field))
+
+            else:
                 raise TypeError('Field must be either a table field object or a field name')
 
-            qs._only_fields.add(field)
+            only_fields.add(field)
 
+        qs._only_fields.update(only_fields)
         return qs
 
     def where(self, **kwargs) -> 'QuerySet':
@@ -86,7 +93,7 @@ class QuerySet:
             zk.table('User').where(card='123456').where(card='111', super_authorize=False)
         """
         if not kwargs:
-            raise ValueError('Empty field expression')
+            raise TypeError('Empty arguments')
 
         qs = self.copy()
         filters = {}
@@ -133,8 +140,9 @@ class QuerySet:
          of those
         :return: None
         """
-        if not records:
-            return
+        if not isinstance(records, (Sequence, DataTable, Mapping)):
+            raise TypeError('Argument must be a sequence, DataTable or mapping')
+
         gen = self._sdk.set_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
 
@@ -153,8 +161,9 @@ class QuerySet:
         :param records:
         :return: None
         """
-        if not records:
-            return
+        if not isinstance(records, (Sequence, DataTable, Mapping)):
+            raise TypeError('Argument must be a sequence, DataTable or mapping')
+
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
 
@@ -223,7 +232,8 @@ class QuerySet:
         """
         # Fill out cache
         # https://stackoverflow.com/questions/37189968/how-to-have-list-consume-iter-without-calling-len
-        [x for x in self]  # noqa
+        [_ for _ in self]  # noqa
+
         return len(self._cache)
 
     def _fetch_data(self) -> None:
@@ -244,7 +254,7 @@ class QuerySet:
 
         fields = ['*']  # Query all fields if no fields was given
         if self._only_fields:
-            fields = [f.raw_name for f in self._only_fields]
+            fields = list(sorted(f.raw_name for f in self._only_fields))
 
         self._results_iter = iter(self._sdk.get_device_data(
             self._table_cls.table_name,
@@ -270,7 +280,7 @@ class QuerySet:
             except StopIteration:
                 return
             self._cache.append(item)
-            if (start is None or i >= start) and i % step == 0:
+            if (start is None or i >= start) and (start + i) % step == 0:
                 yield item
             i += 1
 
@@ -296,7 +306,7 @@ class QuerySet:
             if isinstance(self._item, slice):
                 self._start = self._item.start or 0
                 self._stop = self._item.stop
-                self._step = self._item.step or 1
+                self._step = 1 if self._item.step is None else self._item.step
 
             self._item_iter = None
 
