@@ -9,8 +9,7 @@ install:
   - pip install setuptools tox pytest-cov
 
 script:
-  - env
-  - tox
+  - ./run_tests.sh
 
 after_success:
   - "bash <(curl -s https://codecov.io/bash)"
