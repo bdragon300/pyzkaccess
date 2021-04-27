@@ -66,7 +66,7 @@ class ZKAccess:
         if self.connstr:
             self.connect(self.connstr)
 
-    def table(self, table: Union[Type[DataTable], DataTable, str]) -> QuerySet:
+    def table(self, table: Union[DataTable, str]) -> QuerySet:
         """Return a QuerySet object for a given table
         :param table: data table name or DataTable object/class
         :return: queryset object

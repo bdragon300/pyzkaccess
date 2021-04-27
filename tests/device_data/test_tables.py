@@ -171,16 +171,16 @@ class TestField:
         assert res == expect and type(res) == type(expect)
 
     @pytest.mark.parametrize('datatype,value,get_cb,expect', (
-            (
+        (
             datetime,
             '2020-12-13 14:15:16',
-            lambda x: datetime.fromisoformat(x),
+            lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
             datetime(2020, 12, 13, 14, 15, 16)
         ),  # str=>datetime
-            (tuple, '123', lambda x: tuple(x), ('1', '2', '3')),  # str=>tuple
-            (EnumStub, '456', lambda x: EnumStub(int(x)), EnumStub.val2),  # str=>Enum
-            (bool, '1', lambda x: bool(int(x)), True),  # str=>bool
-            (bool, '0', lambda x: bool(int(x)), False)  # str=>bool
+        (tuple, '123', lambda x: tuple(x), ('1', '2', '3')),  # str=>tuple
+        (EnumStub, '456', lambda x: EnumStub(int(x)), EnumStub.val2),  # str=>Enum
+        (bool, '1', lambda x: bool(int(x)), True),  # str=>bool
+        (bool, '0', lambda x: bool(int(x)), False)  # str=>bool
     ))
     def test_to_field_value__if_get_cb_returns_value_of_datatype__should_convert_value(
         self, datatype, value, get_cb, expect
@@ -196,16 +196,16 @@ class TestField:
         validation_cb.assert_not_called()
 
     @pytest.mark.parametrize('datatype,value,get_cb,expect', (
-            (
+        (
             str,
             '2020-12-13 14:15:16',
-            lambda x: datetime.fromisoformat(x),
+            lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
             '2020-12-13 14:15:16'
         ),  # str=>datetime=>str
-            (tuple, '123', lambda x: list(x), ('1', '2', '3')),  # str=>list=>tuple
-            (EnumStub, '456', int, EnumStub.val2),  # str=>int=>Enum
-            (bool, '1', int, True),  # str=>int=>bool
-            (bool, '0', int, False)  # str=>int=>bool
+        (tuple, '123', lambda x: list(x), ('1', '2', '3')),  # str=>list=>tuple
+        (EnumStub, '456', int, EnumStub.val2),  # str=>int=>Enum
+        (bool, '1', int, True),  # str=>int=>bool
+        (bool, '0', int, False)  # str=>int=>bool
     ))
     def test_to_field_value__if_get_cb_returns_value_not_of_datatype__should_also_cast_to_datatype(
         self, datatype, value, get_cb, expect
