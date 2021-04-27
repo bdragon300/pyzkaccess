@@ -359,15 +359,15 @@ class TestDataTable:
         with pytest.raises(ValueError):
             DataTableStub(incremented_field=-1)
 
-    def test_data__should_return_fields_value(self):
+    def test_dict__should_return_fields_value(self):
         obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
 
-        assert obj.data == {'incremented_field': 124, 'append_foo_field': 'MagicFoo'}
+        assert obj.dict == {'incremented_field': 124, 'append_foo_field': 'MagicFoo'}
 
-    def test_data__if_no_certain_field_in_raw_data__should_return_nones(self):
+    def test_dict__if_no_certain_field_in_raw_data__should_return_nones(self):
         obj = DataTableStub().with_raw_data({'IncField': '123'})
 
-        assert obj.data == {'incremented_field': 124, 'append_foo_field': None}
+        assert obj.dict == {'incremented_field': 124, 'append_foo_field': None}
 
     def test_raw_data__should_return_raw_data(self):
         obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})

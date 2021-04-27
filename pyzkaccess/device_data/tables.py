@@ -186,7 +186,7 @@ class DataTable(metaclass=DataTableMeta):
             }
 
     @property
-    def data(self) -> Mapping[str, FieldDataT]:
+    def dict(self) -> Mapping[str, FieldDataT]:
         """Return record data as a dict"""
         return {field: getattr(self, field) for field in self._fields_mapping.keys()}
 
