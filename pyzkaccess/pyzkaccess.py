@@ -1,20 +1,20 @@
 __all__ = [
     'ZKAccess'
 ]
-import pyzkaccess.ctypes as ctypes
-from typing import Optional, Sequence, Union, Type, Mapping, Any
+from typing import Optional, Sequence, Union, Type
 
+import pyzkaccess.ctypes as ctypes
+import pyzkaccess.sdk
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
+from .device_data.queryset import QuerySet
+from .device_data.tables import DataTable, data_tables_registry
 from .door import Door, DoorList
 from .enums import ControlOperation
 from .event import EventLog
 from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList
 from .relay import Relay, RelayList
-from .device_data.tables import DataTable, data_tables_registry
-from .device_data.queryset import QuerySet
-import pyzkaccess.sdk
 
 
 class ZKAccess:

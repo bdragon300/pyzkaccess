@@ -1,3 +1,7 @@
+__all__ = [
+    'QuerySet'
+]
+
 import math
 from copy import copy
 from typing import (
