@@ -248,6 +248,7 @@ class DataTable(metaclass=DataTableMeta):
 
     def __repr__(self):
         data = ', '.join(
-            '{}={}'.format(f, self.raw_data.get(k)) for f, k in self.fields_mapping().items()
+            '{}={}'.format(f, self.raw_data.get(k))
+            for f, k in sorted(self.fields_mapping().items())
         )
         return '{}{}({})'.format('*' if self._dirty else '', self.__class__.__name__, data)

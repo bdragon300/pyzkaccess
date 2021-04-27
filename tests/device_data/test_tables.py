@@ -477,10 +477,10 @@ class TestDataTable:
         raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))
         obj = DataTableStub().with_raw_data(raw_data, False)
 
-        assert repr(obj) == 'DataTableStub(incremented_field=123, append_foo_field=Magic)'
+        assert repr(obj) == 'DataTableStub(append_foo_field=Magic, incremented_field=123)'
 
     def test_repr__if_dirty_flag_is_set__should_reflect_this_fact_in_string(self):
         raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))
         obj = DataTableStub().with_raw_data(raw_data, True)
 
-        assert repr(obj) == '*DataTableStub(incremented_field=123, append_foo_field=Magic)'
+        assert repr(obj) == '*DataTableStub(append_foo_field=Magic, incremented_field=123)'
