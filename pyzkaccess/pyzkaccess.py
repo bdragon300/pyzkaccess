@@ -243,7 +243,7 @@ class ZKAccess:
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
 
     @staticmethod
-    def _get_table(table: Union[Type[DataTable], DataTable, str]) -> Type[DataTable]:
+    def _get_table(table: Union[DataTable, str]) -> Type[DataTable]:
         if isinstance(table, str):
             table = data_tables_registry[table]
         elif isinstance(table, DataTable):
