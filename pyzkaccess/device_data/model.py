@@ -1,21 +1,21 @@
 __all__ = [
-    'data_tables_registry',
+    'models_registry',
     'Field',
-    'DataTableMeta',
-    'DataTable'
+    'ModelMeta',
+    'Model'
 ]
 
 from enum import Enum
 from typing import Mapping, MutableMapping, Callable, Optional, Type, TypeVar, Any
 
-data_tables_registry = {}  # type: MutableMapping[str, Type[DataTable]]
+models_registry = {}  # type: MutableMapping[str, Type[Model]]
 
 
 FieldDataT = TypeVar('FieldDataT')
 
 
 class Field:
-    """This class is used to define a field in DataTable. The property
+    """This class is used to define a field in Model. The property
     it assignes to will be used to access to an appropriate table field.
     In other words it provides object access to that field.
 
@@ -33,7 +33,7 @@ class Field:
                  set_cb: Optional[Callable[[Any], Any]] = None,
                  validation_cb: Optional[Callable[[FieldDataT], bool]] = None):
         """
-        On getting a field value from DataTable record, the process is:
+        On getting a field value from Model record, the process is:
          1. Retrieve raw field value of `raw_name`. If nothing then
             just return None
          2. If `get_cb` is set then call it and use its result as value
@@ -41,7 +41,7 @@ class Field:
             cast it to this type
          4. Return value as field value
 
-        On setting a field value in DataTable record, the process is:
+        On setting a field value in Model record, the process is:
          1. Check if value has `field_datatype` type, raise an error
             if not
          2. If `validation_cb` is set then call it, if result is false
@@ -152,19 +152,19 @@ class Field:
             instance._dirty = True
 
 
-class DataTableMeta(type):
+class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         attrs['_fields_mapping'] = {}
         for attr_name, attr in attrs.items():
             if isinstance(attr, Field):
                 attrs['_fields_mapping'][attr_name] = attr.raw_name
 
-        klass = super(DataTableMeta, mcs).__new__(mcs, name, bases, attrs)
-        data_tables_registry[name] = klass  # noqa
+        klass = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
+        models_registry[name] = klass  # noqa
         return klass
 
 
-class DataTable(metaclass=DataTableMeta):
+class Model(metaclass=ModelMeta):
     """Base class for models that represent device data tables.
 
     A concrete model contains device table name and field definitions.
@@ -238,12 +238,12 @@ class DataTable(metaclass=DataTableMeta):
 
         self._dirty = False
 
-    def with_raw_data(self, raw_data: Mapping[str, str], dirty: bool = True) -> 'DataTable':
+    def with_raw_data(self, raw_data: Mapping[str, str], dirty: bool = True) -> 'Model':
         self._raw_data = raw_data
         self._dirty = dirty
         return self
 
-    def with_sdk(self, sdk) -> 'DataTable':
+    def with_sdk(self, sdk) -> 'Model':
         self._sdk = sdk
         return self
 

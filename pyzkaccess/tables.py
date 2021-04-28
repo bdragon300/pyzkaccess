@@ -13,7 +13,7 @@ __all__ = [
 from datetime import date, time, datetime
 
 from .common import ZKDatetimeUtils
-from .device_data.tables import DataTable, Field
+from .device_data.model import Model, Field
 from .enums import (
     HolidayLoop,
     VerifyMode,
@@ -25,7 +25,7 @@ from .enums import (
 )
 
 
-class User(DataTable):
+class User(Model):
     """Card number information table"""
     table_name = 'user'
 
@@ -42,7 +42,7 @@ class User(DataTable):
     super_authorize = Field('SuperAuthorize', bool, int, int)
 
 
-class UserAuthorize(DataTable):
+class UserAuthorize(Model):
     """Access privilege list"""
     table_name = 'userauthorize'
 
@@ -58,7 +58,7 @@ class UserAuthorize(DataTable):
     )
 
 
-class Holiday(DataTable):
+class Holiday(Model):
     """Holiday table"""
     table_name = 'holiday'
 
@@ -78,7 +78,7 @@ def _tz_validate(value: tuple) -> bool:
     return len(value) == 2 and all(isinstance(x, (time, datetime)) for x in value)
 
 
-class Timezone(DataTable):
+class Timezone(Model):
     """Time zone table"""
     table_name = 'timezone'
 
@@ -118,7 +118,7 @@ class Timezone(DataTable):
     hol3_time3 = Field('Hol3Time3', tuple, _tz_decode, _tz_encode, _tz_validate)
 
 
-class Transaction(DataTable):
+class Transaction(Model):
     """Access control record table"""
     table_name = 'transaction'
 
@@ -138,7 +138,7 @@ class Transaction(DataTable):
     )
 
 
-class FirstCard(DataTable):
+class FirstCard(Model):
     """First-card door opening"""
     table_name = 'firstcard'
 
@@ -147,7 +147,7 @@ class FirstCard(DataTable):
     timezone_id = Field('TimezoneID', int)
 
 
-class MultiCard(DataTable):
+class MultiCard(Model):
     """Multi-card door opening"""
     table_name = 'multimcard'   # Yes, typo in table name
 
@@ -160,7 +160,7 @@ class MultiCard(DataTable):
     group5 = Field('Group5')
 
 
-class InOutFun(DataTable):
+class InOutFun(Model):
     """Linkage control I/O table"""
     table_name = 'inoutfun'
 
@@ -183,7 +183,7 @@ class InOutFun(DataTable):
     reserved = Field('Reserved')
 
 
-class TemplateV10(DataTable):
+class TemplateV10(Model):
     """templatev10 table. No information"""
     table_name = 'templatev10'
 

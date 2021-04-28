@@ -3,10 +3,10 @@ from unittest.mock import Mock, MagicMock
 import pytest
 
 from pyzkaccess.device_data.queryset import QuerySet
-from pyzkaccess.device_data.tables import Field, DataTable
+from pyzkaccess.device_data.model import Field, Model
 
 
-class DataTableStub(DataTable):
+class ModelStub(Model):
     table_name = 'table1'
     incremented_field = Field(
         'IncField', int, lambda x: int(x) + 1, lambda x: x - 1, lambda x: x > 0
@@ -16,7 +16,7 @@ class DataTableStub(DataTable):
     )
 
 
-class DataTableStub2(DataTable):
+class ModelStub2(Model):
     table_name = 'table2'
     field1 = Field('Field1')
     incremented_field = Field('IncField')
@@ -26,13 +26,13 @@ class TestQuerySet:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.sdk = Mock()
-        self.obj = QuerySet(self.sdk, DataTableStub)
+        self.obj = QuerySet(self.sdk, ModelStub)
 
     def test_init__should_initizalize_properties(self):
-        obj = QuerySet(self.sdk, DataTableStub, 123)
+        obj = QuerySet(self.sdk, ModelStub, 123)
 
         assert obj._sdk is self.sdk
-        assert obj._table_cls is DataTableStub
+        assert obj._table_cls is ModelStub
         assert obj._cache is None
         assert obj._results_iter is None
         assert obj._buffer_size == 123
@@ -52,15 +52,15 @@ class TestQuerySet:
         self.sdk.get_device_data.assert_not_called()
 
     @pytest.mark.parametrize('args,expect', (
-        (('incremented_field', ), {DataTableStub.incremented_field}),
+        (('incremented_field', ), {ModelStub.incremented_field}),
         (
             ('incremented_field', 'append_foo_field'),
-            {DataTableStub.incremented_field, DataTableStub.append_foo_field}
+            {ModelStub.incremented_field, ModelStub.append_foo_field}
         ),
-        ((DataTableStub.incremented_field, ), {DataTableStub.incremented_field}),
+        ((ModelStub.incremented_field,), {ModelStub.incremented_field}),
         (
-            (DataTableStub.incremented_field, DataTableStub.append_foo_field),
-            {DataTableStub.incremented_field, DataTableStub.append_foo_field}
+            (ModelStub.incremented_field, ModelStub.append_foo_field),
+            {ModelStub.incremented_field, ModelStub.append_foo_field}
         ),
         ((), set())
     ))
@@ -72,18 +72,18 @@ class TestQuerySet:
     @pytest.mark.parametrize('args,expect', (
         (
             ('incremented_field', 'append_foo_field'),
-            {DataTableStub.incremented_field, DataTableStub.append_foo_field}
+            {ModelStub.incremented_field, ModelStub.append_foo_field}
         ),
-        (('append_foo_field', ), {DataTableStub.incremented_field, DataTableStub.append_foo_field}),
+        (('append_foo_field', ), {ModelStub.incremented_field, ModelStub.append_foo_field}),
         (
-            (DataTableStub.incremented_field, DataTableStub.append_foo_field),
-            {DataTableStub.incremented_field, DataTableStub.append_foo_field}
+            (ModelStub.incremented_field, ModelStub.append_foo_field),
+            {ModelStub.incremented_field, ModelStub.append_foo_field}
         ),
         (
-            (DataTableStub.append_foo_field, ),
-            {DataTableStub.incremented_field, DataTableStub.append_foo_field}
+            (ModelStub.append_foo_field,),
+            {ModelStub.incremented_field, ModelStub.append_foo_field}
         ),
-        ((), {DataTableStub.incremented_field})
+        ((), {ModelStub.incremented_field})
     ))
     def test_only_fields__on_repeated_calls__should_update_previous_fields(self, args, expect):
         res = self.obj.only_fields('incremented_field').only_fields(*args)
@@ -100,11 +100,11 @@ class TestQuerySet:
         assert res is not obj
 
         assert res._sdk is self.sdk and obj._sdk is self.sdk
-        assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
+        assert res._table_cls is ModelStub and obj._table_cls is ModelStub
         assert res._cache is None and obj._cache == []
         assert res._results_iter is None and obj._results_iter is original_iter
         assert res._buffer_size is None and obj._buffer_size is None
-        assert res._only_fields == {DataTableStub.incremented_field} and obj._only_fields == set()
+        assert res._only_fields == {ModelStub.incremented_field} and obj._only_fields == set()
         assert res._filters == {'IncField': '2'} and obj._filters == {'IncField': '2'}
         assert res._only_unread is True and obj._only_unread is True
 
@@ -122,7 +122,7 @@ class TestQuerySet:
 
     @pytest.mark.parametrize('args', (
         (None, ),
-        (Field, DataTableStub.incremented_field),
+        (Field, ModelStub.incremented_field),
     ))
     def test_only_fields__if_bad_fields_were_given__should_raise_error(self, args):
         with pytest.raises(TypeError):
@@ -130,8 +130,8 @@ class TestQuerySet:
 
     @pytest.mark.parametrize('args', (
         ('incremented_field', 'unknown_field'),
-        ('incremented_field', DataTableStub2.field1),
-        ('incremented_field', DataTableStub2.incremented_field),
+        ('incremented_field', ModelStub2.field1),
+        ('incremented_field', ModelStub2.incremented_field),
     ))
     def test_only_fields__if_unknown_fields_were_given__should_raise_error(self, args):
         with pytest.raises(ValueError):
@@ -172,12 +172,12 @@ class TestQuerySet:
 
         assert res is not obj
         assert res._sdk is self.sdk and obj._sdk is self.sdk
-        assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
+        assert res._table_cls is ModelStub and obj._table_cls is ModelStub
         assert res._cache is None and obj._cache == []
         assert res._results_iter is None and obj._results_iter is original_iter
         assert res._buffer_size is None and obj._buffer_size is None
-        assert res._only_fields == {DataTableStub.incremented_field} \
-               and obj._only_fields == {DataTableStub.incremented_field}
+        assert res._only_fields == {ModelStub.incremented_field} \
+               and obj._only_fields == {ModelStub.incremented_field}
         assert res._filters == {'IncField': '2'} and obj._filters == {}
         assert res._only_unread is True and obj._only_unread is True
 
@@ -225,12 +225,12 @@ class TestQuerySet:
 
         assert res is not obj
         assert res._sdk is self.sdk and obj._sdk is self.sdk
-        assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
+        assert res._table_cls is ModelStub and obj._table_cls is ModelStub
         assert res._cache is None and obj._cache == []
         assert res._results_iter is None and obj._results_iter is original_iter
         assert res._buffer_size is None and obj._buffer_size is None
-        assert res._only_fields == {DataTableStub.incremented_field} \
-               and obj._only_fields == {DataTableStub.incremented_field}
+        assert res._only_fields == {ModelStub.incremented_field} \
+               and obj._only_fields == {ModelStub.incremented_field}
         assert res._filters == {'IncField': '2'} and obj._filters == {'IncField': '2'}
         assert res._only_unread is True and obj._only_unread is False
 
@@ -254,13 +254,13 @@ class TestQuerySet:
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         ),
         (
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            [{'IncField': '122', 'FooField': 'Magic'}]
+                ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+                [{'IncField': '122', 'FooField': 'Magic'}]
         ),
         (
             [
-                DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-                DataTableStub(incremented_field=5)
+                ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+                ModelStub(incremented_field=5)
             ],
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         )
@@ -316,13 +316,13 @@ class TestQuerySet:
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         ),
         (
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            [{'IncField': '122', 'FooField': 'Magic'}]
+                ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+                [{'IncField': '122', 'FooField': 'Magic'}]
         ),
         (
             [
-                DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-                DataTableStub(incremented_field=5)
+                ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+                ModelStub(incremented_field=5)
             ],
             [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         )
@@ -441,12 +441,12 @@ class TestQuerySet:
 
         assert res is not obj
         assert res._sdk is self.sdk and obj._sdk is self.sdk
-        assert res._table_cls is DataTableStub and obj._table_cls is DataTableStub
+        assert res._table_cls is ModelStub and obj._table_cls is ModelStub
         assert res._cache is None and obj._cache == []
         assert res._results_iter is None and obj._results_iter is original_iter
         assert res._buffer_size is None and obj._buffer_size is None
-        assert res._only_fields == {DataTableStub.incremented_field} \
-               and obj._only_fields == {DataTableStub.incremented_field}
+        assert res._only_fields == {ModelStub.incremented_field} \
+               and obj._only_fields == {ModelStub.incremented_field}
         assert res._filters == {'IncField': '2'} and obj._filters == {'IncField': '2'}
         assert res._only_unread is True and obj._only_unread is True
 
@@ -455,7 +455,7 @@ class TestQuerySetIterations:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.sdk = Mock()
-        self.obj = QuerySet(self.sdk, DataTableStub)
+        self.obj = QuerySet(self.sdk, ModelStub)
 
     def test_iteration__should_return_iterator(self):
         data = [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
@@ -464,15 +464,15 @@ class TestQuerySetIterations:
 
         res = iter(self.obj)
 
-        assert isinstance(res, QuerySet.DataTableIterator)
+        assert isinstance(res, QuerySet.ModelIterator)
         assert res._qs is self.obj
         assert res._item is None
 
-    def test_iteration__if_table_contains_records_iterator_should_produce_datatable_objects(self):
+    def test_iteration__if_table_contains_records_iterator_should_produce_model_objects(self):
         data = [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
         expect = [
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            DataTableStub(incremented_field=5)
+            ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+            ModelStub(incremented_field=5)
         ]
         self.sdk.get_device_data_count.return_value = 2
         self.sdk.get_device_data.return_value = (x for x in data)
@@ -501,8 +501,8 @@ class TestQuerySetIterations:
             {'IncField': '222', 'FooField': 'Dangerous'}
         ]
         expect = [
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            DataTableStub(incremented_field=223, append_foo_field='DangerousFoo')
+            ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+            ModelStub(incremented_field=223, append_foo_field='DangerousFoo')
         ]
         self.obj._cache = raw_data
         self.obj._results_iter = MagicMock()
@@ -535,7 +535,7 @@ class TestQuerySetIterations:
     @pytest.mark.parametrize('count', (2, 9))
     def test_iteration__if_sdk_reports_wrong_records_count__ignore_it(self, count):
         data = [{'IncField': '122', 'FooField': 'Magic'}] * 4
-        expect = [DataTableStub(incremented_field=123, append_foo_field='MagicFoo')] * 4
+        expect = [ModelStub(incremented_field=123, append_foo_field='MagicFoo')] * 4
         self.sdk.get_device_data_count.return_value = count
         self.sdk.get_device_data.return_value = (x for x in data)
 
@@ -550,7 +550,7 @@ class TestQuerySetIterations:
 
         res = self.obj[:2]
 
-        assert isinstance(res, QuerySet.DataTableIterator)
+        assert isinstance(res, QuerySet.ModelIterator)
         assert res._qs is self.obj
         assert res._item == slice(None, 2, None)
 
@@ -570,11 +570,11 @@ class TestQuerySetIterations:
             {'IncField': '522', 'FooField': 'Breath'}
         ]
         expect = [
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            DataTableStub(incremented_field=223, append_foo_field='DangerousFoo'),
-            DataTableStub(append_foo_field='FastFoo'),
-            DataTableStub(incremented_field=423),
-            DataTableStub(incremented_field=523, append_foo_field='BreathFoo'),
+            ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+            ModelStub(incremented_field=223, append_foo_field='DangerousFoo'),
+            ModelStub(append_foo_field='FastFoo'),
+            ModelStub(incremented_field=423),
+            ModelStub(incremented_field=523, append_foo_field='BreathFoo'),
         ]
         self.sdk.get_device_data_count.return_value = 5
         self.sdk.get_device_data.return_value = (x for x in raw_data)
@@ -595,11 +595,11 @@ class TestQuerySetIterations:
             {'IncField': '522', 'FooField': 'Breath'}
         ]
         expect = [
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            DataTableStub(incremented_field=223, append_foo_field='DangerousFoo'),
-            DataTableStub(append_foo_field='FastFoo'),
-            DataTableStub(incremented_field=423),
-            DataTableStub(incremented_field=523, append_foo_field='BreathFoo'),
+            ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+            ModelStub(incremented_field=223, append_foo_field='DangerousFoo'),
+            ModelStub(append_foo_field='FastFoo'),
+            ModelStub(incremented_field=423),
+            ModelStub(incremented_field=523, append_foo_field='BreathFoo'),
         ]
         self.obj._cache = raw_data
         self.obj._results_iter = MagicMock()
@@ -653,11 +653,11 @@ class TestQuerySetIterations:
         assert res == []
 
 
-class TestQuerySetDataTableIterator:
+class TestQuerySetModelIterator:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.sdk = Mock()
-        self.qs = QuerySet(self.sdk, DataTableStub)
+        self.qs = QuerySet(self.sdk, ModelStub)
         self.raw_data = [
             {'IncField': '122', 'FooField': 'Magic'},
             {'IncField': '222', 'FooField': 'Dangerous'},
@@ -666,18 +666,18 @@ class TestQuerySetDataTableIterator:
             {'IncField': '522', 'FooField': 'Breath'}
         ]
         self.data = [
-            DataTableStub(incremented_field=123, append_foo_field='MagicFoo'),
-            DataTableStub(incremented_field=223, append_foo_field='DangerousFoo'),
-            DataTableStub(append_foo_field='FastFoo'),
-            DataTableStub(incremented_field=423),
-            DataTableStub(incremented_field=523, append_foo_field='BreathFoo'),
+            ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
+            ModelStub(incremented_field=223, append_foo_field='DangerousFoo'),
+            ModelStub(append_foo_field='FastFoo'),
+            ModelStub(incremented_field=423),
+            ModelStub(incremented_field=523, append_foo_field='BreathFoo'),
         ]
 
     def test_next__if_cache_is_empty__should_fill_cache(self):
         expect = self.data
         self.qs._cache = []
         self.qs._results_iter = iter(self.raw_data)
-        obj = QuerySet.DataTableIterator(self.qs)
+        obj = QuerySet.ModelIterator(self.qs)
 
         res = []
         with pytest.raises(StopIteration):
@@ -699,7 +699,7 @@ class TestQuerySetDataTableIterator:
         expect = self.data
         self.qs._cache = []
         self.qs._results_iter = iter(self.raw_data)
-        obj = QuerySet.DataTableIterator(self.qs, item)
+        obj = QuerySet.ModelIterator(self.qs, item)
 
         res = []
         with pytest.raises(StopIteration):
@@ -713,7 +713,7 @@ class TestQuerySetDataTableIterator:
         expect = self.data
         self.qs._cache = []
         self.qs._results_iter = iter(self.raw_data)
-        obj = QuerySet.DataTableIterator(self.qs, 2)
+        obj = QuerySet.ModelIterator(self.qs, 2)
 
         res = []
         with pytest.raises(StopIteration):
@@ -738,7 +738,7 @@ class TestQuerySetDataTableIterator:
         expect = self.data
         self.qs._cache = self.raw_data[:3]
         self.qs._results_iter = iter(self.raw_data[3:])
-        obj = QuerySet.DataTableIterator(self.qs, item)
+        obj = QuerySet.ModelIterator(self.qs, item)
 
         res = []
         with pytest.raises(StopIteration):
@@ -758,7 +758,7 @@ class TestQuerySetDataTableIterator:
         expect = self.data
         self.qs._cache = self.raw_data[:3]
         self.qs._results_iter = iter(self.raw_data[3:])
-        obj = QuerySet.DataTableIterator(self.qs, item)
+        obj = QuerySet.ModelIterator(self.qs, item)
 
         res = []
         with pytest.raises(StopIteration):

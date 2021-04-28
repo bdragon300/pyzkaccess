@@ -8,7 +8,7 @@ import pyzkaccess.sdk
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
 from .device_data.queryset import QuerySet
-from .device_data.tables import DataTable, data_tables_registry
+from .device_data.model import Model, models_registry
 from .door import Door, DoorList
 from .enums import ControlOperation
 from .event import EventLog
@@ -66,9 +66,9 @@ class ZKAccess:
         if self.connstr:
             self.connect(self.connstr)
 
-    def table(self, table: Union[DataTable, str]) -> QuerySet:
+    def table(self, table: Union[Model, str]) -> QuerySet:
         """Return a QuerySet object for a given table
-        :param table: data table name or DataTable object/class
+        :param table: data table name or Model object/class
         :return: queryset object
         """
         table = self._get_table(table)
@@ -243,12 +243,12 @@ class ZKAccess:
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
 
     @staticmethod
-    def _get_table(table: Union[DataTable, str]) -> Type[DataTable]:
+    def _get_table(table: Union[Model, str]) -> Type[Model]:
         if isinstance(table, str):
-            table = data_tables_registry[table]
-        elif isinstance(table, DataTable):
+            table = models_registry[table]
+        elif isinstance(table, Model):
             table = table.__class__
-        elif not (isinstance(table, type) and issubclass(table, DataTable)):
+        elif not (isinstance(table, type) and issubclass(table, Model)):
             raise TypeError('Table must be either a data table object/class or a table name')
 
         return table

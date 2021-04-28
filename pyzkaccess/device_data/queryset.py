@@ -17,7 +17,7 @@ from typing import (
     Iterable
 )
 
-from .tables import DataTable, Field
+from .model import Model, Field
 
 
 class QuerySet:
@@ -44,7 +44,7 @@ class QuerySet:
     """
     _estimate_record_buffer = 256
 
-    def __init__(self, sdk, table: Type[DataTable], buffer_size: Optional[int] = None):
+    def __init__(self, sdk, table: Type[Model], buffer_size: Optional[int] = None):
         self._sdk = sdk
         self._table_cls = table
         self._cache = None
@@ -123,9 +123,9 @@ class QuerySet:
         qs._only_unread = True
         return qs
 
-    _DataTableArgT = TypeVar('_DataTableArgT', DataTable, Mapping[str, Any])
+    _ModelArgT = TypeVar('_ModelArgT', Model, Mapping[str, Any])
 
-    def upsert(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]) -> None:
+    def upsert(self, records: Union[Sequence[_ModelArgT], _ModelArgT]) -> None:
         """Update/insert given records (or upsert) to a table.
 
         Every table on a device has primary key. Typically, it is "pin"
@@ -140,17 +140,17 @@ class QuerySet:
             zk.table(User).upsert([{'pin': '0', 'card': '123456'}, {'pin': '1', 'card': '654321'}])
             zk.table(User).upsert(User(pin='0', card='123456'))
             zk.table(User).upsert([User(pin='0', card='123456'), User(pin='1', card='654321')])
-        :param records: record dict, DataTable instance or a sequence
+        :param records: record dict, Model instance or a sequence
          of those
         :return: None
         """
-        if not isinstance(records, (Sequence, DataTable, Mapping)):
-            raise TypeError('Argument must be a sequence, DataTable or mapping')
+        if not isinstance(records, (Sequence, Model, Mapping)):
+            raise TypeError('Argument must be a sequence, Model or mapping')
 
         gen = self._sdk.set_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
 
-    def delete(self, records: Union[Sequence[_DataTableArgT], _DataTableArgT]) -> None:
+    def delete(self, records: Union[Sequence[_ModelArgT], _ModelArgT]) -> None:
         """Delete given records from a table.
 
         Every table on a device has primary key. Typically, it is "pin"
@@ -165,8 +165,8 @@ class QuerySet:
         :param records:
         :return: None
         """
-        if not isinstance(records, (Sequence, DataTable, Mapping)):
-            raise TypeError('Argument must be a sequence, DataTable or mapping')
+        if not isinstance(records, (Sequence, Model, Mapping)):
+            raise TypeError('Argument must be a sequence, Model or mapping')
 
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
@@ -193,13 +193,13 @@ class QuerySet:
 
     def _bulk_operation(self,
                         gen: Generator[None, Optional[Mapping[str, str]], None],
-                        records: Union[Iterable[_DataTableArgT], _DataTableArgT]):
+                        records: Union[Iterable[_ModelArgT], _ModelArgT]):
         gen.send(None)
-        if isinstance(records, (Mapping, DataTable)):
+        if isinstance(records, (Mapping, Model)):
             records = (records, )
 
         for record in records:
-            if isinstance(record, DataTable):
+            if isinstance(record, Model):
                 record = record.raw_data
             elif isinstance(record, Mapping):
                 record = self._table_cls(**record).raw_data
@@ -297,7 +297,7 @@ class QuerySet:
 
         return res
 
-    class DataTableIterator(Iterator):
+    class ModelIterator(Iterator):
         """Iterator for iterating over QuerySet results"""
         def __init__(self, qs: 'QuerySet', item: Optional[Union[slice, int]] = None):
             self._qs = qs
@@ -329,4 +329,4 @@ class QuerySet:
                 next(self._item_iter), dirty=False
             ).with_sdk(self._qs._sdk)
 
-    _iterator_class = DataTableIterator
+    _iterator_class = ModelIterator

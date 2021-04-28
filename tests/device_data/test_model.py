@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from pyzkaccess.device_data.tables import Field, DataTable, data_tables_registry
+from pyzkaccess.device_data.model import Field, Model, models_registry
 
 
 class EnumStub(Enum):
@@ -14,7 +14,7 @@ class EnumStub(Enum):
     val2 = 456
 
 
-class DataTableStub(DataTable):
+class ModelStub(Model):
     table_name = 'table1'
     incremented_field = Field(
         'IncField', int, lambda x: int(x) + 1, lambda x: x - 1, lambda x: x > 0
@@ -226,7 +226,7 @@ class TestField:
         assert hash(obj) == hash('my_name')
 
     def test_get_descriptor__should_correct_field_values(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
 
         assert obj._dirty is False
         assert obj.append_foo_field == 'MagicFoo'
@@ -234,15 +234,15 @@ class TestField:
         assert obj._dirty is False
 
     def test_get_descriptor__if_no_such_raw_field__should_return_none(self):
-        obj = DataTableStub().with_raw_data({'FooField': 'Magic'})
+        obj = ModelStub().with_raw_data({'FooField': 'Magic'})
 
         assert obj.incremented_field is None
 
     def test_get_descriptor__if_class_instance__should_return_itself(self):
-        assert isinstance(DataTableStub.incremented_field, Field)
+        assert isinstance(ModelStub.incremented_field, Field)
 
     def test_set_descriptor__should_set_raw_data(self):
-        obj = DataTableStub()
+        obj = ModelStub()
 
         obj.append_foo_field = "WowFoo"
         obj.incremented_field = 123
@@ -250,7 +250,7 @@ class TestField:
         assert obj.raw_data == {'IncField': '122', 'FooField': 'Wow'}
 
     def test_set_descriptor__should_set_dirty_flag(self):
-        obj = DataTableStub().with_raw_data({}, False)
+        obj = ModelStub().with_raw_data({}, False)
         assert obj._dirty is False
 
         obj.incremented_field = 123
@@ -258,36 +258,36 @@ class TestField:
         assert obj._dirty is True
 
     def test_set_descriptor__if_none_is_given__should_delete_field_from_raw_data(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
 
         obj.incremented_field = None
 
         assert obj.raw_data == {'FooField': 'Magic'}
 
     def test_set_descriptor__should_consider_field_validation(self):
-        obj = DataTableStub()
+        obj = ModelStub()
 
         with pytest.raises(ValueError):
             obj.incremented_field = -1
 
     def test_set_descriptor__if_class_instance__should_do_nothing(self):
-        class DataTableStub2(DataTable):
+        class ModelStub2(Model):
             table_name = 'test'
             field1 = Field('field')
 
-        DataTableStub2.field1 = 'testvalue'
+        ModelStub2.field1 = 'testvalue'
 
-        assert object.__getattribute__(DataTableStub2, 'field1') == 'testvalue'
+        assert object.__getattribute__(ModelStub2, 'field1') == 'testvalue'
 
     def test_del_descriptor__should_delete_field_from_raw_data(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
 
         del obj.incremented_field
 
         assert obj.raw_data == {'FooField': 'Magic'}
 
     def test_del_descriptor__should_set_dirty_flag(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
         assert obj._dirty is False
 
         del obj.incremented_field
@@ -295,90 +295,90 @@ class TestField:
         assert obj._dirty is True
 
     def test_del_descriptor__if_class_instance__should_do_nothing(self):
-        class DataTableStub2(DataTable):
+        class ModelStub2(Model):
             table_name = 'test'
             field1 = Field('field')
 
-        del DataTableStub2.field1
+        del ModelStub2.field1
 
         with pytest.raises(AttributeError):
-            object.__getattribute__(DataTableStub2, 'field1')
+            object.__getattribute__(ModelStub2, 'field1')
 
 
-class TestDataTableMeta:
+class TestModelMeta:
     @pytest.fixture
     def test_registry(self):
-        orig_data_table_classes = deepcopy(data_tables_registry)
-        data_tables_registry.clear()
+        orig_model_registry = deepcopy(models_registry)
+        models_registry.clear()
 
-        yield data_tables_registry
+        yield models_registry
 
-        data_tables_registry.clear()
-        data_tables_registry.update(orig_data_table_classes)
+        models_registry.clear()
+        models_registry.update(orig_model_registry)
 
     def test_metaclass__should_add_class_to_registry(self, test_registry):
-        class MyDataTable(DataTable):
+        class MyModel(Model):
             table_name = 'test'
             field1 = Field('FieldOne')
 
-        assert test_registry == {'MyDataTable': MyDataTable}
+        assert test_registry == {'MyModel': MyModel}
 
     def test_metaclass__should_fill_fields_mapping_for_each_class(self):
-        class MyDataTable(DataTable):
+        class MyModel(Model):
             table_name = 'test'
             field1 = Field('FieldOne')
             field2 = Field('FieldTwo')
 
-        class MyDataTable2(DataTable):
+        class MyModel2(Model):
             table_name = 'test'
             field3 = Field('FieldThree')
             field4 = Field('FieldFour')
 
-        assert MyDataTable._fields_mapping == {'field1': 'FieldOne', 'field2': 'FieldTwo'}
-        assert MyDataTable2._fields_mapping == {'field3': 'FieldThree', 'field4': 'FieldFour'}
+        assert MyModel._fields_mapping == {'field1': 'FieldOne', 'field2': 'FieldTwo'}
+        assert MyModel2._fields_mapping == {'field3': 'FieldThree', 'field4': 'FieldFour'}
 
 
-class TestDataTable:
+class TestModel:
     def test_init__should_set_default_attributes(self):
-        obj = DataTableStub()
+        obj = ModelStub()
 
         assert obj._sdk is None
         assert obj._dirty is True
         assert obj._raw_data == {}
 
     def test_init__if_fields_has_passed__should_initialize_raw_data_only_with_given_fields(self):
-        obj = DataTableStub(incremented_field=123)
+        obj = ModelStub(incremented_field=123)
 
         assert obj.raw_data == {'IncField': '122'}
 
     def test_init__if_unknown_fields_has_passed__should_raise_error(self):
         with pytest.raises(TypeError):
-            DataTableStub(incremented_field=123, unknown_field=3)
+            ModelStub(incremented_field=123, unknown_field=3)
 
     def test_init__should_consider_fields_validation(self):
         with pytest.raises(ValueError):
-            DataTableStub(incremented_field=-1)
+            ModelStub(incremented_field=-1)
 
     def test_dict__should_return_fields_value(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
 
         assert obj.dict == {'incremented_field': 124, 'append_foo_field': 'MagicFoo'}
 
     def test_dict__if_no_certain_field_in_raw_data__should_return_nones(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123'})
+        obj = ModelStub().with_raw_data({'IncField': '123'})
 
         assert obj.dict == {'incremented_field': 124, 'append_foo_field': None}
 
     def test_raw_data__should_return_raw_data(self):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
 
         assert obj.raw_data == {'IncField': '123', 'FooField': 'Magic'}
 
     def test_fields_mapping__should_return_fields_mapping(self):
-        assert DataTableStub.fields_mapping() == {
+        assert ModelStub.fields_mapping() == {
             'incremented_field': 'IncField', 'append_foo_field': 'FooField'
         }
-        assert DataTableStub().fields_mapping() == {
+        assert ModelStub().fields_mapping() == {
             'incremented_field': 'IncField', 'append_foo_field': 'FooField'
         }
 
@@ -388,7 +388,7 @@ class TestDataTable:
         items = []
         sdk = Mock()
         sdk.delete_device_data.side_effect = generator_sends_collector(items)
-        obj = DataTableStub().with_sdk(sdk).with_raw_data(
+        obj = ModelStub().with_sdk(sdk).with_raw_data(
             {'IncField': '123', 'FooField': 'Magic'}, False
         )
         assert obj._dirty is False
@@ -400,7 +400,7 @@ class TestDataTable:
         assert obj._dirty is True
 
     def test_delete__if_manually_created_record__should_raise_error(self):
-        obj = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
 
         with pytest.raises(TypeError):
             obj.delete()
@@ -411,7 +411,7 @@ class TestDataTable:
         items = []
         sdk = Mock()
         sdk.set_device_data.side_effect = generator_sends_collector(items)
-        obj = DataTableStub().with_sdk(sdk).with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+        obj = ModelStub().with_sdk(sdk).with_raw_data({'IncField': '123', 'FooField': 'Magic'})
         assert obj._dirty is True
 
         obj.save()
@@ -421,39 +421,39 @@ class TestDataTable:
         assert obj._dirty is False
 
     def test_save__if_manually_created_record__should_raise_error(self):
-        obj = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
 
         with pytest.raises(TypeError):
             obj.save()
 
     @pytest.mark.parametrize('dirty_flag', (True, False))
     def test_with_raw_data__should_set_raw_data_and_dirty_flag(self, dirty_flag):
-        obj = DataTableStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, dirty_flag)
+        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, dirty_flag)
 
         assert obj.raw_data == {'IncField': '123', 'FooField': 'Magic'}
         assert obj._dirty == dirty_flag
 
     def test_with_raw_data__should_return_self(self):
-        obj = DataTableStub()
+        obj = ModelStub()
 
         assert obj.with_raw_data({}) is obj
 
     def test_with_sdk__should_set_sdk(self):
         sdk = Mock()
-        obj = DataTableStub().with_raw_data({'A': 'val1'}, False).with_sdk(sdk)
+        obj = ModelStub().with_raw_data({'A': 'val1'}, False).with_sdk(sdk)
 
         assert obj._sdk is sdk
         assert obj.raw_data == {'A': 'val1'}
         assert obj._dirty is False
 
     def test_with_sdk__should_return_self(self):
-        obj = DataTableStub()
+        obj = ModelStub()
 
         assert obj.with_sdk(Mock()) is obj
 
     def test_eq_ne__if_raw_data_and_table_are_equal__should_return_true(self):
-        obj1 = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
-        obj2 = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj1 = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj2 = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
 
         assert obj1 == obj2
         assert not(obj1 != obj2)
@@ -466,8 +466,8 @@ class TestDataTable:
     def test_eq_ne__if_raw_data_or_table_are_not_equal__should_return_false(
         self, table_name, kwargs
     ):
-        obj1 = DataTableStub(incremented_field=123, append_foo_field='MagicFoo')
-        obj2 = DataTableStub(**kwargs)
+        obj1 = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
+        obj2 = ModelStub(**kwargs)
         obj2.table_name = table_name
 
         assert obj1 != obj2
@@ -475,12 +475,12 @@ class TestDataTable:
 
     def test_repr__should_return_data_table_name_and_fields_and_their_raw_values(self):
         raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))
-        obj = DataTableStub().with_raw_data(raw_data, False)
+        obj = ModelStub().with_raw_data(raw_data, False)
 
-        assert repr(obj) == 'DataTableStub(append_foo_field=Magic, incremented_field=123)'
+        assert repr(obj) == 'ModelStub(append_foo_field=Magic, incremented_field=123)'
 
     def test_repr__if_dirty_flag_is_set__should_reflect_this_fact_in_string(self):
         raw_data = OrderedDict((('IncField', '123'), ('FooField', 'Magic')))
-        obj = DataTableStub().with_raw_data(raw_data, True)
+        obj = ModelStub().with_raw_data(raw_data, True)
 
-        assert repr(obj) == '*DataTableStub(append_foo_field=Magic, incremented_field=123)'
+        assert repr(obj) == '*ModelStub(append_foo_field=Magic, incremented_field=123)'
