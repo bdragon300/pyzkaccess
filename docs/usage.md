@@ -94,7 +94,7 @@ The main operation we can do with a relay is to switch on it for a given count o
 Relay number corresponds to its number on board starting from aux relay group.
 A relay can be accessed by different ways:
 
-```
+```python
 zk.relays.switch_on(5)  # All relays
 zk.relays[0].switch_on(5)  # By index
 zk.relays[1:3].switch_on(5)  # By range
@@ -109,7 +109,7 @@ zk.relays.by_mask([1, 0, 1, 0, 0, 0, 0, 0]).switch_on(5)  # By mask
 The main operation we can do with a reader is to read its events. Number of reader is denoted on
 board. Readers can be accessed by different ways:
 
-```
+```python
 zk.readers.events.refresh()  # All readers
 zk.readers[0].events.refresh()  # By index
 zk.readers[1:3].events.refresh()  # By range
@@ -122,7 +122,7 @@ zk.doors[0].reader.events.refresh()  # By number of door which it belongs to
 Like for a reader, the main operation for aux input is to read events. The number of aux input
 is also denoted on board. Aux inputs can be accessed by different ways:
 
-```
+```python
 zk.aux_inputs.events.refresh()  # All aux inputs
 zk.aux_inputs[0].events.refresh()  # By index
 zk.aux_inputs[1:3].events.refresh()  # By range
@@ -147,7 +147,7 @@ a device. Readers, doors, aut inputs also give access to events which are relate
 Under the hood these properties use the same event list which keeps all device events, but
 each one apply its own filter to this list.
 
-```
+```python
 zk.events  # Event log with all events occured on a device
 zk.events.refresh()  # Get unread events from device
 zk.events.poll()  # Wait until any event will occur
