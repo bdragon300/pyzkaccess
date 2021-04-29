@@ -261,3 +261,8 @@ else:
 
 When you apply `len()` on a `QuerySet` object, all matched results will be fetched from a device
 and put to the cache. Unlike `count()` method, the `len()` returns actual results size.
+
+### bool()
+
+When you apply `bool()` on a `QuerySet` object, all matched results will be fetched from a device
+and put to the cache. If there is any record was returned, returns `True`, or `False` otherwise.

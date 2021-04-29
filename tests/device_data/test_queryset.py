@@ -431,6 +431,58 @@ class TestQuerySet:
         self.sdk.get_device_data_count.assert_not_called()
         self.sdk.get_device_data.assert_not_called()
 
+    @pytest.mark.parametrize('raw_data,length,expect', (
+        (
+            [
+                {'IncField': '122', 'FooField': 'Magic'},
+                {'IncField': '222', 'FooField': 'Dangerous'},
+                {'FooField': 'Fast'},
+                {'IncField': '422'},
+                {'IncField': '522', 'FooField': 'Breath'}
+            ], 5, True
+        ),
+        ([{'IncField': '122', 'FooField': 'Magic'}], 1, True),
+        ([], 0, False)
+    ))
+    def test_bool__if_cache_is_empty__should_return_if_any_records_exist(
+        self, raw_data, length, expect
+    ):
+        self.sdk.get_device_data_count.return_value = length
+        self.sdk.get_device_data.return_value = (x for x in raw_data)
+        assert self.obj._cache is None
+
+        res = bool(self.obj)
+
+        assert res is expect
+        assert len(self.obj._cache) == length
+
+    @pytest.mark.parametrize('raw_data,length,expect', (
+        (
+            [
+                {'IncField': '122', 'FooField': 'Magic'},
+                {'IncField': '222', 'FooField': 'Dangerous'},
+                {'FooField': 'Fast'},
+                {'IncField': '422'},
+                {'IncField': '522', 'FooField': 'Breath'}
+            ], 5, True
+        ),
+        ([{'IncField': '122', 'FooField': 'Magic'}], 1, True),
+        ([], 0, False)
+    ))
+    def test_bool__if_cache_is_fully_filled__should_return_if_any_records_exist(
+        self, raw_data, length, expect
+    ):
+        self.obj._cache = raw_data
+        self.obj._results_iter = MagicMock()
+        self.obj._results_iter.__next__.side_effect = StopIteration
+
+        res = bool(self.obj)
+
+        assert res is expect
+        assert len(self.obj._cache) == length
+        self.sdk.get_device_data_count.assert_not_called()
+        self.sdk.get_device_data.assert_not_called()
+
     def test_copy__should_copy_of_current_object_with_empty_cache_and_not_modify_original_one(self):
         data = [{'IncField': '123', 'FooField': 'Magic'}]
         obj = self.obj.where(incremented_field=3).only_fields('incremented_field').unread()

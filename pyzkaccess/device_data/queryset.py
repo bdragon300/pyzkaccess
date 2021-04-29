@@ -240,6 +240,12 @@ class QuerySet:
 
         return len(self._cache)
 
+    def __bool__(self):
+        """Return True if this queryset contains any records. If query
+        was not executed, fetch matched records first
+        """
+        return self.__len__() > 0
+
     def _fetch_data(self) -> None:
         self._cache = []
         self._results_iter = iter(())
