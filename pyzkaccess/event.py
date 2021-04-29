@@ -187,14 +187,16 @@ class EventLog:
         on previous call will be ORed, i.e. their values will be
         concatenated.
 
-        In other words:
+        In other words::
 
-        ```log.only(a=2, b=['x', 'y'])` => filtering(entry.a == 2 AND entry.b in ('x', 'y'))```
+            # filtering(entry.a == 2 AND entry.b in ('x', 'y'))
+            log.only(a=2, b=['x', 'y'])
+            # filtering(entry.a in (2, 3) AND entry.b in ('x', 'y', 5) and entry.c == 1)
+            log.only(a=2, b=['x', 'y']).only(a=3, b=5, c=1)
 
-        ```log.only(a=2, b=['x', 'y']).only(a=3, b=5, c=1) =>
-            filtering(entry.a in (2, 3) AND entry.b in ('x', 'y', 5) and entry.c == 1)```
+        Example::
 
-        Ex: `new_log = log.only(door=1, event_type=221)`
+            new_log = log.only(door=1, event_type=221)
         :param filters:
         :return: new fitlered EventLog instance
         """

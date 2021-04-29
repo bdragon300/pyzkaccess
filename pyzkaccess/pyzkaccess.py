@@ -81,8 +81,13 @@ class ZKAccess:
         aux input, and also its events and parameters
 
         You can work with one object as with a slice. E.g. switch_on
-        all relays of a door (`zk.doors[0].relays.switch_on(5)`) or
-        of a slice (`zk.doors[:2].relays.switch_on(5)`)
+        all relays of a door::
+
+            zk.doors[0].relays.switch_on(5)
+
+        or a slice::
+
+            zk.doors[:2].relays.switch_on(5)
         """
         mdl = self.device_model
         readers = (Reader(self.sdk, self._event_log, x) for x in mdl.readers_def)
@@ -106,8 +111,13 @@ class ZKAccess:
         """Relay object list, depends on device model
 
         You can work with one object as with a slice. E.g. switch on
-        a single relay (`zk.relays[0].switch_on(5)`) or a slice
-        (`zk.relays[:2].switch_on(5)`)
+        a single relay::
+
+            zk.relays[0].switch_on(5)
+
+        or a slice::
+
+            zk.relays[:2].switch_on(5)
         """
         mdl = self.device_model
         relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
@@ -118,8 +128,13 @@ class ZKAccess:
         """Reader object list, depends on device model
 
         You can work with one object as with a slice. E.g. get events
-        of single reader (`zk.readers[0].events`) or a slice
-        (`zk.readers[:2].events`)
+        of single reader::
+
+            zk.readers[0].events
+
+        or a slice::
+
+            zk.readers[:2].events
         """
         readers = [Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def]
         return ReaderList(sdk=self.sdk, event_log=self._event_log, readers=readers)
@@ -129,8 +144,13 @@ class ZKAccess:
         """Aux input object list, depends on device model
 
         You can work with one object as with a slice. E.g. get events
-        of single input (`zk.aux_inputs[0].events`) or a slice
-        (`zk.aux_inputs[:2].events`)
+        of single input::
+
+            zk.aux_inputs[0].events
+
+        or a slice::
+
+            zk.aux_inputs[:2].events
         """
         mdl = self.device_model
         aux_inputs = [AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def]

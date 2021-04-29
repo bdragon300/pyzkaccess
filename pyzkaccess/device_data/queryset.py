@@ -27,14 +27,17 @@ class QuerySet:
     QuerySet using "fluent interface" in most of its methods. Many
     ORMs use this approach, so working with tables and records may look
     familiar.
-    Example:
+
+    Example::
+
         records = zk.table('User').where(card='123456').only_fields('card', 'password').unread()
         for record in records:
             print(record.password)
 
     For table and fields you can use either objects or their names.
     For example, the following code has the same meaning as the previous
-    one:
+    one::
+
         from zkaccess.tables import User
         records = zk.table(User).where(card='123456').only_fields(User.card, User.password).unread()
         for record in records:
@@ -60,7 +63,8 @@ class QuerySet:
         """Query given fields only from a table. Arguments can be
         field instances or their names
 
-        Example:
+        Example::
+
             zk.table(Table1).only_fields('field1', Table1.field2)
         """
         qs = self.copy()
@@ -93,7 +97,8 @@ class QuerySet:
 
         Only "equal" compare operation is available.
 
-        In example below filters will be card == '111' AND super_authorize == False:
+        In example below filters will be `card == '111' AND super_authorize == False`::
+
             zk.table('User').where(card='123456').where(card='111', super_authorize=False)
         """
         if not kwargs:
@@ -135,11 +140,13 @@ class QuerySet:
         key field which does not contain in table, then this record
         will be inserted. Otherwise it will be updated.
 
-        Examples:
+        Examples::
+
             zk.table(User).upsert({'pin': '0', 'card': '123456'})
             zk.table(User).upsert([{'pin': '0', 'card': '123456'}, {'pin': '1', 'card': '654321'}])
             zk.table(User).upsert(User(pin='0', card='123456'))
             zk.table(User).upsert([User(pin='0', card='123456'), User(pin='1', card='654321')])
+
         :param records: record dict, Model instance or a sequence
          of those
         :return: None
@@ -157,11 +164,13 @@ class QuerySet:
         field. Deletion of record is performed by a field which is
         primary key for this table. Other fields seems are ignored.
 
-        Examples:
+        Examples::
+
             zk.table(User).delete({'pin': '0', 'card': '123456'})
             zk.table(User).delete([{'pin': '0', 'card': '123456'}, {'pin': '1', 'card': '654321'}])
             zk.table(User).delete(User(pin='0', card='123456'))
             zk.table(User).delete([User(pin='0', card='123456'), User(pin='1', card='654321')])
+
         :param records:
         :return: None
         """
@@ -175,7 +184,8 @@ class QuerySet:
         """Make a query to a table using this QuerySet and delete all
         matched records.
 
-        Query in example below deletes records with password='123':
+        Query in example below deletes records with `password='123'`::
+
             zk.table('User').where(password='123').delete_all()
         :return:
         """

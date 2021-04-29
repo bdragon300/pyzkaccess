@@ -240,7 +240,8 @@ class ZKSDK:
         Insert records to a given data table. Records are received
         through a generator.
 
-        Example:
+        Example::
+
             g = sdk.set_device_data('user')
             g.send(None)  # Initialize generator
             for rec in records:
@@ -294,7 +295,8 @@ class ZKSDK:
         Delete given records from a data table. Records are received
         through a generator.
 
-        Example:
+        Example::
+
             g = sdk.delete_device_data('user')
             g.send(None)  # Initialize generator
             for rec in records:
@@ -302,6 +304,7 @@ class ZKSDK:
             g.send(None)   # Invoke sdk call
 
         SDK: DeleteDeviceData()
+
         :param table_name: name of table to delete data from
         :return:
         """

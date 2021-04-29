@@ -251,7 +251,7 @@ class Model(metaclass=ModelMeta):
         """
         Bind current object with ZKAccess connection
         :param zk: ZKAccess object
-        :return:
+        :return: self
         """
         self._sdk = zk.sdk
         return self
