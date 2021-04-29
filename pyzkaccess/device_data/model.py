@@ -247,6 +247,15 @@ class Model(metaclass=ModelMeta):
         self._sdk = sdk
         return self
 
+    def with_zk(self, zk) -> 'Model':
+        """
+        Bind current object with ZKAccess connection
+        :param zk: ZKAccess object
+        :return:
+        """
+        self._sdk = zk.sdk
+        return self
+
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False

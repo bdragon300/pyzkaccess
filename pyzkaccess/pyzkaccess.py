@@ -66,7 +66,7 @@ class ZKAccess:
         if self.connstr:
             self.connect(self.connstr)
 
-    def table(self, table: Union[Model, str]) -> QuerySet:
+    def table(self, table: Union[Type[Model], str]) -> QuerySet:
         """Return a QuerySet object for a given table
         :param table: data table name or Model object/class
         :return: queryset object
@@ -243,7 +243,7 @@ class ZKAccess:
         self.sdk.control_device(ControlOperation.restart.value, 0, 0, 0, 0)
 
     @staticmethod
-    def _get_table(table: Union[Model, str]) -> Type[Model]:
+    def _get_table(table) -> Type[Model]:
         if isinstance(table, str):
             table = models_registry[table]
         elif isinstance(table, Model):

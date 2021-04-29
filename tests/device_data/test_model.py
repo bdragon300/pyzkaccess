@@ -451,6 +451,19 @@ class TestModel:
 
         assert obj.with_sdk(Mock()) is obj
 
+    def test_with_zk__should_set_sdk(self):
+        zk = Mock()
+        obj = ModelStub().with_raw_data({'A': 'val1'}, False).with_zk(zk)
+
+        assert obj._sdk is zk.sdk
+        assert obj.raw_data == {'A': 'val1'}
+        assert obj._dirty is False
+
+    def test_with_zk__should_return_self(self):
+        obj = ModelStub()
+
+        assert obj.with_zk(Mock()) is obj
+
     def test_eq_ne__if_raw_data_and_table_are_equal__should_return_true(self):
         obj1 = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
         obj2 = ModelStub(incremented_field=123, append_foo_field='MagicFoo')
