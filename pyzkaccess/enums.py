@@ -77,7 +77,6 @@ class InOutFunRelayGroup(Enum):
     aux = 1
 
 
-#: Input number which triggered the log event
 INOUTFUN_INPUT = DocDict({
     0: 'Any input',
     1: 'Input 1',
@@ -85,9 +84,9 @@ INOUTFUN_INPUT = DocDict({
     3: 'Input 3',
     4: 'Input 4',
 })
+"""Input number which triggered the log event"""
 
 
-#: Output number which was became active in log event
 INOUTFUN_OUTPUT = DocDict({
     0: 'Any output',
     1: 'Output 1',
@@ -95,10 +94,9 @@ INOUTFUN_OUTPUT = DocDict({
     3: 'Output 3',
     4: 'Output 4',
 })
+"""Output number which was became active in log event"""
 
 
-#: Type of event which is returned by GetRTLog function
-#: See event format description in SDK docs
 EVENT_TYPES = DocDict({
     0: 'Normal Punch Open',
     1: 'Punch during Normal Open Time Zone',
@@ -152,9 +150,11 @@ EVENT_TYPES = DocDict({
     221: 'Auxiliary Input Shorted',
     255: 'Actually that obtain door status and alarm status',
 })
+"""Type of event which is returned by GetRTLog function.
+See event format description in SDK docs
+"""
 
 
-#: Errors which SDK functions may return. See errors description in SDK
 PULL_SDK_ERRORS = DocDict({
     -1: 'The command is not sent successfully',
     -2: 'The command has no response',
@@ -196,9 +196,9 @@ PULL_SDK_ERRORS = DocDict({
     -306: 'HOST error',
     -307: 'Connection attempt failed',
 })
+"""Errors which SDK functions may return. See errors description in SDK"""
 
-#: SDK functions can also return WINSOCK errors using `PullLastError`
-#: function. See SDK docs and MSDN
+
 WSA_ERROR_CODES = DocDict({
     6: "WSA_INVALID_HANDLE (Specified event object handle is invalid. An application attempts to "
        "use an event object, but the specified handle is not valid)",
@@ -497,3 +497,6 @@ WSA_ERROR_CODES = DocDict({
     11031: "WSA_QOS_RESERVED_PETYPE (Reserved policy QoS element type. A reserved policy "
            "element was found in the QoS provider-specific buffer)",
 })
+"""SDK functions can also return WINSOCK errors using `PullLastError`
+function. See SDK docs and MSDN
+"""

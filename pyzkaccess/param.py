@@ -146,9 +146,9 @@ def _make_prop(query_tpl: str,
 
 
 class BaseParameters:
-    #: Size in bytes of c-string buffer which is used to accept
-    #: text data from PULL SDK functions
     buffer_size = 4096
+    """Size in bytes of c-string buffer which is used to accept
+    text data from PULL SDK functions"""
 
     def __init__(self, sdk: ZKSDK, device_model: type(ZKModel)):
         self.device_model = device_model
