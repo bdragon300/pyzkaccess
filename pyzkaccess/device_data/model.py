@@ -81,6 +81,11 @@ class Field:
         """
         return self._raw_name
 
+    @property
+    def field_datatype(self) -> Type:
+        """Field data type"""
+        return self._field_datatype
+
     def to_raw_value(self, value: Any) -> str:
         """Convert value of `field_datatype` to a raw string value.
         This function typically calls on field set.
@@ -171,9 +176,14 @@ class Field:
 class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         attrs['_fields_mapping'] = {}
+        attrs.setdefault('__annotations__', {})  # python >= 3.6
         for attr_name, attr in attrs.items():
             if isinstance(attr, Field):
                 attrs['_fields_mapping'][attr_name] = attr.raw_name
+                # Set field doc and annotations to correct render field
+                # in documentation
+                attrs[attr_name].__doc__ = '{}.{}'.format(name, attr_name)
+                attrs['__annotations__'][attr_name] = attr.field_datatype
 
         klass = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         models_registry[name] = klass  # noqa
