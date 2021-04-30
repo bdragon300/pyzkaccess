@@ -272,7 +272,7 @@ class QuerySet:
             estimated_size = self._estimate_record_buffer * records_count
             buffer_size = 2 ** math.ceil(math.log2(estimated_size))
 
-        fields = ['*']  # Query all fields if no fields was given
+        fields = []
         if self._only_fields:
             fields = list(sorted(f.raw_name for f in self._only_fields))
 

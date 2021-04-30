@@ -190,7 +190,7 @@ class TestQuerySet:
 
         self.sdk.get_device_data_count.assert_called_once_with('table1')
         self.sdk.get_device_data.assert_called_once_with(
-            'table1', ['*'], {'IncField': '1', 'FooField': 'Magic'}, 512, False
+            'table1', [], {'IncField': '1', 'FooField': 'Magic'}, 512, False
         )
 
     @pytest.mark.parametrize('kwargs', (
@@ -242,7 +242,7 @@ class TestQuerySet:
         res = list(self.obj.unread())
 
         self.sdk.get_device_data_count.assert_called_once_with('table1')
-        self.sdk.get_device_data.assert_called_once_with('table1', ['*'], {}, 512, True)
+        self.sdk.get_device_data.assert_called_once_with('table1', [], {}, 512, True)
 
     @pytest.mark.parametrize('data,expect', (
         (
@@ -533,7 +533,7 @@ class TestQuerySetIterations:
 
         assert res == expect
         self.sdk.get_device_data_count.assert_called_once_with('table1')
-        self.sdk.get_device_data.assert_called_once_with('table1', ['*'], {}, 512, False)
+        self.sdk.get_device_data.assert_called_once_with('table1', [], {}, 512, False)
 
     def test_iteration__if_table_is_empty__should_produce_no_items_and_not_to_try_get_records(self):
         data = []
@@ -582,7 +582,7 @@ class TestQuerySetIterations:
         res = list(self.obj)
 
         assert len(res) == count
-        self.sdk.get_device_data.assert_called_once_with('table1', ['*'], {}, expect, False)
+        self.sdk.get_device_data.assert_called_once_with('table1', [], {}, expect, False)
 
     @pytest.mark.parametrize('count', (2, 9))
     def test_iteration__if_sdk_reports_wrong_records_count__ignore_it(self, count):
