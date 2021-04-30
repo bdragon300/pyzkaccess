@@ -1,9 +1,9 @@
 __all__ = [
     'ZKSDK'
 ]
-import pyzkaccess.ctypes as ctypes
-from typing import Sequence, Mapping, Any
+from typing import Sequence, Mapping, Any, Generator, Optional
 
+import pyzkaccess.ctypes as ctypes
 from .exceptions import ZKSDKError
 
 
@@ -16,8 +16,8 @@ class ZKSDK:
         """
         :param dllpath: path to a DLL file. Typically "plcommpro.dll"
         """
-        self.dll = ctypes.WinDLL(dllpath)
         self.handle = None
+        self.dll = ctypes.WinDLL(dllpath)
 
     @property
     def is_connected(self) -> bool:
@@ -191,6 +191,142 @@ class ZKSDK:
             err = self.dll.SetDeviceParam(self.handle, query)
             if err < 0:
                 raise ZKSDKError('SetDeviceParam failed', err)
+
+    def get_device_data(
+            self,
+            table_name: str,
+            fields: Sequence[str],
+            filters: Mapping[str, str],
+            buffer_size: int,
+            new_records_only: bool = False) -> Generator[Mapping[str, str], None, None]:
+        """
+        Retrieve records from a given data table
+
+        SDK: GetDeviceData()
+        :param table_name: name of table to retrieve records from
+        :param fields: list of fields to query. Empty sequence is
+         treated as "all fields"
+        :param filters: query conditions to apply
+        :param buffer_size: size in bytes of buffer which is filled
+         with contents
+        :param new_records_only: true means to consider only unread
+         records in table, otherwise all records will be considered
+        :return: ordered dicts with table records
+        """
+        buf = ctypes.create_string_buffer(buffer_size)
+
+        query_table = table_name.encode()
+        query_fields = '\t'.join(fields).encode() if fields else b'*'
+        query_conditions = '\t'.join('{}={}'.format(k, v) for k, v in filters.items()).encode()
+        query_options = ('NewRecord' if new_records_only else '').encode()
+
+        err = self.dll.GetDeviceData(self.handle, buf, buffer_size, query_table,
+                                     query_fields, query_conditions, query_options)
+        if err < 0:
+            raise ZKSDKError('GetDeviceData failed', err)
+
+        raw = buf.value.decode('utf-8')
+
+        *lines, _ = raw.split('\r\n')
+        headers = lines.pop(0).split(',')
+        for line in lines:
+            cols = line.split(',')
+            yield {k: v for k, v in zip(headers, cols) if not fields or k in fields}
+
+    def set_device_data(
+            self, table_name: str
+    ) -> Generator[None, Optional[Mapping[str, str]], None]:
+        """
+        Insert records to a given data table. Records are received
+        through a generator.
+
+        Example::
+
+            g = sdk.set_device_data('user')
+            g.send(None)  # Initialize generator
+            for rec in records:
+                g.send(rec)
+            g.send(None)   # Invoke sdk call
+
+        SDK: SetDeviceData()
+        :param table_name: name of table to write data to
+        :return:
+        """
+        query_table = table_name.encode()
+        query_records = []
+        record = yield
+        while record is not None:
+            query_records.append(
+                '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
+            )
+            record = yield
+
+        if not query_records:
+            return
+
+        query_records = '\r\n'.join(query_records).encode()
+        query_records += b'\r\n'
+
+        # `Options` parameter should be null according to SDK docs
+        err = self.dll.SetDeviceData(self.handle, query_table, query_records, '')
+        if err < 0:
+            raise ZKSDKError('SetDeviceData failed', err)
+
+    def get_device_data_count(self, table_name: str) -> int:
+        """
+        Return records count in a given data table
+
+        SDK: GetDeviceDataCount()
+        :param table_name: name of table to get records count from
+        :return: count of records
+        """
+        query_table = table_name.encode()
+
+        # `Filter` and `Options` parameters should be null according to SDK docs
+        err = self.dll.GetDeviceDataCount(self.handle, query_table, '', '')
+        if err < 0:
+            raise ZKSDKError('GetDeviceDataCount failed', err)
+        return err
+
+    def delete_device_data(
+            self, table_name: str
+    ) -> Generator[None, Optional[Mapping[str, str]], None]:
+        """
+        Delete given records from a data table. Records are received
+        through a generator.
+
+        Example::
+
+            g = sdk.delete_device_data('user')
+            g.send(None)  # Initialize generator
+            for rec in records:
+                g.send(rec)
+            g.send(None)   # Invoke sdk call
+
+        SDK: DeleteDeviceData()
+
+        :param table_name: name of table to delete data from
+        :return:
+        """
+        query_table = table_name.encode()
+        query_records = []
+        record = yield
+        while record is not None:
+            query_records.append(
+                '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
+            )
+            record = yield
+
+        if not query_records:
+            return
+
+        query_records = '\r\n'.join(query_records).encode()
+        query_records += b'\r\n'
+
+        # `Options` parameter should be null according to SDK docs
+        err = self.dll.DeleteDeviceData(self.handle, query_table, query_records, '')
+        if err < 0:
+            raise ZKSDKError('DeleteDeviceData failed', err)
 
     def __del__(self):
         self.disconnect()

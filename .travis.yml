@@ -9,7 +9,7 @@ install:
   - pip install setuptools tox pytest-cov
 
 script:
-  - tox
+  - ./run_tests.sh
 
 after_success:
   - "bash <(curl -s https://codecov.io/bash)"
@@ -20,7 +20,6 @@ jobs:
     install: pip install setuptools pdoc3 wrapt
     script:
       - pdoc3 -o docs --template-dir pdoc_tpl --html pyzkaccess
-      - mv docs/pyzkaccess docs/api
     after_success: true  # https://travis-ci.community/t/does-skipping-everything-else-in-a-job-skip-deploy/6461/2
     deploy:
       provider: pages:git

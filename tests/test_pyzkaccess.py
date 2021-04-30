@@ -5,12 +5,14 @@ import pytest
 from pyzkaccess import ZKAccess
 from pyzkaccess.aux_input import AuxInput, AuxInputList
 from pyzkaccess.device import ZK400, ZK200, ZK100, ZKDevice
+from pyzkaccess.device_data.queryset import QuerySet
 from pyzkaccess.door import Door, DoorList
 from pyzkaccess.enums import ControlOperation
 from pyzkaccess.event import EventLog
 from pyzkaccess.param import DeviceParameters
 from pyzkaccess.reader import Reader, ReaderList
 from pyzkaccess.relay import Relay, RelayList
+from pyzkaccess.tables import User
 
 
 class TestZKAccess:
@@ -30,6 +32,8 @@ class TestZKAccess:
         assert obj.device_model == ZK400
         assert obj.sdk is self.sdk
         assert obj._device is None
+        assert obj.buffer_size == 4096
+        assert obj.query_buffer_size is None
 
     def test_init__if_no_autoconnect__should_initialize_default_event_log_attributes(self):
         obj = ZKAccess()
@@ -95,6 +99,38 @@ class TestZKAccess:
         _ = ZKAccess(device=device, connstr=connstr)
 
         self.sdk.connect.assert_called_once_with(connstr)
+
+    @pytest.mark.parametrize('table_name', ('User', User, User(card='1', password='2')))
+    def test_table__should_return_queryset(self, table_name):
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+
+        res = obj.table(table_name)
+
+        assert isinstance(res, QuerySet)
+        assert res._sdk is obj.sdk
+        assert res._table_cls == User
+        assert res._buffer_size is None
+
+    @pytest.mark.parametrize('table_name', ('User', User, User(card='1', password='2')))
+    def test_table__should_return_different_queryset_objects(self, table_name):
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+
+        res1 = obj.table(table_name)
+        res2 = obj.table(table_name)
+
+        assert res1 is not res2
+        assert res1._sdk is res2._sdk
+
+    def test_table__should_return_instance_of_queryset_class(self):
+        class QuerySetStub(QuerySet):
+            pass
+
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+        obj.queryset_class = QuerySetStub
+
+        res = obj.table('User')
+
+        assert isinstance(res, QuerySetStub)
 
     @pytest.mark.parametrize('model,doors_count', ((ZK400, 4), (ZK200, 2), (ZK100, 1)))
     def test_doors_prop__should_return_object_sequence(self, model, doors_count):

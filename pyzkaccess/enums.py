@@ -4,11 +4,16 @@ __all__ = [
     'SensorType',
     'VerifyMode',
     'PassageDirection',
+    'HolidayLoop',
+    'InOutFunRelayGroup',
+    'INOUTFUN_INPUT',
+    'INOUTFUN_OUTPUT',
     'EVENT_TYPES',
     'PULL_SDK_ERRORS',
-    'WSA_ERROR_CODES'
+    'WSA_ERROR_CODES',
 ]
 from enum import Enum
+
 from .common import DocDict
 
 
@@ -56,6 +61,40 @@ class PassageDirection(Enum):
     entry = 0
     exit = 1
     none = 2
+
+
+class HolidayLoop(Enum):
+    """Holiday type -- annual or not"""
+    annual = 1
+    not_annual = 2
+
+
+class InOutFunRelayGroup(Enum):
+    """Device relay group which was triggered -- lock relays
+    (door output) or aux relays (aux output)
+    """
+    lock = 0
+    aux = 1
+
+
+#: Input number which triggered the log event
+INOUTFUN_INPUT = DocDict({
+    0: 'Any input',
+    1: 'Input 1',
+    2: 'Input 2',
+    3: 'Input 3',
+    4: 'Input 4',
+})
+
+
+#: Output number which was became active in log event
+INOUTFUN_OUTPUT = DocDict({
+    0: 'Any output',
+    1: 'Output 1',
+    2: 'Output 2',
+    3: 'Output 3',
+    4: 'Output 4',
+})
 
 
 #: Type of event which is returned by GetRTLog function
@@ -108,6 +147,7 @@ EVENT_TYPES = DocDict({
     203: 'Multi-Card Open (Card plus Fingerprint)',
     204: 'Normal Open Time Zone Over',
     205: 'Remote Normal Opening',
+    206: 'Device start',
     220: 'Auxiliary Input Disconnected',
     221: 'Auxiliary Input Shorted',
     255: 'Actually that obtain door status and alarm status',

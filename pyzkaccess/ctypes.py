@@ -14,6 +14,7 @@ except ImportError:
     warnings.warn(
         'ctypes.WinDLL is not available on non-Windows system. The code is not functional on '
         'current platform, but in order to be able import it we mock WinDLL with '
-        'unittest.mock.Mock object'
+        'unittest.mock.Mock object',
+        category=ImportWarning
     )
     WinDLL = Mock()

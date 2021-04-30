@@ -4,6 +4,7 @@ import pytest
 
 from pyzkaccess.enums import ControlOperation
 from pyzkaccess.exceptions import ZKSDKError
+from collections import OrderedDict
 
 
 def _alpha_sorted_keys(length, range_from, range_to):
@@ -359,11 +360,11 @@ class TestZKSDK:
 
     def test_set_device_param__on_empty_parameters__should_do_nothing(self):
         self.t.handle = 12345
-        self.dll_mock.GetDeviceParam.return_value = 0
+        self.dll_mock.SetDeviceParam.return_value = 0
 
         self.t.set_device_param({})
 
-        self.dll_mock.GetDeviceParam.assert_not_called()
+        self.dll_mock.SetDeviceParam.assert_not_called()
 
     def test_set_device_param__on_failure__should_raise_error(self):
         errno = -2
@@ -372,6 +373,244 @@ class TestZKSDK:
 
         with pytest.raises(ZKSDKError) as e:
             self.t.set_device_param({'q1': 'v1'})
+
+        assert e.value.err == errno
+        assert self.t.handle is not None
+
+    @pytest.mark.parametrize('raw_records,expect', (
+        ('', []),
+        (
+            '12,2,456,,20210421,20220421,1\r\n',
+            [{
+                'CardNo': '12', 'Pin': '2', 'Password': '456', 'Group': '',
+                'StartTime': '20210421', 'EndTime': '20220421', 'SuperAuthorize': '1'
+            }]
+        ),
+        (
+            '13,3,,,20210422,20220422,0\r\n14,4,,4,20210423,20220423,1\r\n',
+            [{
+                'CardNo': '13', 'Pin': '3', 'Password': '', 'Group': '',
+                'StartTime': '20210422', 'EndTime': '20220422', 'SuperAuthorize': '0'
+            }, {
+                'CardNo': '14', 'Pin': '4', 'Password': '', 'Group': '4',
+                'StartTime': '20210423', 'EndTime': '20220423', 'SuperAuthorize': '1'
+            }]
+        )
+    ))
+    def test_get_device_data__if_no_restrictions__should_query_all_data(self, raw_records, expect):
+        headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
+
+        def se(*a, **kw):
+            a[1].value = (headers + raw_records).encode()
+            return 0
+
+        self.t.handle = handle = 12345
+        self.dll_mock.GetDeviceData.side_effect = se
+
+        res = list(self.t.get_device_data('table1', [], {}, 4096))
+
+        self.dll_mock.GetDeviceData.assert_called_once_with(
+            handle, ANY, 4096, b'table1', b'*', b'', b''
+        )
+        assert res == expect
+
+    def test_get_device_data__if_fields_has_specified__should_query_with_them(self):
+        headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
+        data = '13,3,,,20210422,20220422,0\r\n14,4,,4,20210423,20220423,1\r\n'
+        expect = [{'CardNo': '13', 'Group': ''}, {'CardNo': '14', 'Group': '4'}]
+
+        def se(*a, **kw):
+            a[1].value = (headers + data).encode()
+            return 0
+
+        self.t.handle = handle = 12345
+        self.dll_mock.GetDeviceData.side_effect = se
+
+        res = list(self.t.get_device_data('table1', ['CardNo', 'Group'], {}, 4096))
+
+        self.dll_mock.GetDeviceData.assert_called_once_with(
+            handle, ANY, 4096, b'table1', b'CardNo\tGroup', b'', b''
+        )
+        assert res == expect
+
+    def test_get_device_data__if_filters_has_specified__should_query_with_fields(self):
+        headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
+        data = '13,3,,,20210422,20220422,0\r\n14,4,,4,20210423,20220423,1\r\n'
+        expect = [{
+            'CardNo': '13', 'Pin': '3', 'Password': '', 'Group': '',
+            'StartTime': '20210422', 'EndTime': '20220422', 'SuperAuthorize': '0'
+        }, {
+            'CardNo': '14', 'Pin': '4', 'Password': '', 'Group': '4',
+            'StartTime': '20210423', 'EndTime': '20220423', 'SuperAuthorize': '1'
+        }]
+        filters = OrderedDict((('CardNo', '13'), ('Password', '')))
+
+        def se(*a, **kw):
+            a[1].value = (headers + data).encode()
+            return 0
+
+        self.t.handle = handle = 12345
+        self.dll_mock.GetDeviceData.side_effect = se
+
+        res = list(self.t.get_device_data('table1', [], filters, 4096))
+
+        self.dll_mock.GetDeviceData.assert_called_once_with(
+            handle, ANY, 4096, b'table1', b'*', b'CardNo=13\tPassword=', b''
+        )
+        assert res == expect
+
+    def test_get_device_data__if_new_record_is_true__should_query_new_records(self):
+        headers = 'CardNo,Pin,Password,Group,StartTime,EndTime,SuperAuthorize\r\n'
+        data = '13,3,,,20210422,20220422,0\r\n14,4,,4,20210423,20220423,1\r\n'
+        expect = [{
+            'CardNo': '13', 'Pin': '3', 'Password': '', 'Group': '',
+            'StartTime': '20210422', 'EndTime': '20220422', 'SuperAuthorize': '0'
+        }, {
+            'CardNo': '14', 'Pin': '4', 'Password': '', 'Group': '4',
+            'StartTime': '20210423', 'EndTime': '20220423', 'SuperAuthorize': '1'
+        }]
+
+        def se(*a, **kw):
+            a[1].value = (headers + data).encode()
+            return 0
+
+        self.t.handle = handle = 12345
+        self.dll_mock.GetDeviceData.side_effect = se
+
+        res = list(self.t.get_device_data('table1', [], {}, 4096, True))
+
+        self.dll_mock.GetDeviceData.assert_called_once_with(
+            handle, ANY, 4096, b'table1', b'*', b'', b'NewRecord'
+        )
+        assert res == expect
+
+    def test_get_device_data__on_failure__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.GetDeviceData.return_value = errno
+
+        with pytest.raises(ZKSDKError) as e:
+            list(self.t.get_device_data('table1', [], {}, 4096, True))
+
+        assert e.value.err == errno
+        assert self.t.handle is not None
+
+    @pytest.mark.parametrize('data,expect', (
+        (
+            [OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', '')))],
+            b'Field1=11\tField2=value12\tField3=\r\n'
+        ),
+        (
+            [
+                OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', ''))),
+                OrderedDict((('Field1', '21'), ('Field2', ''), ('Field3', 'value23')))
+            ],
+            b'Field1=11\tField2=value12\tField3=\r\nField1=21\tField2=\tField3=value23\r\n'
+        )
+    ))
+    def test_set_device_data__should_make_query_with_accepted_data(self, data, expect):
+        self.t.handle = handle = 12345
+        self.dll_mock.SetDeviceData.return_value = 0
+
+        gen = self.t.set_device_data('table1')
+        gen.send(None)
+        [gen.send(x) for x in data]
+        with pytest.raises(StopIteration):
+            gen.send(None)  # Invoke sdk call
+
+        self.dll_mock.SetDeviceData.assert_called_once_with(handle, b'table1', expect, '')
+
+    def test_set_device_data__if_no_data_has_been_sent__should_do_nothing(self):
+        self.t.handle = 12345
+        self.dll_mock.SetDeviceData.return_value = 0
+
+        gen = self.t.set_device_data('table1')
+        gen.send(None)
+        with pytest.raises(StopIteration):
+            gen.send(None)
+
+        self.dll_mock.SetDeviceData.assert_not_called()
+
+    def test_set_device_data__on_failure__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.SetDeviceData.return_value = errno
+
+        gen = self.t.set_device_data('table1')
+        gen.send(None)
+        gen.send(dict((('Field1', '11'), ('Field2', 'value12'), ('Field3', ''))))
+        with pytest.raises(ZKSDKError) as e:
+            gen.send(None)
+
+        assert e.value.err == errno
+        assert self.t.handle is not None
+
+    @pytest.mark.parametrize('records_count', (123, 0))
+    def test_get_device_data_count__should_return_table_records_count(self, records_count):
+        self.t.handle = 12345
+        self.dll_mock.GetDeviceDataCount.return_value = records_count
+
+        res = self.t.get_device_data_count('table1')
+
+        assert res == records_count
+
+    def test_get_device_data_count__on_failure__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.GetDeviceDataCount.return_value = errno
+
+        with pytest.raises(ZKSDKError) as e:
+            self.t.get_device_data_count('table1')
+
+        assert e.value.err == errno
+        assert self.t.handle is not None
+
+    @pytest.mark.parametrize('data,expect', (
+        (
+            [OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', '')))],
+            b'Field1=11\tField2=value12\tField3=\r\n'
+        ),
+        (
+            [
+                OrderedDict((('Field1', '11'), ('Field2', 'value12'), ('Field3', ''))),
+                OrderedDict((('Field1', '21'), ('Field2', ''), ('Field3', 'value23')))
+            ],
+            b'Field1=11\tField2=value12\tField3=\r\nField1=21\tField2=\tField3=value23\r\n'
+        )
+    ))
+    def test_delete_device_data__should_make_query_with_accepted_data(self, data, expect):
+        self.t.handle = handle = 12345
+        self.dll_mock.DeleteDeviceData.return_value = 0
+
+        gen = self.t.delete_device_data('table1')
+        gen.send(None)
+        [gen.send(x) for x in data]
+        with pytest.raises(StopIteration):
+            gen.send(None)  # Invoke sdk call
+
+        self.dll_mock.DeleteDeviceData.assert_called_once_with(handle, b'table1', expect, '')
+
+    def test_delete_device_data__if_no_data_has_been_sent__should_do_nothing(self):
+        self.t.handle = 12345
+        self.dll_mock.DeleteDeviceData.return_value = 0
+
+        gen = self.t.delete_device_data('table1')
+        gen.send(None)
+        with pytest.raises(StopIteration):
+            gen.send(None)
+
+        self.dll_mock.DeleteDeviceData.assert_not_called()
+
+    def test_delete_device_data__on_failure__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.DeleteDeviceData.return_value = errno
+
+        gen = self.t.delete_device_data('table1')
+        gen.send(None)
+        gen.send(dict((('Field1', '11'), ('Field2', 'value12'), ('Field3', ''))))
+        with pytest.raises(ZKSDKError) as e:
+            gen.send(None)
 
         assert e.value.err == errno
         assert self.t.handle is not None

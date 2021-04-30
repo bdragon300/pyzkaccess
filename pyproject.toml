@@ -1,14 +1,3 @@
-[tool.portray]
-modules = ["pyzkaccess"]
-
-[tool.portray.mkdocs]
-repo_url = "https://github.com/bdragon300/pyzkaccess"
-site_url = "https://bdragon300.github.io/pyzkaccess"
-site_author = "Igor Derkach <gosha753951@gmail.com>"
-
-[tool.portray.mkdocs.theme]
-name = "alabaster"
-
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "--cov=pyzkaccess --cov-report xml"
