@@ -199,6 +199,7 @@ class Model(metaclass=ModelMeta):
 
     """
     table_name = None
+    """Raw table name on device"""
 
     _fields_mapping = None
 
