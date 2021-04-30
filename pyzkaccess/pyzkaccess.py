@@ -35,20 +35,26 @@ class ZKAccess:
     def __init__(self,
                  connstr: Optional[str] = None,
                  device: Optional[ZKDevice] = None,
-                 device_model: type(ZKModel) = ZK400,
+                 device_model: Type[ZKModel] = ZK400,
                  dllpath: str = 'plcommpro.dll',
                  log_capacity: Optional[int] = None):
         """
-        :param connstr: Connection string. If given then
-         we try to connect automatically to a device. Ex:
-         'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
-        :param device: ZKDevice object to connect with. If
-         given then we try to connect automatically to a device
-        :param device_model: Device model. Default is C3-400
-        :param dllpath: Full path to plcommpro.dll
-        :param log_capacity: Mixumum capacity of events log. By default
-         size is not limited
-        :raises ZKSDKError: On connection error
+        Args:
+            connstr (str, optional): Connection string. If given then
+                we try to connect automatically to a device. Ex:
+                'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+            device (ZKDevice, optional): ZKDevice object to connect to.
+                If given then we try to connect automatically to a
+                device
+            device_model (Type[ZKModel], default=ZK400): Device model.
+            dllpath (str, default=plcommpro.dll): Full path to
+                plcommpro.dll
+            log_capacity (int, optional): Mixumum capacity of events
+                log. By default size is not limited
+
+        Raises:
+          ZKSDKError: On connection error
+
         """
         self.connstr = connstr
         self.device_model = device_model
@@ -68,8 +74,15 @@ class ZKAccess:
 
     def table(self, table: Union[Type[Model], str]) -> QuerySet:
         """Return a QuerySet object for a given table
-        :param table: data table name or Model object/class
-        :return: queryset object
+
+        Args:
+            table (Union[Type[Model], str]): data table name or Model
+                object/class
+
+        Returns:
+            QuerySet: new empty QuerySet object binded with a given
+                table
+
         """
         table = self._get_table(table)
         return self.queryset_class(self.sdk, table, self.query_buffer_size)
@@ -88,6 +101,9 @@ class ZKAccess:
         or a slice::
 
             zk.doors[:2].relays.switch_on(5)
+
+        Returns:
+            DoorList: list of all doors
         """
         mdl = self.device_model
         readers = (Reader(self.sdk, self._event_log, x) for x in mdl.readers_def)
@@ -118,6 +134,9 @@ class ZKAccess:
         or a slice::
 
             zk.relays[:2].switch_on(5)
+
+        Returns:
+            RelayList: list of all relays
         """
         mdl = self.device_model
         relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
@@ -135,6 +154,9 @@ class ZKAccess:
         or a slice::
 
             zk.readers[:2].events
+
+        Returns:
+            ReaderList: list of all readers
         """
         readers = [Reader(self.sdk, self._event_log, x) for x in self.device_model.readers_def]
         return ReaderList(sdk=self.sdk, event_log=self._event_log, readers=readers)
@@ -151,6 +173,9 @@ class ZKAccess:
         or a slice::
 
             zk.aux_inputs[:2].events
+
+        Returns:
+            AuxInputList: list of all aux inputs
         """
         mdl = self.device_model
         aux_inputs = [AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def]
@@ -173,6 +198,9 @@ class ZKAccess:
         Doors, inputs, readers have their own `events` property. Those
         properties just filters the same event log instance and
         return entries related to requested object.
+
+        Returns:
+            EventLog: unfiltered event log object
         """
         return self._event_log
 
@@ -181,6 +209,9 @@ class ZKAccess:
         """Parameters related to the whole device such as datetime,
         connection settings and so forth. Door-specific parameters are
         accesible by `doors` property.
+
+        Returns:
+            DeviceParameters: parameters object
         """
         return DeviceParameters(self.sdk, self.device_model)
 
@@ -215,8 +246,7 @@ class ZKAccess:
     def search_devices(cls,
                        broadcast_address: str = '255.255.255.255',
                        dllpath: str = 'plcommpro.dll') -> Sequence[ZKDevice]:
-        """
-        Classmethod which scans an Ethernet network with given
+        """Classmethod which scans an Ethernet network with given
         broadcast address and returns all found ZK devices.
 
         Please keep in mind that process sends broadcast packets to
@@ -230,21 +260,30 @@ class ZKAccess:
 
         Returned objects can be used as `device=` parameter in
         constructor.
-        :param broadcast_address: your local segment broadcast address
-         as string. Default is '255.255.255.255'
-        :param dllpath: path to a PULL SDK DLL. Default: 'plcommpro.dll'
-        :return: iterable of found ZKDevice
+
+        Args:
+            broadcast_address (str, default=255.255.255.255): your
+                local segment broadcast address as string
+            dllpath (str, default=plcommpro.dll): path to a PULL
+                SDK DLL
+
+        Returns:
+            Sequence[ZKDevice]: iterable with found devices
+
         """
         sdk = pyzkaccess.sdk.ZKSDK(dllpath)
         devices = sdk.search_device(broadcast_address, cls.buffer_size)
         return tuple(ZKDevice(line) for line in devices)
 
     def connect(self, connstr: str) -> None:
-        """
-        Connect to a device using connection string, ex:
+        """Connect to a device using connection string, ex:
         'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
-        :param connstr: device connection string
-        :return:
+
+        Args:
+            connstr (str): device connection string
+
+        Returns:
+            None
         """
         if self.sdk.is_connected:
             if connstr != self.connstr:

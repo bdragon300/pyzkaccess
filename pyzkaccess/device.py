@@ -13,7 +13,7 @@ from .enums import RelayGroup
 
 class ZKModel:
     """Base class for concrete ZK model Contains model-specific
-    definitions
+    definitions.
     """
     name = None
     """Device model name"""
@@ -152,11 +152,15 @@ class ZKDevice:
         self.version = params['version']  # type: Optional[str]
 
     def parse(self, device_line: str) -> Mapping[str, str]:
-        """
-        Parse and validate raw device string
-        :param device_line: event string
-        :return: dictionary where keys are slots and values are
-         appropriate values extracted from string
+        """Parse and validate raw device string
+
+        Args:
+            device_line (str): event string to parse
+
+        Returns:
+            Mapping[str, str]: dictionary where keys are slots and
+                values are appropriate values extracted from string
+
         """
         device_line = device_line.replace('\r\n', '')
 

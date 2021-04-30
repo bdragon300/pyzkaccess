@@ -6,7 +6,7 @@ __all__ = [
 ]
 from copy import copy, deepcopy
 from datetime import datetime, time, date
-from typing import Sequence, Union, Iterable
+from typing import Sequence, Union, Iterable, Tuple
 
 from wrapt import ObjectProxy
 from wrapt.wrappers import _ObjectProxyMetaType  # noqa
@@ -112,8 +112,10 @@ class DocValue(ObjectProxy, metaclass=DocValueMeta):
     """
     def __init__(self, value: Union[str, int], doc: str):
         """
-        :param value: value which was exposed by this object
-        :param doc: documentation string which will be put to __doc__
+        Args:
+            value (Union[str, int]): value which was exposed by this
+                object
+            doc (str): documentation string which will be put to __doc__
         """
         super().__init__(value)
         if not isinstance(value, (str, int)):
@@ -170,8 +172,7 @@ class DocDict(dict):
 
 
 class ZKDatetimeUtils:
-    """
-    Utility functions to work with date/time types in ZKAccess SDK.
+    """Utility functions to work with date/time types in ZKAccess SDK.
 
     ZK devices has various ways to work with dates and time. In
     order to make working with dates more convenient in user's code,
@@ -185,8 +186,13 @@ class ZKDatetimeUtils:
         Simply put this ctime is a count of seconds starting from
         `2000-01-01 00:00:00` without considering leap years/seconds
         and days count in months (always 31 day)
-        :param zkctime: ZK ctime integer or string value
-        :return: datetime object
+
+        Args:
+            zkctime (Union[str, int]): ZK ctime integer or string value
+
+        Returns:
+            datetime: converted datetime
+
         """
         if isinstance(zkctime, str):
             zkctime = int(zkctime)
@@ -211,8 +217,13 @@ class ZKDatetimeUtils:
         Simply put this ctime is a count of seconds starting from
         `2000-01-01 00:00:00` without considering leap years/seconds
         and days count in months (always 31 day)
-        :param dt: datetime object
-        :return: ZK ctime integer value
+
+        Args:
+            dt (datetime): datetime object to convert
+
+        Returns:
+            int: ZK ctime integer value
+
         """
         if dt.year < 2000:
             raise ValueError('Cannot get zkctime from a date earlier than a midnight of 2000-01-01')
@@ -232,21 +243,33 @@ class ZKDatetimeUtils:
     def time_string_to_datetime(dt_string: str) -> datetime:
         """Parses datetime string and return datetime object. Such value
         is used in events list. Datetime string has ISO date format.
-        :param dt_string: datetime string such as `2021-04-15 21:21:00`
-        :return: datetime object
+
+        Args:
+            dt_string (str): datetime string, e.g. `2021-04-15 21:21:00`
+
+        Returns:
+            datetime: converted datetime object
+
         """
         return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S')
 
     @staticmethod
-    def zktimerange_to_times(zktr: Union[str, int]) -> (time, time):
+    def zktimerange_to_times(zktr: Union[str, int]) -> Tuple[time, time]:
         """Decode 4-byte time range into time objects couple.
         Such approach is used in Timezone table.
 
         Simply put, the higher 2 bytes are "from" part of range,
         the lower 2 bytes are "to" part. Time part is encoded as
         `(hour * 100) + minutes`.
-        :param zktr: encoded time range as integer or as number in string
-        :return: time objects from-to couple (without timezone)
+
+        Args:
+            zktr (Union[str, int]): encoded time range as integer or
+                as number in string
+
+        Returns:
+            Tuple[time, time]: 2-tuple of from-tp time objects
+                (without timezone)
+
         """
         if isinstance(zktr, str):
             zktr = int(zktr)
@@ -269,9 +292,16 @@ class ZKDatetimeUtils:
         Simply put, the higher 2 bytes are "from" part of range,
         the lower 2 bytes are "to" part. Time part is encoded as
         `(hour * 100) + minutes`.
-        :param from_t: time/datetime "from" part of time range
-        :param to_t: time/datetime "to" part of time range
-        :return: encoded 4-byte integer
+
+        Args:
+            from_t (Union[datetime, time]): time/datetime "from" part
+                of time range
+            to_t (Union[datetime, time]): time/datetime "to" part
+                of time range
+
+        Returns:
+            int: encoded 4-byte integer
+
         """
         return ((from_t.hour * 100 + from_t.minute) << 16) + (to_t.hour * 100 + to_t.minute)
 
@@ -281,8 +311,13 @@ class ZKDatetimeUtils:
         used in User table.
 
         Date format is simple: 'YYYYMMDD'
-        :param zkd: date string
-        :return: parsed date object
+
+        Args:
+            zkd (str): date string
+
+        Returns:
+            date: parsed date object
+
         """
         return datetime.strptime(zkd, '%Y%m%d').date()
 
@@ -292,7 +327,12 @@ class ZKDatetimeUtils:
         format is used in User table.
 
         Date format is simple: 'YYYYMMDD'
-        :param d: date/datetime object
-        :return: date string
+
+        Args:
+            d (Union[date, datetime]): date/datetime object
+
+        Returns:
+            str: date string
+
         """
         return d.strftime('%Y%m%d')

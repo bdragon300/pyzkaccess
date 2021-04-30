@@ -26,6 +26,7 @@ class ControlOperation(Enum):
 
 class RelayGroup(Enum):
     """Device relay group.
+
     There are either lock relays (door output) or aux relays
     (aux output)
     """
@@ -41,8 +42,8 @@ class SensorType(Enum):
 
 
 class VerifyMode(Enum):
-    """Which methods are used to authenticate user.
-    See `DoorXVerifyType` parameter in SDK docs
+    """Methods are used to authenticate a user. See `DoorXVerifyType`
+    parameter in SDK docs
     """
     not_available = 0
     only_finger = 1
@@ -55,8 +56,8 @@ class VerifyMode(Enum):
 
 
 class PassageDirection(Enum):
-    """Whether a user was entered or exited via door
-    See event format description in SDK docs
+    """Whether a user was entered or exited via door. See event format
+    description in SDK docs
     """
     entry = 0
     exit = 1

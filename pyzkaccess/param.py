@@ -161,7 +161,6 @@ def _check_ip(addr: str):
 
 
 class DeviceParameters(BaseParameters):
-    """Parameters related to the whole device"""
     serial_number = _make_prop(
         '~SerialNumber', str, str, True, False, 'Serial number of device'
     )
@@ -240,7 +239,8 @@ class DeviceParameters(BaseParameters):
     def interlock(self) -> int:
         """Interlock rule for doors. Possible values depend on device
         model. Interlock is when the second door can be opened only
-        after the first door was opened and closed, and vice versa"""
+        after the first door was opened and closed, and vice versa
+        """
         res = self._sdk.get_device_param(parameters=('InterLock',), buffer_size=self.buffer_size)
         if not res:
             return self.device_model.interlock_rules[0]

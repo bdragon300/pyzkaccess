@@ -25,6 +25,7 @@ class Field:
     All of these parameters may be specified in Field definition as
     data type, convertion and validation callbacks. By default a
     field is treated as string with no restrictions.
+
     """
     def __init__(self,
                  raw_name: str,
@@ -32,8 +33,7 @@ class Field:
                  get_cb: Optional[Callable[[str], Any]] = None,
                  set_cb: Optional[Callable[[Any], Any]] = None,
                  validation_cb: Optional[Callable[[FieldDataT], bool]] = None):
-        """
-        On getting a field value from Model record, the process is:
+        """On getting a field value from Model record, the process is:
          1. Retrieve raw field value of `raw_name`. If nothing then
             just return None
          2. If `get_cb` is set then call it and use its result as value
@@ -50,18 +50,23 @@ class Field:
          4. If `set_cb` is set then call it and use its result as value
          5. Write `str(value)` to raw field value of `raw_name`
 
-        :param raw_name: field name in device table which this field
-         associated to
-        :param field_datatype: type of data of this field. `str` by
-         default
-        :param get_cb: optional callback that is called on field get
-         before a raw string value will be converted to `field_datatype`
-        :param set_cb: optional callback that is called on field set
-         after value will be checked against `field_datatype`
-         and validated by `validation_cb`
-        :param validation_cb: optional callback that is called on
-         field set after value will be checked against `field_datatype`.
-         If returns false then validation will be failed
+        Args:
+            raw_name (str): field name in device table which this field
+                associated to
+            field_datatype (Type): type of data of this field. `str` by
+                default
+            get_cb (Callable[[str], Any], optional): callback that is
+                called on field get before a raw string value will be
+                converted to `field_datatype`
+            set_cb (Callable[[Any], Any], optional): callback
+                that is called on field set after value will be checked
+                against `field_datatype` and validated by
+                `validation_cb`
+            validation_cb (Callable[[FieldDataT], bool], optional): this
+                is a callback that is called on field set after
+                value will be checked against `field_datatype`. If
+                returns false then validation will be failed
+
         """
         self._raw_name = raw_name
         self._field_datatype = field_datatype
@@ -72,7 +77,8 @@ class Field:
     @property
     def raw_name(self) -> str:
         """Raw field name in device table which this field
-        associated to"""
+        associated to
+        """
         return self._raw_name
 
     def to_raw_value(self, value: Any) -> str:
@@ -82,8 +88,13 @@ class Field:
         Checks incoming value against `field_datatype`, validates it
         using `validation_cb` (if any) and converts it using `set_cb`
         (if any).
-        :param value: value of `field_datatype`
-        :return: raw value string representation
+
+        Args:
+            value (Any): value of `field_datatype`
+
+        Returns:
+            str: raw value string representation
+
         """
         if not isinstance(value, self._field_datatype):
             raise TypeError(
@@ -108,8 +119,13 @@ class Field:
         Converts incoming value using `get_cb` (if any). If
         type of value after that is not an instance of `field_datatype`,
         then tries to cast value to `field_datatype` (if specified).
-        :param value: raw string representation
-        :return: value of `field_datatype`
+
+        Args:
+            value (str): raw string representation
+
+        Returns:
+            value of `field_datatype`
+
         """
         if self._get_cb is not None:
             value = self._get_cb(value)
@@ -170,6 +186,7 @@ class Model(metaclass=ModelMeta):
     A concrete model contains device table name and field definitions.
     Also it provides interface to access to these fields in a concrete
     row and to manipulate that row.
+
     """
     table_name = None
 
@@ -194,13 +211,11 @@ class Model(metaclass=ModelMeta):
 
     @property
     def dict(self) -> Mapping[str, FieldDataT]:
-        """Return record data as a dict"""
         return {field: getattr(self, field) for field in self._fields_mapping.keys()}
 
     @property
     def raw_data(self) -> Mapping[str, str]:
-        """Return raw data written directly to the device table on
-        save"""
+        """Return the raw data that we read from or write to a device"""
         return self._raw_data
 
     @classmethod
@@ -248,10 +263,14 @@ class Model(metaclass=ModelMeta):
         return self
 
     def with_zk(self, zk) -> 'Model':
-        """
-        Bind current object with ZKAccess connection
-        :param zk: ZKAccess object
-        :return: self
+        """Bind current object with ZKAccess connection
+
+        Args:
+            zk (ZKAccess): ZKAccess object
+
+        Returns:
+            Model: self
+
         """
         self._sdk = zk.sdk
         return self
