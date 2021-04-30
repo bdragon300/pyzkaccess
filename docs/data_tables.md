@@ -15,10 +15,10 @@ Model provides a convenient way to work with data depening on actual type. For e
 
 The following sections describe how to work with table records, make queries and update the data.
 
-## Creating objects
+## Model objects
 
 `pyzkaccess` contains pre-defined models that represent built-in tables in ZK devices. 
-Model class represents whole data table, whereas an model object is a particular record in 
+Model class represents whole data table, whereas a model object is a particular record in 
 this table. 
 
 In order to create an object, instantiate it with parameters.
@@ -28,6 +28,33 @@ from pyzkaccess.tables import User
 
 my_user = User(card='123456', pin='123', password='555', super_authorize=True)
 # ...code...
+```
+
+To get whole data as dict, use `.dict` property:
+
+```python
+from pyzkaccess.tables import User
+
+my_user = User(card='123456', pin='123', password='555', super_authorize=True)
+print(my_user.dict)
+# {'card': '123456',
+#  'pin': '123',
+#  'password': '555',
+#  'group': None,
+#  'start_time': None,
+#  'end_time': None,
+#  'super_authorize': True}
+```
+
+Sometimes you may want to get the raw data (with string values) that are sent to a device on saving
+an object. Use `raw_data` property for it:
+
+```python
+from pyzkaccess.tables import User
+
+my_user = User(card='123456', pin='123', password='555', super_authorize=True)
+print(my_user.raw_data)
+# {'SuperAuthorize': '1', 'Password': '555', 'Pin': '123', 'CardNo': '123456'}
 ```
 
 ## Saving changes in objects
@@ -141,7 +168,6 @@ The following example deletes all transactions related to card "123456":
 zk.table('User').where(card='123456').delete_all()
 ```
 
-
 ## Making queries
 
 The `QuerySet` class is intended to build a query to a data table, execute it and obtain results.
@@ -202,7 +228,7 @@ Resulting query conditions will be `group == '4' AND super_authorize == True`.
 All data tables on ZK device has a pointer which is set to the last record on each read query. If
 no records have been inserted to a table since last read, the "unread" query will return nothing.
 
-#### Restrict fields
+#### Query only listed fields
 
 `only_fields()` method returns a new `QuerySet` containing records with only specified fields.
 Other fields will be set to None. Fields in repeated `only_fields()` calls will be added to fields
@@ -224,7 +250,7 @@ qs = zk.table('User').only_fields(User.pin).only_fields(User.password)
 Resulting records will have only `pin` and `password` field values, retrieved from table, 
 other fields will remain None.
 
-### Table records count
+### Data table size
 
 `count()` method returns total records count in records. Calling this method leads to a special
 SDK call. Pay attention that this method does not consider conditions, it just returns total
