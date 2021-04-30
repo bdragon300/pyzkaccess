@@ -19,6 +19,11 @@ class DoorInterface(metaclass=ABCMeta):
     def events(self) -> EventLog:
         """Event log of current door. This includes events of its
         relays, readers, aux inputs and so forth
+
+        Args:
+
+        Returns:
+            EventLog: event log object
         """
         return self._specific_event_log()
 

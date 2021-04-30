@@ -14,11 +14,14 @@ from .sdk import ZKSDK
 class RelayInterface(metaclass=ABCMeta):
     @abstractmethod
     def switch_on(self, timeout: int) -> None:
-        """
-        Switch on a relay for the given time. If a relay is already
+        """Switch on a relay for the given time. If a relay is already
         switched on then its timeout will be refreshed
-        :param timeout: timeout in seconds, Number between 0 and 255
-        :return:
+
+        Args:
+            timeout (int): timeout in seconds, number between 0 and 255
+
+        Returns:
+            None
         """
         pass
 
@@ -31,12 +34,15 @@ class Relay(RelayInterface):
         self._sdk = sdk
 
     def switch_on(self, timeout: int) -> None:
-        """
-        Switch on a relay for the given time. If a relay is already
+        """Switch on a relay for the given time. If a relay is already
         switched on then its timeout will be refreshed
-        :param timeout: Timeout in seconds while relay will be enabled.
-         Number between 0 and 255
-        :return:
+
+        Args:
+            timeout (int): Timeout in seconds while relay will
+                be enabled. Number between 0 and 255
+
+        Returns:
+            None
         """
         if timeout < 0 or timeout > 255:
             raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
@@ -75,11 +81,14 @@ class RelayList(RelayInterface, UserTuple):
         self._sdk = sdk
 
     def switch_on(self, timeout: int) -> None:
-        """
-        Switch on all relays in set for a given time
-        :param timeout: Timeout in seconds while relay will be enabled.
-         Number between 0 and 255
-        :return:
+        """Switch on all relays in set for a given time
+
+        Args:
+            timeout (int): Timeout in seconds while relay will be
+                enabled. Number between 0 and 255
+
+        Returns:
+            None
         """
         if timeout < 0 or timeout > 255:
             raise ValueError("Timeout must be in range 0..255, got {}".format(timeout))
@@ -111,8 +120,7 @@ class RelayList(RelayInterface, UserTuple):
             return relays
 
     def by_mask(self, mask: Iterable[Union[int, bool]]) -> 'RelayList':
-        """
-        Return only relays starting from 0 which are matched by given
+        """Return only relays starting from 0 which are matched by given
         mask. E.g. for `mask=[1, 0, 0, 1, 0, 0, 1, 0]` the function
         returns the 1st, the 4th and the 7th of 8 relays.
 
@@ -124,8 +132,14 @@ class RelayList(RelayInterface, UserTuple):
         If mask is shorter than count of relays then the rest relays
         will be ignored:
         for 8 relays `mask=[1, 0, 0]` will return the 1st relay only.
-        :param mask: mask is a list of ints or bools
-        :return: new instance of RelayList contained needed relays
+
+        Args:
+            mask (Iterable[Union[int, bool]]): mask is a list of
+                ints or bools
+
+        Returns:
+          RelayList: new instance of RelayList contained needed relays
+
         """
         relays = [x for x, m in zip(self, mask) if m]
         return self.__class__(sdk=self._sdk, relays=relays)

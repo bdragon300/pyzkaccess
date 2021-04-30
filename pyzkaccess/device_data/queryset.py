@@ -23,7 +23,7 @@ from .model import Model, Field
 class QuerySet:
     """Interface to perform queries to data tables, iterate
     over results and insert/delete records in tables
-
+    
     QuerySet using "fluent interface" in most of its methods. Many
     ORMs use this approach, so working with tables and records may look
     familiar.
@@ -44,10 +44,19 @@ class QuerySet:
             print(record.password)
 
     Also QuerySet can do upsert/delete operations
+
     """
     _estimate_record_buffer = 256
 
     def __init__(self, sdk, table: Type[Model], buffer_size: Optional[int] = None):
+        """
+        Args:
+            sdk (ZKSDK): ZKSDK object
+            table (Type[Model]): model class
+            buffer_size (int, optional): size of c-string buffer to
+                keep query results from a device. If omitted, then
+                buffer size will be guessed automatically
+        """
         self._sdk = sdk
         self._table_cls = table
         self._cache = None
@@ -66,6 +75,12 @@ class QuerySet:
         Example::
 
             zk.table(Table1).only_fields('field1', Table1.field2)
+
+        Args:
+            *fields (Union[Field, str]): fields to select
+
+        Returns:
+            QuerySet: new `QuerySet` object with conditions
         """
         qs = self.copy()
         only_fields = set()
@@ -97,9 +112,17 @@ class QuerySet:
 
         Only "equal" compare operation is available.
 
-        In example below filters will be `card == '111' AND super_authorize == False`::
+        In example below filters will be
+            `card == '111' AND super_authorize == False`::
 
             zk.table('User').where(card='123456').where(card='111', super_authorize=False)
+
+        Args:
+            **kwargs (Mapping[str, Any]): field conditions
+
+        Returns:
+            QuerySet: new QuerySet object with conditions
+
         """
         if not kwargs:
             raise TypeError('Empty arguments')
@@ -119,10 +142,15 @@ class QuerySet:
     def unread(self) -> 'QuerySet':
         """Return only unread records instead of all.
 
-        Every table on device has a pointer which is set to the last
+        Some tables on device has a pointer which is set to the last
         record on each query. If no records have been inserted to
-        a table since last read, the "unread" query will return
-        nothing
+        a table since last read, the "unread" query will return nothing
+
+        Args:
+
+        Returns:
+            QuerySet: new QuerySet object with conditions
+
         """
         qs = self.copy()
         qs._only_unread = True
@@ -147,9 +175,13 @@ class QuerySet:
             zk.table(User).upsert(User(pin='0', card='123456'))
             zk.table(User).upsert([User(pin='0', card='123456'), User(pin='1', card='654321')])
 
-        :param records: record dict, Model instance or a sequence
-         of those
-        :return: None
+        Args:
+            records (Union[Sequence[_ModelArgT], _ModelArgT]): record
+                dict, Model instance or a sequence of those
+
+        Returns:
+            None
+
         """
         if not isinstance(records, (Sequence, Model, Mapping)):
             raise TypeError('Argument must be a sequence, Model or mapping')
@@ -159,7 +191,7 @@ class QuerySet:
 
     def delete(self, records: Union[Sequence[_ModelArgT], _ModelArgT]) -> None:
         """Delete given records from a table.
-
+        
         Every table on a device has primary key. Typically, it is "pin"
         field. Deletion of record is performed by a field which is
         primary key for this table. Other fields seems are ignored.
@@ -171,8 +203,13 @@ class QuerySet:
             zk.table(User).delete(User(pin='0', card='123456'))
             zk.table(User).delete([User(pin='0', card='123456'), User(pin='1', card='654321')])
 
-        :param records:
-        :return: None
+        Args:
+            records (Union[Sequence[_ModelArgT], _ModelArgT]): record
+                dict, Model instance or a sequence of those
+
+        Returns:
+            None
+
         """
         if not isinstance(records, (Sequence, Model, Mapping)):
             raise TypeError('Argument must be a sequence, Model or mapping')
@@ -187,17 +224,28 @@ class QuerySet:
         Query in example below deletes records with `password='123'`::
 
             zk.table('User').where(password='123').delete_all()
-        :return:
+
+        Args:
+
+        Returns:
+            None
+
         """
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, self)
 
     def count(self) -> int:
         """Return just a number of records in table without considering
-        filters
+        filters.
 
         Unlike len(qs) this method does not fetch data, but makes
         simple request, like `SELECT COUNT(*)` in SQL.
+
+        Args:
+
+        Returns:
+            int: data table size
+
         """
         return self._sdk.get_device_data_count(self._table_cls.table_name)
 

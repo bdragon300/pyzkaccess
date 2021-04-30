@@ -49,6 +49,11 @@ class TestField:
 
         assert obj.raw_name == 'my_name'
 
+    def test_field_datatype_prop__should_return_field_datatype(self):
+        obj = Field('my_name', int)
+
+        assert obj.field_datatype == int
+
     def test_to_raw_value__on_all_defaults__should_return_the_same_string(self):
         obj = Field('my_name')
 
@@ -337,6 +342,22 @@ class TestModelMeta:
         assert MyModel._fields_mapping == {'field1': 'FieldOne', 'field2': 'FieldTwo'}
         assert MyModel2._fields_mapping == {'field3': 'FieldThree', 'field4': 'FieldFour'}
 
+    def test_metaclass__should_set_field_objects_doc_attribute(self):
+        class MyModel(Model):
+            table_name = 'test'
+            field1 = Field('FieldOne')
+            field2 = Field('FieldTwo', int)
+
+        assert MyModel.field1.__doc__ == 'MyModel.field1'
+        assert MyModel.field2.__doc__ == 'MyModel.field2'
+
+    def test_metaclass__should_set_field_object_class_var_annotation(self):
+        class MyModel(Model):
+            table_name = 'test'
+            field1 = Field('FieldOne')
+            field2 = Field('FieldTwo', int)
+
+        assert {'field1': str, 'field2': int}.items() <= MyModel.__annotations__.items()
 
 class TestModel:
     def test_init__should_set_default_attributes(self):

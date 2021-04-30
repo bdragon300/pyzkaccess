@@ -146,9 +146,9 @@ def _make_prop(query_tpl: str,
 
 
 class BaseParameters:
-    #: Size in bytes of c-string buffer which is used to accept
-    #: text data from PULL SDK functions
     buffer_size = 4096
+    """Size in bytes of c-string buffer which is used to accept
+    text data from PULL SDK functions"""
 
     def __init__(self, sdk: ZKSDK, device_model: type(ZKModel)):
         self.device_model = device_model
@@ -161,7 +161,6 @@ def _check_ip(addr: str):
 
 
 class DeviceParameters(BaseParameters):
-    """Parameters related to the whole device"""
     serial_number = _make_prop(
         '~SerialNumber', str, str, True, False, 'Serial number of device'
     )
@@ -218,6 +217,12 @@ class DeviceParameters(BaseParameters):
         model. Passback is when the second door can be opened only
         after the first door has opened, not otherwise. Or a door
         can be opened only by its readers from one side.
+
+        See `__doc__` value attribute to get a value meaning, ex::
+
+            rule = zk.parameters.anti_passback_rule
+            print(rule, 'means', rule.__doc__)
+            # Prints "0 means Anti-passback disabled"
         """
         res = self._sdk.get_device_param(parameters=('AntiPassback',), buffer_size=self.buffer_size)
         res = int(res['AntiPassback'])
@@ -240,7 +245,14 @@ class DeviceParameters(BaseParameters):
     def interlock(self) -> int:
         """Interlock rule for doors. Possible values depend on device
         model. Interlock is when the second door can be opened only
-        after the first door was opened and closed, and vice versa"""
+        after the first door was opened and closed, and vice versa
+
+        See `__doc__` value attribute to get a value meaning, ex::
+
+            rule = zk.parameters.anti_passback_rule
+            print(rule, 'means', rule.__doc__)
+            # Prints "0 means Anti-passback disabled"
+        """
         res = self._sdk.get_device_param(parameters=('InterLock',), buffer_size=self.buffer_size)
         if not res:
             return self.device_model.interlock_rules[0]
