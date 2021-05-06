@@ -8,15 +8,16 @@ __all__ = [
 import re
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
+from .common import ZKDatetimeUtils
 from .device import ZKModel
 from .enums import SensorType, VerifyMode
 from .sdk import ZKSDK
-from .common import ZKDatetimeUtils
 
 
 def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
-    def read(self):
+    def read(self) -> int:
         query = query_name_spring if self.is_daylight else query_name_fall
         res = self._sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
         res = int(res[query])
@@ -25,7 +26,7 @@ def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
 
         return res
 
-    def write(self, value):
+    def write(self, value: int):
         query = query_name_spring if self.is_daylight else query_name_fall
         if not isinstance(value, int):
             raise TypeError('Bad value type, should be int')
@@ -71,7 +72,7 @@ class DaylightSavingMomentMode2:
     in a separate request). See `DLSTMode`, `WeekOfMonth*` parameters
     in SDK docs
     """
-    def __init__(self, sdk: ZKSDK, is_daylight: bool, buffer_size: int):
+    def __init__(self, sdk: Optional[ZKSDK], is_daylight: bool, buffer_size: int):
         self.is_daylight = is_daylight
         self.buffer_size = buffer_size
         self._sdk = sdk
@@ -322,7 +323,7 @@ class DeviceParameters(BaseParameters):
             parameters={'DateTime': str(ZKDatetimeUtils.datetime_to_zkctime(value))}
         )
 
-    def _get_datetime(self):
+    def _get_datetime(self) -> datetime:
         res = self._sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)
         res = int(res['DateTime'])
         return ZKDatetimeUtils.zkctime_to_datetime(res)

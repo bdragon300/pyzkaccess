@@ -66,7 +66,7 @@ class ZKAccess:
             if not connstr:
                 self.connstr = \
                     'protocol=TCP,ipaddress={},port=4370,timeout=4000,passwd='.format(device.ip)
-            if not device_model:
+            if not device_model:  # FIXME: if device_model and device.model are in conflict
                 self.device_model = device.model
 
         if self.connstr:

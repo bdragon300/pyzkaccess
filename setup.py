@@ -32,6 +32,7 @@ setup(
     ],
     # Also tox.ini
     install_requires=[
-        'wrapt'
+        'wrapt',
+        'fire'
     ],
 )
