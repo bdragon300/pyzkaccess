@@ -108,7 +108,7 @@ class ZKAccess:
         mdl = self.device_model
         readers = (Reader(self.sdk, self._event_log, x) for x in mdl.readers_def)
         aux_inputs = (AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def)
-        relays = (Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def))
+        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
         door_relays = (
             RelayList(self.sdk, relays=[x for x in relays if x.number == door])
             for door in mdl.doors_def
