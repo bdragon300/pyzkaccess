@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import fire
 from fire.core import FireError
 
-import pyzkaccess.ctypes
+import pyzkaccess.ctypes_
 from pyzkaccess import ZKAccess, ZK100, ZK200, ZK400
 from pyzkaccess.device_data.model import models_registry, Model
 from pyzkaccess.device_data.queryset import QuerySet
@@ -38,9 +38,10 @@ class BaseFormatter(metaclass=abc.ABCMeta):
         def flush(self) -> None:
             pass
 
-    def __init__(self, istream: TextIO, ostream: TextIO):
+    def __init__(self, istream: TextIO, ostream: TextIO, headers: Iterable[str]):
         self._istream = istream
         self._ostream = ostream
+        self._headers = set(headers)
 
     @staticmethod
     def get_formatter(io_format: str) -> 'Type[BaseFormatter]':
@@ -60,25 +61,37 @@ class BaseFormatter(metaclass=abc.ABCMeta):
 class CSVFormatter(BaseFormatter):
     """Formatter for comma-separated values format"""
     class CSVWriter(BaseFormatter.WriterInterface):
-        def __init__(self, ostream: TextIO):
+        def __init__(self, ostream: TextIO, headers: set):
             self._ostream = ostream
+            self._headers = headers
             self._writer = None
 
         def write(self, record: Mapping[str, str]) -> None:
+            if record.keys() > self._headers:
+                record = {k: v for k, v in record.items() if k in self._headers}
+
             if self._writer is None:
-                self._writer = csv.DictWriter(self._ostream, record.keys())
+                self._writer = csv.DictWriter(self._ostream, sorted(self._headers))
                 self._writer.writeheader()
 
             self._writer.writerow(record)
 
         def flush(self) -> None:
-            pass
+            if self._writer is None:
+                self._writer = csv.DictWriter(self._ostream, sorted(self._headers))
+                self._writer.writeheader()
 
     def get_reader(self) -> Iterable[Mapping[str, str]]:
-        return csv.DictReader(self._istream)
+        def _reader():
+            for item in csv.DictReader(self._istream):
+                if item.keys() > self._headers:
+                    item = {k: v for k, v in item.items() if k in self._headers}
+                yield item
+
+        return _reader()
 
     def get_writer(self) -> BaseFormatter.WriterInterface:
-        return CSVFormatter.CSVWriter(self._ostream)
+        return CSVFormatter.CSVWriter(self._ostream, self._headers)
 
 
 io_formats = {
@@ -127,6 +140,36 @@ class TypedFieldConverter(BaseConverter):
         super().__init__(formatter, *args, **kwargs)
         self._field_types = field_types
 
+        # The following converters parses string value respresentation from
+        # stdin and converts to a field value
+        self._input_converters = {
+            str: lambda x: str(x),
+            bool: lambda x: bool(int(x)),
+            int: int,
+            tuple: self._parse_tuple,
+            date: lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
+            time: lambda x: datetime.strptime(x, '%H:%M:%S').time(),
+            datetime: lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
+            Enum: self._parse_enum,
+            DaylightSavingMomentMode1: lambda x: DaylightSavingMomentMode1.strptime(x, '%m-%d %H:%M'),
+            DaylightSavingMomentMode2: self._parse_daylight_saving_moment_mode2
+        }
+
+        # The following functions converts field values to their string
+        # representation suitable for stdout output
+        self._output_converters = {
+            str: lambda x: str(x),
+            bool: lambda x: str(int(x)),
+            int: str,
+            tuple: self._unparse_tuple,
+            date: lambda x: x.strftime('%Y-%m-%d'),
+            time: lambda x: x.strftime('%H:%M:%S'),
+            datetime: lambda x: x.strftime('%Y-%m-%d %H:%M:%S'),
+            Enum: lambda x: str(x.value),
+            DaylightSavingMomentMode1: lambda x: x.strftime('%m-%d %H:%M'),
+            DaylightSavingMomentMode2: self._unparse_daylight_saving_moment_mode2
+        }
+
     def read_records(self) -> Generator[Mapping[str, Any], None, None]:
         for item in self._formatter.get_reader():
             # Convert a text field value to a typed value
@@ -142,17 +185,25 @@ class TypedFieldConverter(BaseConverter):
         writer.flush()
 
     def to_record_dict(self, data: Mapping[str, str]) -> Mapping[str, Any]:
-        return {fname: self._to_field_value(fval, self._field_types.get(fname, str))
+        return {fname: self._parse_value(fval, self._field_types.get(fname, str))
                 for fname, fval in data.items()}
 
     def to_string_dict(self, record: Mapping[str, Any]) -> Mapping[str, str]:
-        return {fname: self._to_string_value(fval, self._field_types.get(fname, str))
+        return {fname: self._unparse_value(fval, self._field_types.get(fname, str))
                 for fname, fval in record.items()}
 
-    def _to_field_value(self, value: str, field_datatype: Type) -> Any:
+    def _parse_value(self, value: str, field_datatype: Type) -> Optional[Any]:
+        if value == '':
+            return None
+        if issubclass(field_datatype, Enum):
+            field_datatype = Enum
         return self._input_converters[field_datatype](value)
 
-    def _to_string_value(self, value: Any, field_datatype: Type) -> str:
+    def _unparse_value(self, value: Optional[Any], field_datatype: Type) -> str:
+        if value is None:
+            return ''
+        if issubclass(field_datatype, Enum):
+            field_datatype = Enum
         return self._output_converters[field_datatype](value)
 
     @staticmethod
@@ -164,25 +215,20 @@ class TypedFieldConverter(BaseConverter):
 
         return res
 
-    @staticmethod
-    def _parse_tuple(value: str) -> tuple:
-        return tuple(value.split(TypedFieldConverter.TUPLE_SEPARATOR))
+    def _parse_tuple(self, value: str) -> tuple:
+        return tuple(value.split(self.TUPLE_SEPARATOR))
 
-    @staticmethod
-    def _out_tuple(value: tuple) -> str:
-        T = TypedFieldConverter  # noqa
-        return T.TUPLE_SEPARATOR.join(T._output_converters[type(x)](x) for x in value)
+    def _unparse_tuple(self, value: tuple) -> str:
+        return self.TUPLE_SEPARATOR.join(self._output_converters[type(x)](x) for x in value)
 
-    @staticmethod
-    def _parse_daylight_saving_moment_mode1(value: str) -> DaylightSavingMomentMode1:
-        args = [int(x) for x in TypedFieldConverter._parse_tuple(value)]
+    def _parse_daylight_saving_moment_mode1(self, value: str) -> DaylightSavingMomentMode1:
+        args = [int(x) for x in self._parse_tuple(value)]
         if len(args) != 4:
             raise ValueError('Daylight saving moment value must contain 4 integers')
         return DaylightSavingMomentMode1(*args)
 
-    @staticmethod
-    def _parse_daylight_saving_moment_mode2(value: str) -> DaylightSavingMomentMode2:
-        args = [int(x) for x in TypedFieldConverter._parse_tuple(value)]
+    def _parse_daylight_saving_moment_mode2(self, value: str) -> DaylightSavingMomentMode2:
+        args = [int(x) for x in self._parse_tuple(value)]
         if len(args) != 7:
             raise ValueError('Daylight saving moment value must contain 7 integers')
 
@@ -194,46 +240,13 @@ class TypedFieldConverter(BaseConverter):
 
         return res
 
-    @staticmethod
-    def _out_daylight_saving_moment_mode2(value: DaylightSavingMomentMode2) -> str:
+    def _unparse_daylight_saving_moment_mode2(self, value: DaylightSavingMomentMode2) -> str:
         res = [
             str(getattr(value, attr))
             for attr in ('month', 'week_of_month', 'day_of_week', 'hour', 'minute')
         ]
         res.extend((str(int(value.is_daylight)), str(value.buffer_size)))
-        return TypedFieldConverter.TUPLE_SEPARATOR.join(res)
-
-    # The following converters parses string value respresentation from
-    # stdin and converts to a field value
-    _input_converters = {
-        str: lambda x: str(x),
-        bool: lambda x: bool(int(x)),
-        int: int,
-        tuple: _parse_tuple,
-        date: lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
-        time: lambda x: datetime.strptime(x, '%H:%M:%S').time(),
-        datetime: lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
-        Enum: _parse_enum,
-        DaylightSavingMomentMode1: _parse_daylight_saving_moment_mode1,
-        DaylightSavingMomentMode2: _parse_daylight_saving_moment_mode2
-    }
-
-    # The following functions converts field values to their string
-    # representation suitable for stdout output
-    _output_converters = {
-        str: lambda x: str(x),
-        bool: lambda x: str(int(x)),
-        int: str,
-        tuple: _out_tuple,
-        date: lambda x: x.strftime('%Y-%m-%d'),
-        time: lambda x: x.strftime('%H:%M:%S'),
-        datetime: lambda x: x.strftime('%Y-%m-%d %H:%M:%S'),
-        Enum: lambda x: str(x.value),
-        DaylightSavingMomentMode1: lambda x: TypedFieldConverter.TUPLE_SEPARATOR.join(
-            str(getattr(x, attr)) for attr in ('month', 'day', 'hour', 'minute')
-        ),
-        DaylightSavingMomentMode2: _out_daylight_saving_moment_mode2
-    }
+        return self.TUPLE_SEPARATOR.join(res)
 
 
 class ModelConverter(TypedFieldConverter):
@@ -245,38 +258,34 @@ class ModelConverter(TypedFieldConverter):
                        for k in model_cls.fields_mapping().keys()}
         super().__init__(formatter, field_types, *args, **kwargs)
         self._model_cls = model_cls
+        self._model_fields = {k: getattr(self._model_cls, k)
+                              for k in self._model_cls.fields_mapping().keys()}
 
-    def read_records(self) -> Generator[Mapping[str, Any], None, None]:
+    def read_records(self) -> Generator[Model, None, None]:
         for item in self._formatter.get_reader():
             model_dict = self.to_record_dict(item)
-            yield model_dict
+            yield self._model_cls(**model_dict)
 
-    def write_records(self, records: Iterable[Mapping[str, Any]]):
+    def write_records(self, records: Iterable[Model]):
         writer = self._formatter.get_writer()
         for item in records:
-            record = self.to_string_dict(item)
+            record = self.to_string_dict(item.dict)
             writer.write(record)
 
         writer.flush()
 
     def to_record_dict(self, record: Mapping[str, str]) -> Mapping[str, Any]:
-        model_fields = {k: getattr(self._model_cls, k)
-                        for k in self._model_cls.fields_mapping().keys()}
+        self._validate_field_names(self._model_fields.keys(), record)
 
-        self._validate_field_names(model_fields.keys(), record)
-
-        # Convert dict with text values to a model dict with typed values
-        return {fname: self._to_field_value(fval, model_fields[fname].field_datatype)
+        # Convert dict with text values to a model with typed values
+        return {fname: self._parse_value(fval, self._model_fields[fname].field_datatype)
                 for fname, fval in record.items()}
 
     def to_string_dict(self, model_dict: Mapping[str, Any]) -> Mapping[str, str]:
-        model_fields = {k: getattr(self._model_cls, k)
-                        for k in self._model_cls.fields_mapping().keys()}
+        self._validate_field_names(self._model_fields.keys(), model_dict)
 
-        self._validate_field_names(model_fields.keys(), model_dict)
-
-        # Convert model dict values to a text values
-        return {fname: self._to_string_value(fval, model_fields[fname].field_datatype)
+        # Convert a model to text values
+        return {fname: self._unparse_value(fval, self._model_fields[fname].field_datatype)
                 for fname, fval in model_dict.items()}
 
     def _validate_field_names(self, fields: Union[Set[str], KeysView], item: Mapping[str, Any]):
@@ -345,10 +354,13 @@ class Query:
 
     def __call__(self):
         if self._qs is not None:
-            self._io_converter.write_records(list(self._qs))
+            self._io_converter.write_records(self._qs)
 
     def where(self, **filters) -> 'Query':
         """Add filtering by field value to a query
+
+        Filtering conditions are set by flags. Several conditions will
+        be AND'ed.
 
         For example, select Users with card=123456 AND group=4:
             $ ... table User where --card=123456 --group=4
@@ -371,6 +383,7 @@ class Query:
         For example, upsert records to the User table from stdin:
             $ cat records.csv | ... table User upsert
         """
+
         self._qs.upsert(self._io_converter.read_records())
         self._qs = None
 
@@ -412,18 +425,20 @@ class Query:
 class Doors:
     """This group gives access to inputs and outputs related
     to a given door or doors
-
-    Args:
-        select: Doors to select. You can select a single door by
-            passing an index `--select=1`. Or select a range by
-            passing a list as `--select=0,2` (doors 0, 1 and 2
-            will be selected). Indexes are started from 0.
     """
     def __init__(self, items):
         self._items = items
 
-    def __call__(self, *, select: Union[int, list] = None):
-        self._items = self._items[parse_array_index(select)]
+    def select(self, indexes: Union[int, list]):
+        """Select doors to operate
+
+        Args:
+            indexes: Doors to select. You can select a single door by
+                passing an index `select 1`. Or select a range by
+                passing a list as `select 0,3` (doors 0, 1 and 2
+                will be selected). Indexes are started from 0.
+        """
+        self._items = self._items[parse_array_index(indexes)]
         return self
 
     @property
@@ -464,18 +479,21 @@ class Doors:
 class Relays:
     """This group provides actions to do with a given relay or
     relays
-
-    Args:
-        select: Relays to select. You can select a single relay by
-            passing an index `--select=1`. Or select a range by
-            passing a list as `--select=0,2` (relays 0, 1 and 2
-            will be selected). Indexes are started from 0.
     """
     def __init__(self, items):
         self._items = items
 
-    def __call__(self, *, select: Union[int, list] = None):
-        self._items = self._items[parse_array_index(select)]
+    def select(self, indexes: Union[int, list]):
+        """
+        Select relays to operate
+
+        Args:
+            indexes: Relays to select. You can select a single relay by
+                passing an index `select 1`. Or select a range by
+                passing a list as `select 0,3` (relays 0, 1 and 2
+                will be selected). Indexes are started from 0.
+        """
+        self._items = self._items[parse_array_index(indexes)]
         return self
 
     def switch_on(self, *, timeout: int = 5):
@@ -489,19 +507,20 @@ class Relays:
 
 
 class Readers:
-    """This group represents a given reader or readers
-
-    Args:
-        select: Readers to select. You can select a single reader by
-            passing an index `--select=1`. Or select a range by
-            passing a list as `--select=0,2` (readers 0, 1 and 2
-            will be selected). Indexes are started from 0.
-    """
+    """This group represents a given reader or readers"""
     def __init__(self, items):
         self._items = items
 
-    def __call__(self, *, select: Union[int, list] = None):
-        self._items = self._items[parse_array_index(select)]
+    def select(self, indexes: Union[int, list]):
+        """Select doors to operate
+
+        Args:
+            indexes: Readers to select. You can select a single reader
+                by passing an index `select 1`. Or select a range by
+                passing a list as `select 0,3` (readers 0, 1 and 2
+                will be selected). Indexes are started from 0.
+        """
+        self._items = self._items[parse_array_index(indexes)]
         return self
 
     @property
@@ -510,20 +529,21 @@ class Readers:
 
 
 class AuxInputs:
-    """This group represents a given aux input or inputs
-
-    Args:
-        select: Aux inputs to select. You can select a single aux
-            input by passing an index `--select=1`. Or select a
-            range by passing a list as `--select=0,2`
-            (aux inputs 0, 1 and 2 will be selected).
-            Indexes are started from 0.
-    """
+    """This group represents a given aux input or inputs"""
     def __init__(self, items):
         self._items = items
 
-    def __call__(self, *, select: Union[int, list] = None):
-        self._items = self._items[parse_array_index(select)]
+    def select(self, indexes: Union[int, list]):
+        """Select doors to operate
+
+        Args:
+            indexes: Aux input to select. You can select a single
+                aux input by passing an index `select 1`. Or select
+                a range by passing a list as `select 0,3` (aux inputs
+                0, 1 and 2 will be selected). Indexes are started
+                from 0.
+        """
+        self._items = self._items[parse_array_index(indexes)]
         return self
 
     @property
@@ -544,35 +564,43 @@ class Events:
             'entry_exit': PassageDirection,
             'verify_mode': VerifyMode
         }
-        formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out)
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, self._event_field_types.keys()
+        )
         self._io_converter = TypedFieldConverter(formatter, self._event_field_types)
 
     def __call__(self):
         self._io_converter.write_records(
-            {s: getattr(ev, s) for s in ev.__slots__} for ev in self._event_log
+            {s: getattr(ev, s) for s in self._event_field_types.keys()} for ev in self._event_log
         )
 
-    def poll(self, timeout: int = 60, keep_up: bool = False):
+    def poll(self, timeout: int = 60, first_only: bool = False):
         """Wait for an event to be appeared on a device and prints
-        them if any. If filters has been set then they are applied.
+        them if any. If no events has been appeared during timeout, then
+        exit by timeout. Filters that has been set are also matter.
+
 
         Args:
-            timeout: Timeout in seconds to listen for events.
-                Default is 60 seconds
-            keep_up: If this flag is set then timeout resets every
-                time when new event has come. I.e. the command exits
-                by timeout only when no new events has been appeared
+            timeout: Time in seconds the command waits events
+                to appear and then finishes if no events has been
+                appeared. Default is 60 seconds
+            first_only: If this flag is set then the command will exit
+                after the first event has came
         """
-        events = self._event_log.poll(timeout)
-        while events:
-            self._io_converter.write_records(
-                {s: getattr(ev, s) for s in ev.__slots__} for ev in events
-            )
-
-            if not keep_up:
-                break
-
+        def _poll_events():
             events = self._event_log.poll(timeout)
+            while events:
+                for event in events:
+                    yield {s: getattr(event, s) for s in self._event_field_types.keys()}
+
+                if first_only:
+                    return
+
+                events = self._event_log.poll(timeout)
+
+            sys.stderr.write('INFO: Finished by timeout\n')
+
+        self._io_converter.write_records(_poll_events())
 
     def only(self, **filters):
         """Add filtering by field value to an event log
@@ -619,17 +647,23 @@ class Parameters:
     """
     def __init__(self, item):
         self._item = item
-        item_cls = item.__class__
-        self._param_list = {attr for attr in dir(item_cls)
-                            if isinstance(getattr(item_cls, attr), property)}
+        self._item_cls = item.__class__
+        # Exclude write-only parameters
+        self._readable_params = {attr for attr in dir(self._item_cls)
+                                 if (isinstance(getattr(self._item_cls, attr), property)
+                                 and getattr(self._item_cls, attr).fget is not None)}
+        self._readonly_params = {attr for attr in self._readable_params
+                                 if getattr(self._item_cls, attr).fset is None}
         # Extract types from getters annotations. Skip if no getter
         # Assume str if no return annotation has set
-        props = {attr: getattr(item_cls, attr) for attr in self._param_list
-                 if getattr(item_cls, attr).fget is not None}
+        props = {attr: getattr(self._item_cls, attr) for attr in self._readable_params
+                 if getattr(self._item_cls, attr).fget is not None}
         self._prop_types = {k: getattr(v.fget, '__annotations__', {}).get('return', str)
                             for k, v in props.items()}
 
-        self._formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out)
+        self._formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, self._readable_params
+        )
         self._converter = TypedFieldConverter(self._formatter, self._prop_types)
 
     def __call__(self, *, names: list = None):
@@ -637,7 +671,7 @@ class Parameters:
             raise FireError('Parameters may be used only for single door')
 
         if names is None:
-            names = self._param_list
+            names = self._readable_params
         elif isinstance(names, str):
             names = (names, )
         elif not isinstance(names, (list, tuple)):
@@ -648,7 +682,7 @@ class Parameters:
 
         names = set(names)
 
-        extra_names = names - set(self._param_list)
+        extra_names = names - set(self._readable_params)
         if extra_names:
             # Workaround of "Could not consume arg" message appearing
             # instead of exception message problem
@@ -656,8 +690,7 @@ class Parameters:
             raise FireError('Unknown parameters were given: {}'.format(extra_names))
 
         self._converter.write_records(
-            {'parameter_name': name, 'value': getattr(self._item, name)}
-            for name in sorted(names)
+            [{name: getattr(self._item, name) for name in sorted(names)}]
         )
 
     def list(self):
@@ -665,9 +698,11 @@ class Parameters:
         if self._item is doors_params_error:
             raise FireError('Parameters may be used only for single door')
 
-        formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out)
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, self._readable_params
+        )
         converter = TypedFieldConverter(formatter, self._prop_types)
-        converter.write_records({'parameter_name': x} for x in sorted(self._param_list))
+        converter.write_records({'parameter_name': x} for x in sorted(self._readable_params))
 
     def set(self, **parameters):
         """Set given parameters
@@ -679,6 +714,10 @@ class Parameters:
         if self._item is doors_params_error:
             raise FireError('Parameters may be used only for single door')
 
+        readonly_params = parameters.keys() & self._readonly_params
+        if readonly_params:
+            raise FireError('The following parameters are read-only: {}'.format(readonly_params))
+
         if parameters:
             self._set_from_args(parameters)
         else:
@@ -686,17 +725,16 @@ class Parameters:
 
     def _set_from_input(self):
         for record in self._converter.read_records():
-            if not ({'parameter_name', 'value'} & record.keys()):
-                raise FireError('Items')
-
-            setattr(self._item, record['parameter_name'], record['value'])
+            for k, v in record.items():
+                setattr(self._item, k, v)
 
     def _set_from_args(self, args: dict):
-        extra_names = args.keys() - set(self._param_list)
+        extra_names = args.keys() - set(self._readable_params)
         if extra_names:
             raise FireError('Unknown parameters were given: {}'.format(extra_names))
 
-        for name, val in args.items():
+        typed_items = self._converter.to_record_dict(args)
+        for name, val in typed_items.items():
             setattr(self._item, name, val)
 
 
@@ -719,8 +757,11 @@ class ZKCommand:
                 name, list(sorted(models_registry.keys()))
             ))
         qs = self._zk.table(name)
-        formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out)
-        return Query(qs, ModelConverter(formatter, qs._table_cls))
+        table_cls = qs._table_cls
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, table_cls.fields_mapping().keys()
+        )
+        return Query(qs, ModelConverter(formatter, table_cls))
 
     @property
     def doors(self) -> Doors:
@@ -746,7 +787,7 @@ class ZKCommand:
         return Readers(self._zk.readers)
 
     @property
-    def aux_inputs(self, *, numbers=None):
+    def aux_inputs(self):
         """Aux inputs to operate. By default, all aux inputs are
         seleted. Aux inputs count depends on a device model.
         """
@@ -772,29 +813,21 @@ class ZKCommand:
 class CLI:
     """PyZKAccess command-line interface
 
-    The approach to work with CLI is following. There are some
-    groups which give access to appropriate device functionality:
-        * `doors` -- access to input/output related to particular doors
-        * `relays` -- access to relays on device board
-        * `readers` -- access to readers inputs
-        * `aux_inputs` -- access to aux inputs on device board
-        * `events` -- awaiting and filtering device events
-        * `parameters` -- access to device parameters
-
-    And also commands:
-        * `table` -- making queries to a data table on a device
-        * `restart` -- restart a device
-
-    Some commands can have parameters and subcommands. Every command,
-    group or subcommand has its own help, available via `--help`
-    parameter.
-
     Typical CLI usage:
         Commands for a connected device:
-            $ pyzkaccess connect <ip> command|group [parameters] [subcommand [parameters] ...]
+            $ pyzkaccess connect <ip> <subcommand|group> [parameters] [<subcommand> [parameters] ...]
 
         Commands not related to a particular device:
-            $ pyzkaccess command [parameters]
+            $ pyzkaccess <command> [parameters]
+
+    Every command, group and subcommand has its own help contents, just
+    type them and append `--help` at the end.
+
+    For example, getting help for `connect` command:
+        $ pyzkaccess connect --help
+
+    Or for `where` subcommand of `table` subcommand:
+        $ pyzkaccess connect 192.168.1.201 table User where --help
     """
     def __init__(self):
         self.__call__()
@@ -810,9 +843,9 @@ class CLI:
                 format, list(sorted(io_formats.keys()))
             ))
 
-        if isinstance(pyzkaccess.ctypes.WinDLL, Mock):
-            print("WARN: PyZKAccess doesn't work on non-Windows system. "
-                  "Actually you can see CLI help contents only")
+        if isinstance(pyzkaccess.ctypes_.WinDLL, Mock):
+            sys.stderr.write("WARN: PyZKAccess doesn't work on non-Windows system. "
+                             "Actually you can see CLI help contents only\n")
 
         self._format = format
         self._file = file
@@ -826,7 +859,8 @@ class CLI:
 
         Args:
             ip (str): IP address of a device
-            model (DeviceModels): device model. Possible values are: ZK100, ZK200, ZK400
+            model (DeviceModels): device model. Possible values are:
+            ZK100, ZK200, ZK400
         """
         model = device_models.get(model)
         if model is None:
@@ -852,20 +886,19 @@ class CLI:
         Args:
             broadcast_address: Address for broadcast IP packets. Default: 255.255.255.255
         """
-        formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out)
+        headers = ['mac', 'ip', 'serial_number', 'model', 'version']
+        formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out, headers)
         converter = TextConverter(formatter)
 
-        devices = ZKAccess.search_devices(broadcast_address)
-        out = []
-        for device in devices:
-            out.append({
-                'mac': device.mac,
-                'ip': device.ip,
-                'serial_number': device.serial_number,
-                'model': device.model.name,
-                'version': device.version
-            })
-        converter.write_records(out)
+        def _search_devices():
+            devices = ZKAccess.search_devices(broadcast_address)
+            for device in devices:
+                values = [
+                    device.mac, device.ip, device.serial_number, device.model.name, device.version
+                ]
+                yield dict(zip(headers, values))
+
+        converter.write_records(_search_devices())
 
 
 def main():
@@ -874,4 +907,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
