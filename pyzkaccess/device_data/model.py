@@ -218,7 +218,7 @@ class Model(metaclass=ModelMeta):
             self._raw_data = {
                 fm[field]: getattr(self.__class__, field).to_raw_value(fields.get(field))
                 for field in fm.keys() & fields.keys()
-                if fields.get(field) is not None  # FIXME: add tests
+                if fields.get(field) is not None
             }
 
     @property
