@@ -18,7 +18,7 @@ class TestZKSDK:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.dllpath = 'testdll.dll'  # noqa
-        with patch('pyzkaccess.ctypes.WinDLL', create=True) as m:
+        with patch('pyzkaccess.ctypes_.WinDLL', create=True) as m:
             from pyzkaccess.sdk import ZKSDK
 
             self.t = ZKSDK(self.dllpath)  # noqa
