@@ -8,6 +8,7 @@ from typing import Type, Any, Iterable, TextIO, Mapping, Generator, Set, Union, 
 from unittest.mock import Mock
 
 import fire
+import prettytable
 from fire.core import FireError
 
 import pyzkaccess.ctypes_
@@ -31,6 +32,11 @@ doors_params_error = object()
 class BaseFormatter(metaclass=abc.ABCMeta):
     """Base class for particular formatters"""
     class WriterInterface(metaclass=abc.ABCMeta):
+        def __init__(self, ostream: TextIO, headers: list):
+            self._ostream = ostream
+            self._headers = headers
+            self._writer = None
+
         @abc.abstractmethod
         def write(self, record: Mapping[str, str]) -> None:
             pass
@@ -42,7 +48,7 @@ class BaseFormatter(metaclass=abc.ABCMeta):
     def __init__(self, istream: TextIO, ostream: TextIO, headers: Iterable[str]):
         self._istream = istream
         self._ostream = ostream
-        self._headers = set(headers)
+        self._headers = list(sorted(headers))
 
     @staticmethod
     def get_formatter(io_format: str) -> 'Type[BaseFormatter]':
@@ -62,31 +68,26 @@ class BaseFormatter(metaclass=abc.ABCMeta):
 class CSVFormatter(BaseFormatter):
     """Formatter for comma-separated values format"""
     class CSVWriter(BaseFormatter.WriterInterface):
-        def __init__(self, ostream: TextIO, headers: set):
-            self._ostream = ostream
-            self._headers = headers
-            self._writer = None
-
         def write(self, record: Mapping[str, str]) -> None:
-            if record.keys() > self._headers:
-                record = {k: v for k, v in record.items() if k in self._headers}
+            record = {k: record.get(k) for k in self._headers}
 
             if self._writer is None:
-                self._writer = csv.DictWriter(self._ostream, sorted(self._headers))
+                self._writer = csv.DictWriter(self._ostream, self._headers)
                 self._writer.writeheader()
 
             self._writer.writerow(record)
 
         def flush(self) -> None:
             if self._writer is None:
-                self._writer = csv.DictWriter(self._ostream, sorted(self._headers))
+                self._writer = csv.DictWriter(self._ostream, self._headers)
                 self._writer.writeheader()
+
+            self._ostream.flush()
 
     def get_reader(self) -> Iterable[Mapping[str, str]]:
         def _reader():
             for item in csv.DictReader(self._istream):
-                if item.keys() > self._headers:
-                    item = {k: v for k, v in item.items() if k in self._headers}
+                item = {k: item[k] for k in self._headers}
                 yield item
 
         return _reader()
@@ -95,8 +96,29 @@ class CSVFormatter(BaseFormatter):
         return CSVFormatter.CSVWriter(self._ostream, self._headers)
 
 
+class ASCIITableFormatter(CSVFormatter):
+    class ASCIITableWriter(BaseFormatter.WriterInterface):
+        def write(self, record: Mapping[str, str]) -> None:
+            if self._writer is None:
+                self._writer = prettytable.PrettyTable(field_names=self._headers, align='l')
+
+            record = [record.get(k) for k in self._headers]
+            self._writer.add_row(record)
+
+        def flush(self) -> None:
+            if self._writer is None:
+                self._writer = prettytable.PrettyTable(field_names=self._headers, align='l')
+
+            self._ostream.write(self._writer.get_string())
+            self._ostream.flush()
+
+    def get_writer(self) -> BaseFormatter.WriterInterface:
+        return ASCIITableFormatter.ASCIITableWriter(self._ostream, self._headers)
+
+
 io_formats = {
-    'csv': CSVFormatter
+    'csv': CSVFormatter,
+    'ascii_table': ASCIITableFormatter
 }
 
 
@@ -722,9 +744,9 @@ class Parameters:
             raise FireError('Parameters may be used only for single door')
 
         formatter = BaseFormatter.get_formatter(opt_io_format)(
-            data_in, data_out, self._readable_params
+            data_in, data_out, ['parameter_name']
         )
-        converter = TypedFieldConverter(formatter, self._prop_types)
+        converter = TextConverter(formatter)
         converter.write_records({'parameter_name': x} for x in sorted(self._readable_params))
 
     def set(self, **parameters):
@@ -855,7 +877,7 @@ class CLI:
     def __init__(self):
         self.__call__()
 
-    def __call__(self, *, format: str = 'csv', file: str = None, dllpath: str = 'plcommpro.dll'):
+    def __call__(self, *, format: str = 'ascii_table', file: str = None, dllpath: str = 'plcommpro.dll'):
         if format not in io_formats:
             # Workaround of "Could not consume arg" message appearing
             # instead of exception message problem
@@ -870,7 +892,8 @@ class CLI:
             sys.stderr.write("WARN: PyZKAccess doesn't work on non-Windows system. "
                              "Actually you can see CLI help contents only\n")
 
-        self._format = format
+        global opt_io_format
+        opt_io_format = format
         self._file = file
         self._dllpath = dllpath
 
