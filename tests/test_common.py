@@ -152,3 +152,37 @@ class TestZKDatetimeUtils:
     @pytest.mark.parametrize('value', (date(2020, 4, 12), datetime(2020, 4, 12)))
     def test_date_to_zkdate__should_convert_to_zkdate(self, value):
         assert ZKDatetimeUtils.date_to_zkdate(value) == '20200412'
+
+    @pytest.mark.parametrize('value,expect', (
+        (16842752, datetime(1970, 1, 1, 0, 0, 0)),
+        (16842753, datetime(1970, 1, 1, 0, 1, 0)),
+        (16843008, datetime(1970, 1, 1, 1, 0, 0)),
+        (16908544, datetime(1970, 1, 2, 1, 0, 0)),
+        (33620224, datetime(1970, 2, 1, 1, 0, 0)),
+        (67174656, datetime(1970, 4, 1, 1, 0, 0)),
+    ))
+    def test_zktimemoment_to_datetime__should_convert_to_datetime(self, value, expect):
+        assert ZKDatetimeUtils.zktimemoment_to_datetime(value) == expect
+
+    def test_zktimemoment_to_datetime__on_empty_value__should_return_none(self):
+        assert ZKDatetimeUtils.zktimemoment_to_datetime(0) is None
+
+    @pytest.mark.parametrize('value', (None, object()))
+    def test_zktimemoment_to_datetime__on_bad_value_type__should_raise_error(self, value):
+        with pytest.raises(TypeError):
+            ZKDatetimeUtils.zktimemoment_to_datetime(value)
+
+    def test_zktimemoment_to_datetime__on_bad_value__should_raise_error(self):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.zktimemoment_to_datetime('')
+
+    @pytest.mark.parametrize('value,expect', (
+        (datetime(1970, 1, 1, 0, 0, 0), 16842752),
+        (datetime(1970, 1, 1, 0, 1, 0), 16842753),
+        (datetime(1970, 1, 1, 1, 0, 0), 16843008),
+        (datetime(1970, 1, 2, 1, 0, 0), 16908544),
+        (datetime(1970, 2, 1, 1, 0, 0), 33620224),
+        (datetime(1970, 4, 1, 1, 0, 0), 67174656),
+    ))
+    def test_datetime_to_zktimemoment__should_convert_to_zktimemoment(self, value, expect):
+        assert ZKDatetimeUtils.datetime_to_zktimemoment(value) == expect

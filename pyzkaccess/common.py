@@ -340,3 +340,48 @@ class ZKDatetimeUtils:
 
         """
         return d.strftime('%Y%m%d')
+
+    @staticmethod
+    def zktimemoment_to_datetime(zktm: Union[str, int]) -> Optional[datetime]:
+        """Decode 4-byte time annual time moment to a datetime with
+        year and timezone ignored. Such approach is used in
+        DaylightSavingTime, StandardTime parameters.
+
+        Simply put, each byte represents time piece in order: month,
+        day, hour, minute
+
+        Args:
+            zktm: (Union[str, int]): encoded annual time moment as
+                integer or as number in string
+
+        Returns:
+            datetime: decoded datetime object
+        """
+        if zktm in ('0', 0):
+            return None
+
+        if isinstance(zktm, str):
+            zktm = int(zktm)
+
+        return datetime(
+            year=1970,
+            month=(zktm >> 24) & 0xff,
+            day=(zktm >> 16) & 0xff,
+            hour=(zktm >> 8) & 0xff,
+            minute=zktm & 0xff
+        )
+
+    @staticmethod
+    def datetime_to_zktimemoment(dt: datetime) -> int:
+        """Encode time moment in datetime object into a 4-byte integer
+        used in a device as annual time moment representation. Year and
+        timezone will be ignored. Such approach is used in
+        DaylightSavingTime, StandardTime parameters.
+
+        Args:
+            dt: datetime object
+
+        Returns:
+            int: encoded annual time moment
+        """
+        return int((dt.month << 24) | (dt.day << 16) | (dt.hour << 8) | dt.minute)
