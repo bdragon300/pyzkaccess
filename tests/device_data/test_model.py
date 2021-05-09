@@ -200,6 +200,24 @@ class TestField:
         set_cb.assert_not_called()
         validation_cb.assert_not_called()
 
+    @pytest.mark.parametrize('datatype,value', (
+        (datetime, '2020-12-13 14:15:16'),
+        (tuple, '123'),
+        (EnumStub, '456'),
+        (bool, '1'),
+        (bool, '0')
+    ))
+    def test_to_field_value__if_get_cb_returns_none__should_return_none(self, datatype, value):
+        set_cb = Mock()
+        validation_cb = Mock()
+        obj = Field('my_name', datatype, lambda _: None, set_cb, validation_cb)
+
+        res = obj.to_field_value(value)
+
+        assert res is None
+        set_cb.assert_not_called()
+        validation_cb.assert_not_called()
+
     @pytest.mark.parametrize('datatype,value,get_cb,expect', (
         (
             str,
@@ -359,6 +377,7 @@ class TestModelMeta:
 
         assert {'field1': str, 'field2': int}.items() <= MyModel.__annotations__.items()
 
+
 class TestModel:
     def test_init__should_set_default_attributes(self):
         obj = ModelStub()
@@ -369,6 +388,11 @@ class TestModel:
 
     def test_init__if_fields_has_passed__should_initialize_raw_data_only_with_given_fields(self):
         obj = ModelStub(incremented_field=123)
+
+        assert obj.raw_data == {'IncField': '122'}
+
+    def test_init__if_nones_has_passed_in_fields__should_ignore_them(self):
+        obj = ModelStub(incremented_field=123, append_foo_field=None)
 
         assert obj.raw_data == {'IncField': '122'}
 

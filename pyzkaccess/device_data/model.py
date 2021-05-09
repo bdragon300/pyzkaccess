@@ -134,7 +134,7 @@ class Field:
         """
         if self._get_cb is not None:
             value = self._get_cb(value)
-        if not isinstance(value, self._field_datatype):
+        if not isinstance(value, self._field_datatype) and value is not None:
             value = self._field_datatype(value)
 
         return value
@@ -218,6 +218,7 @@ class Model(metaclass=ModelMeta):
             self._raw_data = {
                 fm[field]: getattr(self.__class__, field).to_raw_value(fields.get(field))
                 for field in fm.keys() & fields.keys()
+                if fields.get(field) is not None  # FIXME: add tests
             }
 
     @property
