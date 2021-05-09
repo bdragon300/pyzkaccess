@@ -158,7 +158,7 @@ class QuerySet:
 
     _ModelArgT = TypeVar('_ModelArgT', Model, Mapping[str, Any])
 
-    def upsert(self, records: Union[Sequence[_ModelArgT], _ModelArgT]) -> None:
+    def upsert(self, records: Union[Iterable[_ModelArgT], _ModelArgT]) -> None:
         """Update/insert given records (or upsert) to a table.
 
         Every table on a device has primary key. Typically, it is "pin"
@@ -176,20 +176,20 @@ class QuerySet:
             zk.table(User).upsert([User(pin='0', card='123456'), User(pin='1', card='654321')])
 
         Args:
-            records (Union[Sequence[_ModelArgT], _ModelArgT]): record
+            records (Union[Iterable[_ModelArgT], _ModelArgT]): record
                 dict, Model instance or a sequence of those
 
         Returns:
             None
 
         """
-        if not isinstance(records, (Sequence, Model, Mapping)):
-            raise TypeError('Argument must be a sequence, Model or mapping')
+        if not isinstance(records, (Iterable, Model, Mapping)):
+            raise TypeError('Argument must be a iterable, Model or mapping')
 
         gen = self._sdk.set_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
 
-    def delete(self, records: Union[Sequence[_ModelArgT], _ModelArgT]) -> None:
+    def delete(self, records: Union[Iterable[_ModelArgT], _ModelArgT]) -> None:
         """Delete given records from a table.
         
         Every table on a device has primary key. Typically, it is "pin"
@@ -211,8 +211,8 @@ class QuerySet:
             None
 
         """
-        if not isinstance(records, (Sequence, Model, Mapping)):
-            raise TypeError('Argument must be a sequence, Model or mapping')
+        if not isinstance(records, (Iterable, Model, Mapping)):
+            raise TypeError('Argument must be a iterable, Model or mapping')
 
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
