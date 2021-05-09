@@ -3,7 +3,7 @@ __all__ = [
 ]
 from typing import Optional, Sequence, Union, Type
 
-import pyzkaccess.ctypes as ctypes
+import pyzkaccess.ctypes_ as ctypes
 import pyzkaccess.sdk
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
