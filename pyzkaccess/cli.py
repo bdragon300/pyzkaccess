@@ -706,11 +706,6 @@ class Parameters:
         self._prop_types = {k: getattr(v.fget, '__annotations__', {}).get('return', str)
                             for k, v in props.items()}
 
-        self._formatter = BaseFormatter.get_formatter(opt_io_format)(
-            data_in, data_out, self._readable_params
-        )
-        self._converter = TypedFieldConverter(self._formatter, self._prop_types)
-
     def __call__(self, *, names: list = None):
         if self._item is doors_params_error:
             raise FireError('Parameters may be used only for single door')
@@ -734,7 +729,11 @@ class Parameters:
             sys.stderr.write('ERROR: Unknown parameters were given: {}\n'.format(extra_names))
             raise FireError('Unknown parameters were given: {}'.format(extra_names))
 
-        self._converter.write_records(
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, names
+        )
+        converter = TypedFieldConverter(formatter, self._prop_types)
+        converter.write_records(
             [{name: getattr(self._item, name) for name in sorted(names)}]
         )
 
@@ -763,22 +762,26 @@ class Parameters:
         if readonly_params:
             raise FireError('The following parameters are read-only: {}'.format(readonly_params))
 
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, parameters.keys()
+        )
+        converter = TypedFieldConverter(formatter, self._prop_types)
         if parameters:
-            self._set_from_args(parameters)
+            self._set_from_args(parameters, converter)
         else:
-            self._set_from_input()
+            self._set_from_input(converter)
 
-    def _set_from_input(self):
-        for record in self._converter.read_records():
+    def _set_from_input(self, converter):
+        for record in converter.read_records():
             for k, v in record.items():
                 setattr(self._item, k, v)
 
-    def _set_from_args(self, args: dict):
+    def _set_from_args(self, args: dict, converter):
         extra_names = args.keys() - set(self._readable_params)
         if extra_names:
             raise FireError('Unknown parameters were given: {}'.format(extra_names))
 
-        typed_items = self._converter.to_record_dict(args)
+        typed_items = converter.to_record_dict(args)
         for name, val in typed_items.items():
             setattr(self._item, name, val)
 
