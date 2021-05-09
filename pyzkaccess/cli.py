@@ -364,12 +364,12 @@ class Query:
             self._io_converter.write_records(self._qs)
 
     def where(self, **filters) -> 'Query':
-        """Add filtering by field value to a query
+        """Add filtering by fields to a query.
 
         Filtering conditions are set by flags. Several conditions will
         be AND'ed.
 
-        For example, select Users with card=123456 AND group=4:
+        For example, select Users records with card=123456 AND group=4:
             $ ... table User where --card=123456 --group=4
 
         Args:
@@ -382,10 +382,25 @@ class Query:
 
         return self
 
+    def unread(self) -> 'Query':
+        """Add condition to print unread records only.
+
+         Some tables on device has a pointer which is set to the last
+        record on each query. If no records have been inserted to
+        a table since last read, the "unread" query will return nothing
+
+        For example, select only unread Users records with card=123456
+             $ ... table User where --card=123456 unread
+        """
+        self._qs = self._qs.unread()
+        return self
+
     def upsert(self):
-        """Upsert (update or insert) operation. If given record already
-        exists in a table, then it will be updated. Otherwise it will
-        be inserted. Consumes input data from stdin/file.
+        """Upsert (update or insert) operation.
+
+        If given record already exists in a table, then it will be
+        updated. Otherwise it will be inserted. Consumes input data
+        from stdin/file.
 
         For example, upsert records to the User table from stdin:
             $ cat records.csv | ... table User upsert
@@ -395,9 +410,10 @@ class Query:
         self._qs = None
 
     def delete(self):
-        """Delete given records from a table. If given record does not
-        exist in a table, then it is skipped. Consumes input data from
-        stdin/file.
+        """Delete given records from a table.
+
+        If given record does not exist in a table, then it is skipped.
+        Consumes input data from stdin/file.
 
         For example, delete records, which come from stdin, from the User table:
             $ cat records.csv | ... table User delete
@@ -419,7 +435,7 @@ class Query:
 
     def count(self):
         """Return records count in a table. Executes quickly since
-        it is implemented by a separate device request
+        it is implemented by a separate device request.
 
         For example, get records count in the User table:
             $ ... table User count
