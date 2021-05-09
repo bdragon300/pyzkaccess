@@ -270,7 +270,7 @@ class TestField:
         obj.append_foo_field = "WowFoo"
         obj.incremented_field = 123
 
-        assert obj.raw_data == {'IncField': '122', 'FooField': 'Wow'}
+        assert obj._raw_data == {'IncField': '122', 'FooField': 'Wow'}
 
     def test_set_descriptor__should_set_dirty_flag(self):
         obj = ModelStub().with_raw_data({}, False)
@@ -285,7 +285,7 @@ class TestField:
 
         obj.incremented_field = None
 
-        assert obj.raw_data == {'FooField': 'Magic'}
+        assert obj._raw_data == {'FooField': 'Magic'}
 
     def test_set_descriptor__should_consider_field_validation(self):
         obj = ModelStub()
@@ -307,7 +307,7 @@ class TestField:
 
         del obj.incremented_field
 
-        assert obj.raw_data == {'FooField': 'Magic'}
+        assert obj._raw_data == {'FooField': 'Magic'}
 
     def test_del_descriptor__should_set_dirty_flag(self):
         obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, False)
@@ -389,12 +389,12 @@ class TestModel:
     def test_init__if_fields_has_passed__should_initialize_raw_data_only_with_given_fields(self):
         obj = ModelStub(incremented_field=123)
 
-        assert obj.raw_data == {'IncField': '122'}
+        assert obj._raw_data == {'IncField': '122'}
 
     def test_init__if_nones_has_passed_in_fields__should_ignore_them(self):
         obj = ModelStub(incremented_field=123, append_foo_field=None)
 
-        assert obj.raw_data == {'IncField': '122'}
+        assert obj._raw_data == {'IncField': '122'}
 
     def test_init__if_unknown_fields_has_passed__should_raise_error(self):
         with pytest.raises(TypeError):
@@ -414,10 +414,10 @@ class TestModel:
 
         assert obj.dict == {'incremented_field': 124, 'append_foo_field': None}
 
-    def test_raw_data__should_return_raw_data(self):
-        obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'})
+    def test_raw_data__should_return_raw_data_appended_with_empty_string_for_absend_keys(self):
+        obj = ModelStub().with_raw_data({'IncField': '123'})
 
-        assert obj.raw_data == {'IncField': '123', 'FooField': 'Magic'}
+        assert obj.raw_data == {'IncField': '123', 'FooField': ''}
 
     def test_fields_mapping__should_return_fields_mapping(self):
         assert ModelStub.fields_mapping() == {
@@ -475,7 +475,7 @@ class TestModel:
     def test_with_raw_data__should_set_raw_data_and_dirty_flag(self, dirty_flag):
         obj = ModelStub().with_raw_data({'IncField': '123', 'FooField': 'Magic'}, dirty_flag)
 
-        assert obj.raw_data == {'IncField': '123', 'FooField': 'Magic'}
+        assert obj._raw_data == {'IncField': '123', 'FooField': 'Magic'}
         assert obj._dirty == dirty_flag
 
     def test_with_raw_data__should_return_self(self):
@@ -488,7 +488,7 @@ class TestModel:
         obj = ModelStub().with_raw_data({'A': 'val1'}, False).with_sdk(sdk)
 
         assert obj._sdk is sdk
-        assert obj.raw_data == {'A': 'val1'}
+        assert obj._raw_data == {'A': 'val1'}
         assert obj._dirty is False
 
     def test_with_sdk__should_return_self(self):
@@ -501,7 +501,7 @@ class TestModel:
         obj = ModelStub().with_raw_data({'A': 'val1'}, False).with_zk(zk)
 
         assert obj._sdk is zk.sdk
-        assert obj.raw_data == {'A': 'val1'}
+        assert obj._raw_data == {'A': 'val1'}
         assert obj._dirty is False
 
     def test_with_zk__should_return_self(self):

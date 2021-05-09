@@ -228,7 +228,7 @@ class Model(metaclass=ModelMeta):
     @property
     def raw_data(self) -> Mapping[str, str]:
         """Return the raw data that we read from or write to a device"""
-        return self._raw_data
+        return {field: self._raw_data.get(field, '') for field in self._fields_mapping.values()}
 
     @classmethod
     def fields_mapping(cls) -> Mapping[str, str]:
