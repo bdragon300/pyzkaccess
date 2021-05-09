@@ -1,5 +1,6 @@
 import abc
 import csv
+import re
 import sys
 from datetime import date, time, datetime
 from enum import Enum
@@ -297,28 +298,34 @@ class ModelConverter(TypedFieldConverter):
             ))
 
 
-def parse_array_index(opt_indexes: Optional[Union[int, list, tuple]]) -> Union[int, slice]:
+def parse_array_index(opt_indexes: Optional[Union[int, str]]) -> Union[int, slice]:
     """
     Parse index/range cli parameter and return appropriate int or slice
 
         >>> assert parse_array_index(None) == slice(None, None, None)
         >>> assert parse_array_index(1) == int(1)
-        >>> assert parse_array_index((1, 2)) == slice(1, 2, None)
-        >>> assert parse_array_index([1, 2]) == slice(1, 2, None)
+        >>> assert parse_array_index('1-2') == slice(1, 2, None)
 
     Args:
-        opt_indexes(Union[int, list, tuple], optional): index or range
+        opt_indexes(Union[int, str], optional): index or range
 
     Returns:
         Union[int, slice]: int or slice suitable for sequences indexing
     """
     if opt_indexes is None:
         return slice(None, None)
-    if isinstance(opt_indexes, (list, tuple)):
-        start = opt_indexes[0] if opt_indexes else None
-        stop = opt_indexes[1] if len(opt_indexes) > 1 else None
+    if isinstance(opt_indexes, str):
+        if not re.match(r'^\d-\d$', opt_indexes):
+            raise FireError("Select range must contain numbers divided by dash, for example 0-3")
+
+        pieces = opt_indexes.split('-')
+        start = int(pieces.pop(0)) if pieces else None
+        stop = int(pieces.pop(0) or 1000) + 1 if pieces else None
         return slice(start, stop)
     if isinstance(opt_indexes, int):
+        if opt_indexes < 0:
+            raise FireError("Select index must be a positive number")
+
         return opt_indexes
 
     raise FireError("Numbers must be list or int")
@@ -435,7 +442,7 @@ class Doors:
         Args:
             indexes: Doors to select. You can select a single door by
                 passing an index `select 1`. Or select a range by
-                passing a list as `select 0,3` (doors 0, 1 and 2
+                passing a list as `select 0-2` (doors 0, 1 and 2
                 will be selected). Indexes are started from 0.
         """
         self._items = self._items[parse_array_index(indexes)]
@@ -490,7 +497,7 @@ class Relays:
         Args:
             indexes: Relays to select. You can select a single relay by
                 passing an index `select 1`. Or select a range by
-                passing a list as `select 0,3` (relays 0, 1 and 2
+                passing a list as `select 0-2` (relays 0, 1 and 2
                 will be selected). Indexes are started from 0.
         """
         self._items = self._items[parse_array_index(indexes)]
@@ -517,7 +524,7 @@ class Readers:
         Args:
             indexes: Readers to select. You can select a single reader
                 by passing an index `select 1`. Or select a range by
-                passing a list as `select 0,3` (readers 0, 1 and 2
+                passing a list as `select 0-2` (readers 0, 1 and 2
                 will be selected). Indexes are started from 0.
         """
         self._items = self._items[parse_array_index(indexes)]
@@ -539,7 +546,7 @@ class AuxInputs:
         Args:
             indexes: Aux input to select. You can select a single
                 aux input by passing an index `select 1`. Or select
-                a range by passing a list as `select 0,3` (aux inputs
+                a range by passing a list as `select 0-2` (aux inputs
                 0, 1 and 2 will be selected). Indexes are started
                 from 0.
         """
