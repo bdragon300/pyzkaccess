@@ -116,6 +116,36 @@ class ASCIITableFormatter(CSVFormatter):
         return ASCIITableFormatter.ASCIITableWriter(self._ostream, self._headers)
 
 
+class EventsPollFormatter(CSVFormatter):
+    """Formatter special for events.poll iterative function output
+    for 'ascii_table' mode
+    """
+    class ASCIITableWriter(BaseFormatter.WriterInterface):
+        FIELD_FORMAT = '{:>15}{:>5}{:>15}{:>15}{:>5}{:>25}{:>15}'
+
+        def write(self, record: Mapping[str, str]) -> None:
+            if self._writer is None:
+                self._writer = self.FIELD_FORMAT
+                self._ostream.write(self._writer.format(*self._headers))
+                self._ostream.write('\n')
+
+            record = [str(record.get(k) or '') for k in self._headers]
+            self._ostream.write(self._writer.format(*record))
+            self._ostream.write('\n')
+            self._ostream.flush()
+
+        def flush(self) -> None:
+            if self._writer is None:
+                self._writer = self.FIELD_FORMAT
+                self._ostream.write(self._writer.format(*self._headers))
+                self._ostream.write('\n')
+
+            self._ostream.flush()
+
+    def get_writer(self) -> BaseFormatter.WriterInterface:
+        return EventsPollFormatter.ASCIITableWriter(self._ostream, self._headers)
+
+
 io_formats = {
     'csv': CSVFormatter,
     'ascii_table': ASCIITableFormatter
@@ -612,6 +642,12 @@ class Events:
         formatter = BaseFormatter.get_formatter(opt_io_format)(
             data_in, data_out, self._event_field_types.keys()
         )
+        # Use ad-hoc formatter because ascii table formatter
+        # can't print data iteratively as it arrives, and whole contents
+        # prints only when poll function exits by timeout
+        if opt_io_format == 'ascii_table':
+            formatter = EventsPollFormatter(data_in, data_out, self._event_field_types.keys())
+
         self._io_converter = TypedFieldConverter(formatter, self._event_field_types)
 
     def __call__(self):
