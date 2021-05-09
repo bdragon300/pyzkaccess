@@ -17,7 +17,7 @@ after_success:
 jobs:
   include:
   - stage: build-docs
-    install: pip install setuptools pdoc3 wrapt fire
+    install: pip install setuptools pdoc3 wrapt fire prettytable
     script:
       - pdoc3 -o docs --template-dir pdoc_tpl --html pyzkaccess
     after_success: true  # https://travis-ci.community/t/does-skipping-everything-else-in-a-job-skip-deploy/6461/2
