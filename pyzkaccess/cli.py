@@ -203,7 +203,6 @@ class TypedFieldConverter(BaseConverter):
             date: lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
             time: lambda x: datetime.strptime(x, '%H:%M:%S').time(),
             datetime: lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
-            Enum: self._parse_enum,
             DaylightSavingMomentMode1: lambda x: DaylightSavingMomentMode1.strptime(x, '%m-%d %H:%M'),
             DaylightSavingMomentMode2: self._parse_daylight_saving_moment_mode2
         }
@@ -218,7 +217,6 @@ class TypedFieldConverter(BaseConverter):
             date: lambda x: x.strftime('%Y-%m-%d'),
             time: lambda x: x.strftime('%H:%M:%S'),
             datetime: lambda x: x.strftime('%Y-%m-%d %H:%M:%S'),
-            Enum: lambda x: str(x.value),
             DaylightSavingMomentMode1: lambda x: x.strftime('%m-%d %H:%M'),
             DaylightSavingMomentMode2: self._unparse_daylight_saving_moment_mode2
         }
@@ -245,34 +243,27 @@ class TypedFieldConverter(BaseConverter):
         return {fname: self._unparse_value(fval, self._field_types.get(fname, str))
                 for fname, fval in record.items()}
 
-    def _parse_value(self, value: str, field_datatype: Type) -> Optional[Any]:
+    def _parse_value(self, value: str, field_datatype) -> Optional[Any]:
         if value == '':
             return None
         if issubclass(field_datatype, Enum):
-            field_datatype = Enum
+            return field_datatype[value]
+
         return self._input_converters[field_datatype](value)
 
-    def _unparse_value(self, value: Optional[Any], field_datatype: Type) -> str:
+    def _unparse_value(self, value: Optional[Any], field_datatype) -> str:
         if value is None:
             return ''
         if issubclass(field_datatype, Enum):
-            field_datatype = Enum
+            return value.name
+
         return self._output_converters[field_datatype](value)
-
-    @staticmethod
-    def _parse_enum(value: str) -> Enum:
-        try:
-            res = Enum(value)
-        except ValueError:
-            res = Enum(int(value))
-
-        return res
 
     def _parse_tuple(self, value: str) -> tuple:
         return tuple(value.split(self.TUPLE_SEPARATOR))
 
     def _unparse_tuple(self, value: tuple) -> str:
-        return self.TUPLE_SEPARATOR.join(self._output_converters[type(x)](x) for x in value)
+        return self.TUPLE_SEPARATOR.join(self._unparse_value(x, type(x)) for x in value)
 
     def _parse_daylight_saving_moment_mode1(self, value: str) -> DaylightSavingMomentMode1:
         args = [int(x) for x in self._parse_tuple(value)]
