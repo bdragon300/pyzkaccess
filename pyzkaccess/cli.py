@@ -847,6 +847,75 @@ class ZKCommand:
         )
         return Query(qs, ModelConverter(formatter, table_cls))
 
+    def read_raw(self, name: str, *, buffer_size=32768):
+        """Return raw data from a given table.
+
+        ZKAccess device keeps table values as strings, many of these
+        fields are encoded (some date fields, for instance). This
+        command returns data as it stores on a device, without
+        applying any type convertions or decoding, like `table`
+        command does.
+
+        This command works on low level. So, it accepts buffer size
+        for storing a result. If you are observed that results
+        are cut, its makes sense to increase buffer size.
+
+        Args:
+            name: table name. Possible values are:
+                'User', 'UserAuthorize', 'Holiday', 'Timezone',
+                'Transaction', 'FirstCard', 'MultiCard', 'InOutFun',
+                'TemplateV10'
+            buffer_size: buffer size in bytes to store a result.
+                Default is 32Kb
+        """
+        if name not in models_registry:
+            raise FireError("Unknown table '{}', possible values are: {}".format(
+                name, list(sorted(models_registry.keys()))
+            ))
+        table_cls = models_registry[name]
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, table_cls.fields_mapping().values()
+        )
+        converter = TextConverter(formatter)
+        converter.write_records(
+            self._zk.sdk.get_device_data(table_cls.table_name, [], {}, buffer_size, False)
+        )
+
+    def write_raw(self, name: str):
+        """Write raw data to a given table.
+
+        ZKAccess device keeps table values as strings, many of these
+        fields are encoded (some date fields, for instance). This
+        command expects input data as it stores on a device, without
+        applying any type convertions or decoding (like `table`
+        command does).
+
+        Args:
+            name: table name. Possible values are:
+                'User', 'UserAuthorize', 'Holiday', 'Timezone',
+                'Transaction', 'FirstCard', 'MultiCard', 'InOutFun',
+                'TemplateV10'
+        """
+        if name not in models_registry:
+            raise FireError("Unknown table '{}', possible values are: {}".format(
+                name, list(sorted(models_registry.keys()))
+            ))
+        table_cls = models_registry[name]
+        formatter = BaseFormatter.get_formatter(opt_io_format)(
+            data_in, data_out, table_cls.fields_mapping().values()
+        )
+        converter = TextConverter(formatter)
+
+        gen = self._zk.sdk.set_device_data(table_cls.table_name)
+        gen.send(None)
+        for record in converter.read_records():
+            gen.send(record)
+
+        try:
+            gen.send(None)
+        except StopIteration:
+            pass
+
     @property
     def doors(self) -> Doors:
         """Select doors to operate. This command gives access to
