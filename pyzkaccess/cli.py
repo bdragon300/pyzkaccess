@@ -10,6 +10,7 @@ from unittest.mock import Mock
 
 import fire
 import prettytable
+import wrapt
 from fire.core import FireError
 
 import pyzkaccess.ctypes_
@@ -1058,7 +1059,8 @@ class CLI:
 
             global data_in
             global data_out
-            data_out = data_in = self._file
+            data_in = self._file
+            data_out = WriteFile(self._file)
 
         self._dllpath = dllpath
 
@@ -1110,6 +1112,15 @@ class CLI:
                 yield dict(zip(headers, values))
 
         converter.write_records(_search_devices())
+
+
+class WriteFile(wrapt.ObjectProxy):
+    """Wrapper around file-like object which truncates file to a
+    current position on flush
+    """
+    def flush(self):
+        self.__wrapped__.truncate()
+        self.__wrapped__.flush()
 
 
 def main():
