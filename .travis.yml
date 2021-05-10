@@ -29,7 +29,6 @@ jobs:
       local_dir: docs
       target_branch: gh-pages
       on:
-        tags: true
         branch: master
   - stage: deploy
     script: skip
