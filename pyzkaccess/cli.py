@@ -198,22 +198,17 @@ class TypedFieldConverter(BaseConverter):
         # stdin and converts to a field value
         # {type: (cast_function, error message)
         self._input_converters = {
-            str: (lambda x: str(x), 'string'),
-            bool: (lambda x: bool(int(x)), 'boolean, 0 or 1'),
+            str: (str, 'string'),
+            bool: (lambda x: {'True': True, 'False': False}[x.capitalize()],
+                   'boolean, "True" or "False"'),
             int: (int, 'integer'),
             tuple: (self._parse_tuple, 'comma separated values'),
-            date: (
-                lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
-                'date string, e.g. "2020-02-01"'
-            ),
-            time: (
-                lambda x: datetime.strptime(x, '%H:%M:%S').time(),
-                'time string, e.g. "07:40:00"'
-            ),
-            datetime: (
-                lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
-                'datetime string, e.g. "2020-02-01 07:40:00"'
-            ),
+            date: (lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
+                   'date string, e.g. "2020-02-01"'),
+            time: (lambda x: datetime.strptime(x, '%H:%M:%S').time(),
+                   'time string, e.g. "07:40:00"'),
+            datetime: (lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
+                       'datetime string, e.g. "2020-02-01 07:40:00"'),
             DaylightSavingMomentMode1: (
                 lambda x: DaylightSavingMomentMode1.strptime(x, '%m-%d %H:%M'),
                 'datetime moment, e.g. "02-01 07:40"'
@@ -229,8 +224,8 @@ class TypedFieldConverter(BaseConverter):
         # The following functions converts field values to their string
         # representation suitable for stdout output
         self._output_converters = {
-            str: lambda x: str(x),
-            bool: lambda x: str(int(x)),
+            str: str,
+            bool: str,
             int: str,
             tuple: self._unparse_tuple,
             date: lambda x: x.strftime('%Y-%m-%d'),
