@@ -1,5 +1,6 @@
 import abc
 import csv
+import os
 import re
 import sys
 from datetime import date, time, datetime
@@ -1001,11 +1002,20 @@ class CLI:
 
     Or for `where` subcommand of `table` subcommand:
         $ pyzkaccess connect 192.168.1.201 table User where --help
+
+    Args:
+        format: format for input/output. Possible values are: ascii_table,
+            csv. Default is ascii_table.
+        file: read and write to/from this file instead of stdin/stdout
+        dllpath: path to PULL SDK dll file. Default is just
+            "plcommpro.dll"
     """
     def __init__(self):
         self.__call__()
 
-    def __call__(self, *, format: str = 'ascii_table', file: str = None, dllpath: str = 'plcommpro.dll'):
+    def __call__(
+            self, *, format: str = 'ascii_table', file: str = None, dllpath: str = 'plcommpro.dll'
+    ):
         if format not in io_formats:
             # Workaround of "Could not consume arg" message appearing
             # instead of exception message problem
@@ -1022,7 +1032,23 @@ class CLI:
 
         global opt_io_format
         opt_io_format = format
-        self._file = file
+
+        self._file = None
+        if file:
+            d = os.path.dirname(file)
+            if not os.path.isdir(d):
+                # Workaround of "Could not consume arg" message appearing
+                # instead of exception message problem
+                sys.stderr.write("ERROR: Directory '{}' does not exist\n".format(d))
+                raise FireError("Directory {} does not exist".format(d))
+
+            self._file = open(file, 'r+')
+            self._file.seek(0)
+
+            global data_in
+            global data_out
+            data_out = data_in = self._file
+
         self._dllpath = dllpath
 
         return self
@@ -1076,7 +1102,11 @@ class CLI:
 
 
 def main():
-    fire.Fire(CLI())
+    cli = CLI()
+    fire.Fire(cli)
+
+    if cli._file is not None:
+        cli._file.close()
 
 
 if __name__ == '__main__':
