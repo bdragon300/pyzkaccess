@@ -1,5 +1,6 @@
 import abc
 import csv
+import os
 import re
 import sys
 from datetime import date, time, datetime
@@ -56,6 +57,16 @@ class BaseFormatter(metaclass=abc.ABCMeta):
             raise FireError("{} format(s) are only supported", sorted(io_formats.keys()))
         return io_formats[io_format]
 
+    def validate_headers(self, input_headers: Union[set, KeysView]):
+        headers = set(self._headers)
+        extra = input_headers - headers
+        if extra:
+            raise FireError("Unknown fields in input: {}".format(extra))
+
+        missed = headers - input_headers
+        if missed:
+            raise FireError("Missed fields in input: {}".format(extra))
+
     @abc.abstractmethod
     def get_reader(self) -> Iterable[Mapping[str, str]]:
         pass
@@ -86,7 +97,12 @@ class CSVFormatter(BaseFormatter):
 
     def get_reader(self) -> Iterable[Mapping[str, str]]:
         def _reader():
+            checked = False
             for item in csv.DictReader(self._istream):
+                if checked is False:
+                    self.validate_headers(item.keys())
+                    checked = True
+
                 item = {k: item[k] for k in self._headers}
                 yield item
 
@@ -96,7 +112,7 @@ class CSVFormatter(BaseFormatter):
         return CSVFormatter.CSVWriter(self._ostream, self._headers)
 
 
-class ASCIITableFormatter(CSVFormatter):
+class ASCIITableFormatter(BaseFormatter):
     class ASCIITableWriter(BaseFormatter.WriterInterface):
         def write(self, record: Mapping[str, str]) -> None:
             if self._writer is None:
@@ -114,6 +130,11 @@ class ASCIITableFormatter(CSVFormatter):
 
     def get_writer(self) -> BaseFormatter.WriterInterface:
         return ASCIITableFormatter.ASCIITableWriter(self._ostream, self._headers)
+
+    def get_reader(self) -> Iterable[Mapping[str, str]]:
+        raise FireError(
+            'You should to specify input data format, e.g. `pyzkaccess --format=csv ...`'
+        )
 
 
 class EventsPollFormatter(CSVFormatter):
@@ -197,22 +218,17 @@ class TypedFieldConverter(BaseConverter):
         # stdin and converts to a field value
         # {type: (cast_function, error message)
         self._input_converters = {
-            str: (lambda x: str(x), 'string'),
-            bool: (lambda x: bool(int(x)), 'boolean, 0 or 1'),
+            str: (str, 'string'),
+            bool: (lambda x: {'True': True, 'False': False}[x.capitalize()],
+                   'boolean, "True" or "False"'),
             int: (int, 'integer'),
             tuple: (self._parse_tuple, 'comma separated values'),
-            date: (
-                lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
-                'date string, e.g. "2020-02-01"'
-            ),
-            time: (
-                lambda x: datetime.strptime(x, '%H:%M:%S').time(),
-                'time string, e.g. "07:40:00"'
-            ),
-            datetime: (
-                lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
-                'datetime string, e.g. "2020-02-01 07:40:00"'
-            ),
+            date: (lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
+                   'date string, e.g. "2020-02-01"'),
+            time: (lambda x: datetime.strptime(x, '%H:%M:%S').time(),
+                   'time string, e.g. "07:40:00"'),
+            datetime: (lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
+                       'datetime string, e.g. "2020-02-01 07:40:00"'),
             DaylightSavingMomentMode1: (
                 lambda x: DaylightSavingMomentMode1.strptime(x, '%m-%d %H:%M'),
                 'datetime moment, e.g. "02-01 07:40"'
@@ -228,8 +244,8 @@ class TypedFieldConverter(BaseConverter):
         # The following functions converts field values to their string
         # representation suitable for stdout output
         self._output_converters = {
-            str: lambda x: str(x),
-            bool: lambda x: str(int(x)),
+            str: str,
+            bool: str,
             int: str,
             tuple: self._unparse_tuple,
             date: lambda x: x.strftime('%Y-%m-%d'),
@@ -556,11 +572,6 @@ class Doors:
     def parameters(self):
         """Parameters related to a current door. Valid only if a
         single door was requested
-
-        Args:
-            names: Comma-separated list of parameter names to request
-                from a device. If omitted, then all parameters will be
-                requested. For example, --names=param1,param2,param3
         """
         if isinstance(self._items, Door):
             return Parameters(self._items.parameters)
@@ -988,7 +999,7 @@ class CLI:
 
     Typical CLI usage:
         Commands for a connected device:
-            $ pyzkaccess connect <ip> <subcommand|group> [parameters] [<subcommand> [parameters] ...]
+            $ pyzkaccess connect <ip> <subcommand|group> [parameters] [<subcommand> [parameters]...]
 
         Commands not related to a particular device:
             $ pyzkaccess <command> [parameters]
@@ -1001,11 +1012,20 @@ class CLI:
 
     Or for `where` subcommand of `table` subcommand:
         $ pyzkaccess connect 192.168.1.201 table User where --help
+
+    Args:
+        format: format for input/output. Possible values are: ascii_table,
+            csv. Default is ascii_table.
+        file: read and write to/from this file instead of stdin/stdout
+        dllpath: path to PULL SDK dll file. Default is just
+            "plcommpro.dll"
     """
     def __init__(self):
         self.__call__()
 
-    def __call__(self, *, format: str = 'ascii_table', file: str = None, dllpath: str = 'plcommpro.dll'):
+    def __call__(
+            self, *, format: str = 'ascii_table', file: str = None, dllpath: str = 'plcommpro.dll'
+    ):
         if format not in io_formats:
             # Workaround of "Could not consume arg" message appearing
             # instead of exception message problem
@@ -1022,7 +1042,23 @@ class CLI:
 
         global opt_io_format
         opt_io_format = format
-        self._file = file
+
+        self._file = None
+        if file:
+            d = os.path.dirname(file)
+            if not os.path.isdir(d):
+                # Workaround of "Could not consume arg" message appearing
+                # instead of exception message problem
+                sys.stderr.write("ERROR: Directory '{}' does not exist\n".format(d))
+                raise FireError("Directory {} does not exist".format(d))
+
+            self._file = open(file, 'r+')
+            self._file.seek(0)
+
+            global data_in
+            global data_out
+            data_out = data_in = self._file
+
         self._dllpath = dllpath
 
         return self
@@ -1076,7 +1112,11 @@ class CLI:
 
 
 def main():
-    fire.Fire(CLI())
+    cli = CLI()
+    fire.Fire(cli)
+
+    if cli._file is not None:
+        cli._file.close()
 
 
 if __name__ == '__main__':
