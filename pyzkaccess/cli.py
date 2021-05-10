@@ -97,7 +97,7 @@ class CSVFormatter(BaseFormatter):
         return CSVFormatter.CSVWriter(self._ostream, self._headers)
 
 
-class ASCIITableFormatter(CSVFormatter):
+class ASCIITableFormatter(BaseFormatter):
     class ASCIITableWriter(BaseFormatter.WriterInterface):
         def write(self, record: Mapping[str, str]) -> None:
             if self._writer is None:
@@ -115,6 +115,11 @@ class ASCIITableFormatter(CSVFormatter):
 
     def get_writer(self) -> BaseFormatter.WriterInterface:
         return ASCIITableFormatter.ASCIITableWriter(self._ostream, self._headers)
+
+    def get_reader(self) -> Iterable[Mapping[str, str]]:
+        raise FireError(
+            'You should to specify input data format, e.g. `pyzkaccess --format=csv ...`'
+        )
 
 
 class EventsPollFormatter(CSVFormatter):
