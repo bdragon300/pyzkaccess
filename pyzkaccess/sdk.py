@@ -3,7 +3,7 @@ __all__ = [
 ]
 from typing import Sequence, Mapping, Any, Generator, Optional
 
-import pyzkaccess.ctypes as ctypes
+import pyzkaccess.ctypes_ as ctypes
 from .exceptions import ZKSDKError
 
 

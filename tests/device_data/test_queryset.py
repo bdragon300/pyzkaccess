@@ -251,7 +251,7 @@ class TestQuerySet:
         ),
         (
             [{'incremented_field': 123, 'append_foo_field': 'MagicFoo'}, {'incremented_field': 5}],
-            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
+            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4', 'FooField': ''}]
         ),
         (
                 ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
@@ -262,7 +262,7 @@ class TestQuerySet:
                 ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
                 ModelStub(incremented_field=5)
             ],
-            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
+            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4', 'FooField': ''}]
         )
     ))
     def test_upsert__should_add_records_to_table(self, data, expect, generator_sends_collector):
@@ -313,7 +313,7 @@ class TestQuerySet:
         ),
         (
             [{'incremented_field': 123, 'append_foo_field': 'MagicFoo'}, {'incremented_field': 5}],
-            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
+            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4', 'FooField': ''}]
         ),
         (
                 ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
@@ -324,7 +324,7 @@ class TestQuerySet:
                 ModelStub(incremented_field=123, append_foo_field='MagicFoo'),
                 ModelStub(incremented_field=5)
             ],
-            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}]
+            [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4', 'FooField': ''}]
         )
     ))
     def test_delete__should_delete_records_to_table(self, data, expect, generator_sends_collector):
@@ -370,7 +370,7 @@ class TestQuerySet:
         assert items == []
 
     @pytest.mark.parametrize('data', (
-        [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4'}],
+        [{'IncField': '122', 'FooField': 'Magic'}, {'IncField': '4', 'FooField': ''}],
         []
     ))
     def test_delete_all__should_delete_records_from_queryset(self, data, generator_sends_collector):

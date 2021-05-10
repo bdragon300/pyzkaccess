@@ -17,4 +17,4 @@ except ImportError:
         'unittest.mock.Mock object',
         category=ImportWarning
     )
-    WinDLL = Mock()
+    WinDLL = Mock()  # FIXME: replace Mock on dll stub with errors on every call

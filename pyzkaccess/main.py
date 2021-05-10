@@ -3,7 +3,7 @@ __all__ = [
 ]
 from typing import Optional, Sequence, Union, Type
 
-import pyzkaccess.ctypes as ctypes
+import pyzkaccess.ctypes_ as ctypes
 import pyzkaccess.sdk
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
@@ -66,7 +66,7 @@ class ZKAccess:
             if not connstr:
                 self.connstr = \
                     'protocol=TCP,ipaddress={},port=4370,timeout=4000,passwd='.format(device.ip)
-            if not device_model:
+            if not device_model:  # FIXME: if device_model and device.model are in conflict
                 self.device_model = device.model
 
         if self.connstr:
@@ -108,7 +108,7 @@ class ZKAccess:
         mdl = self.device_model
         readers = (Reader(self.sdk, self._event_log, x) for x in mdl.readers_def)
         aux_inputs = (AuxInput(self.sdk, self._event_log, n) for n in mdl.aux_inputs_def)
-        relays = (Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def))
+        relays = [Relay(self.sdk, g, n) for g, n in zip(mdl.groups_def, mdl.relays_def)]
         door_relays = (
             RelayList(self.sdk, relays=[x for x in relays if x.number == door])
             for door in mdl.doors_def

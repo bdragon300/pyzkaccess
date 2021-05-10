@@ -66,6 +66,7 @@ class PassageDirection(Enum):
 
 class HolidayLoop(Enum):
     """Holiday type -- annual or not"""
+    unknown = 0
     annual = 1
     not_annual = 2
 

@@ -8,15 +8,35 @@ __all__ = [
 import re
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
+from .common import ZKDatetimeUtils
 from .device import ZKModel
 from .enums import SensorType, VerifyMode
 from .sdk import ZKSDK
-from .common import ZKDatetimeUtils
+
+
+class DaylightSavingMomentMode1(datetime):
+    """Daylight saving parameters used in mode1 setting (all parameters
+    in one request). See `DLSTMode`, `DaylightSavingTime`,
+    `StandardTime` parameters in SDK docs
+    """
+    def __new__(cls, month=None, day=None, hour=0, minute=0):
+        return datetime.__new__(cls, 1970, month, day, hour, minute, 0)
+
+    def __repr__(self):
+        return super().strftime('%m-%d %H:%M')
+
+    def to_datetime(self) -> datetime:
+        return datetime(1970, self.month, self.day, self.hour, self.minute)
+
+    @classmethod
+    def from_datetime(cls, dt: datetime):
+        return cls(month=dt.month, day=dt.day, hour=dt.hour, minute=dt.minute)
 
 
 def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
-    def read(self):
+    def read(self) -> int:
         query = query_name_spring if self.is_daylight else query_name_fall
         res = self._sdk.get_device_param(parameters=(query,), buffer_size=self.buffer_size)
         res = int(res[query])
@@ -25,7 +45,7 @@ def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
 
         return res
 
-    def write(self, value):
+    def write(self, value: int):
         query = query_name_spring if self.is_daylight else query_name_fall
         if not isinstance(value, int):
             raise TypeError('Bad value type, should be int')
@@ -37,48 +57,19 @@ def _make_daylight_prop(query_name_spring, query_name_fall, minimum, maximum):
     return property(fget=read, fset=write, fdel=None, doc=None)
 
 
-class DaylightSavingMomentMode1:
-    """Daylight saving parameters used in mode1 setting (all parameters
-    in one request). See `DLSTMode`, `DaylightSavingTime`,
-    `StandardTime` parameters in SDK docs
-    """
-    def __init__(self, month, day, hour, minute):
-        self.month = int(month)
-        self.day = int(day)
-        self.hour = int(hour)
-        self.minute = int(minute)
-
-        if not(1 <= self.month <= 12):
-            raise ValueError('Month must have value in range 1..12')
-        if not(1 <= self.day <= 7):
-            raise ValueError('Day of week must have value in range 1..7')
-        if not(0 <= self.hour <= 23):
-            raise ValueError('Hour must have value in range 0..23')
-        if not(0 <= self.minute <= 59):
-            raise ValueError('Minute must have value in range 0..59')
-
-    def __str__(self):
-        return '-'.join(str(x) for x in (self.month, self.day, self.hour, self.minute))
-
-    def __repr__(self):
-        pieces = 'month', 'day', 'hour', 'minute'
-        return '{}({})'.format(self.__class__.__name__,
-                               ', '.join('{}={}'.format(x, getattr(self, x)) for x in pieces))
-
-
 class DaylightSavingMomentMode2:
     """Daylight saving parameters used in mode2 setting (each parameter
     in a separate request). See `DLSTMode`, `WeekOfMonth*` parameters
     in SDK docs
     """
-    def __init__(self, sdk: ZKSDK, is_daylight: bool, buffer_size: int):
+    def __init__(self, sdk: Optional[ZKSDK], is_daylight: bool, buffer_size: int):
         self.is_daylight = is_daylight
         self.buffer_size = buffer_size
         self._sdk = sdk
 
     month = _make_daylight_prop('WeekOfMonth1', 'WeekOfMonth6', 1, 12)
     week_of_month = _make_daylight_prop('WeekOfMonth2', 'WeekOfMonth7', 1, 6)
-    day_of_week = _make_daylight_prop('WeekOfMonth3', 'WeekOfMonth8', 1, 7)
+    day_of_week = _make_daylight_prop('WeekOfMonth3', 'WeekOfMonth8', 0, 7)
     hour = _make_daylight_prop('WeekOfMonth4', 'WeekOfMonth9', 0, 23)
     minute = _make_daylight_prop('WeekOfMonth5', 'WeekOfMonth10', 0, 59)
 
@@ -194,11 +185,6 @@ class DeviceParameters(BaseParameters):
         lambda x: x is True
     )
     reader_direction = _make_prop('InBIOTowWay', str, str, True, True, 'One-way/Two-way reader')
-    fingerprint_version = _make_prop(
-        '~ZKFPVersion', int, int, True, False,
-        'Device fingerprint identification version. Available values: 9, 10',
-        lambda x: x in (9, 10)
-    )
     display_daylight_saving = _make_prop(
         '~DSTF', int, bool, True, True, 'Display parameters of daylight saving time'
     )
@@ -210,6 +196,19 @@ class DeviceParameters(BaseParameters):
         'Daylight saving mode, available values 0 (mode 1), 1 (mode 2)',
         lambda x: x in (0, 1)
     )
+
+    @property
+    def fingerprint_version(self) -> int:
+        """Device fingerprint identification version. Available values: 9, 10 (read-only)"""
+        res = self._sdk.get_device_param(parameters=('~ZKFPVersion',), buffer_size=self.buffer_size)
+        res = res['~ZKFPVersion']
+        if res == '':
+            return 0
+        res = int(res)
+        if res not in (9, 10):
+            raise ValueError('Fingerprint version must be 9 or 10, got: {}'.format(res))
+
+        return res
 
     @property
     def anti_passback_rule(self) -> int:
@@ -277,23 +276,29 @@ class DeviceParameters(BaseParameters):
         """Spring forward daylight saving time (mode 1) (read-write)"""
         res = self._sdk.get_device_param(parameters=('DaylightSavingTime',),
                                          buffer_size=self.buffer_size)
-        res = [int(x) for x in res['DaylightSavingTime'].split('-')]  # FIXME: extract bytes?
-        return DaylightSavingMomentMode1(month=res[0], day=res[1], hour=res[2], minute=res[3])
+        dt = ZKDatetimeUtils.zktimemoment_to_datetime(res['DaylightSavingTime'])
+        if dt is not None:
+            return DaylightSavingMomentMode1.from_datetime(dt)
 
     @spring_daylight_time_mode1.setter
     def spring_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self._sdk.set_device_param(parameters={'DaylightSavingTime': str(value)})
+        self._sdk.set_device_param(
+            parameters={'DaylightSavingTime': ZKDatetimeUtils.datetime_to_zktimemoment(value)}
+        )
 
     @property
     def fall_daylight_time_mode1(self) -> DaylightSavingMomentMode1:
         """Fall back daylight saving time (mode 1) (read-write)"""
         res = self._sdk.get_device_param(parameters=('StandardTime',), buffer_size=self.buffer_size)
-        res = [int(x) for x in res['StandardTime'].split('-')]
-        return DaylightSavingMomentMode1(month=res[0], day=res[1], hour=res[2], minute=res[3])
+        dt = ZKDatetimeUtils.zktimemoment_to_datetime(res['StandardTime'])
+        if dt is not None:
+            return DaylightSavingMomentMode1.from_datetime(dt)
 
     @fall_daylight_time_mode1.setter
     def fall_daylight_time_mode1(self, value: DaylightSavingMomentMode1):
-        self._sdk.set_device_param(parameters={'StandardTime': str(value)})
+        self._sdk.set_device_param(
+            parameters={'StandardTime': ZKDatetimeUtils.datetime_to_zktimemoment(value)}
+        )
 
     @property
     def spring_daylight_time_mode2(self) -> DaylightSavingMomentMode2:
@@ -322,7 +327,7 @@ class DeviceParameters(BaseParameters):
             parameters={'DateTime': str(ZKDatetimeUtils.datetime_to_zkctime(value))}
         )
 
-    def _get_datetime(self):
+    def _get_datetime(self) -> datetime:
         res = self._sdk.get_device_param(parameters=('DateTime',), buffer_size=self.buffer_size)
         res = int(res['DateTime'])
         return ZKDatetimeUtils.zkctime_to_datetime(res)

@@ -53,7 +53,7 @@ class UserAuthorize(Model):
         'AuthorizeDoorId',
         tuple,
         lambda x: (bool(i) for i in '{:04b}'.format(int(x))[::-1]),
-        lambda x: int(''.join(x[::-1]), 2),
+        lambda x: int(''.join(str(int(i)) for i in x[::-1]), 2),
         lambda x: len(x) == 4
     )
 
@@ -68,6 +68,9 @@ class Holiday(Model):
 
 
 def _tz_encode(value: tuple):
+    if all(isinstance(x, str) for x in value):
+        value = tuple(datetime.strptime(x, '%Y-%m-%d') for x in value)
+
     return ZKDatetimeUtils.times_to_zktimerange(value[0], value[1])
 
 
