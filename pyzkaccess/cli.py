@@ -572,11 +572,6 @@ class Doors:
     def parameters(self):
         """Parameters related to a current door. Valid only if a
         single door was requested
-
-        Args:
-            names: Comma-separated list of parameter names to request
-                from a device. If omitted, then all parameters will be
-                requested. For example, --names=param1,param2,param3
         """
         if isinstance(self._items, Door):
             return Parameters(self._items.parameters)
@@ -1004,7 +999,7 @@ class CLI:
 
     Typical CLI usage:
         Commands for a connected device:
-            $ pyzkaccess connect <ip> <subcommand|group> [parameters] [<subcommand> [parameters] ...]
+            $ pyzkaccess connect <ip> <subcommand|group> [parameters] [<subcommand> [parameters]...]
 
         Commands not related to a particular device:
             $ pyzkaccess <command> [parameters]
