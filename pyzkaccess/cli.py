@@ -10,6 +10,7 @@ from unittest.mock import Mock
 
 import fire
 import prettytable
+import wrapt
 from fire.core import FireError
 
 import pyzkaccess.ctypes_
@@ -126,6 +127,7 @@ class ASCIITableFormatter(BaseFormatter):
                 self._writer = prettytable.PrettyTable(field_names=self._headers, align='l')
 
             self._ostream.write(self._writer.get_string())
+            self._ostream.write('\n')
             self._ostream.flush()
 
     def get_writer(self) -> BaseFormatter.WriterInterface:
@@ -1021,6 +1023,10 @@ class CLI:
             "plcommpro.dll"
     """
     def __init__(self):
+        if isinstance(pyzkaccess.ctypes_.WinDLL, Mock):
+            sys.stderr.write("WARN: PyZKAccess doesn't work on non-Windows system. "
+                             "Actually you can see CLI help contents only\n")
+
         self.__call__()
 
     def __call__(
@@ -1035,10 +1041,6 @@ class CLI:
             raise FireError("Unknown format '{}', available are: {}".format(
                 format, list(sorted(io_formats.keys()))
             ))
-
-        if isinstance(pyzkaccess.ctypes_.WinDLL, Mock):
-            sys.stderr.write("WARN: PyZKAccess doesn't work on non-Windows system. "
-                             "Actually you can see CLI help contents only\n")
 
         global opt_io_format
         opt_io_format = format
@@ -1057,7 +1059,8 @@ class CLI:
 
             global data_in
             global data_out
-            data_out = data_in = self._file
+            data_in = self._file
+            data_out = WriteFile(self._file)
 
         self._dllpath = dllpath
 
@@ -1109,6 +1112,15 @@ class CLI:
                 yield dict(zip(headers, values))
 
         converter.write_records(_search_devices())
+
+
+class WriteFile(wrapt.ObjectProxy):
+    """Wrapper around file-like object which truncates file to a
+    current position on flush
+    """
+    def flush(self):
+        self.__wrapped__.truncate()
+        self.__wrapped__.flush()
 
 
 def main():
