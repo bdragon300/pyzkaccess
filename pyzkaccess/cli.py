@@ -57,6 +57,16 @@ class BaseFormatter(metaclass=abc.ABCMeta):
             raise FireError("{} format(s) are only supported", sorted(io_formats.keys()))
         return io_formats[io_format]
 
+    def validate_headers(self, input_headers: Union[set, KeysView]):
+        headers = set(self._headers)
+        extra = input_headers - headers
+        if extra:
+            raise FireError("Unknown fields in input: {}".format(extra))
+
+        missed = headers - input_headers
+        if missed:
+            raise FireError("Missed fields in input: {}".format(extra))
+
     @abc.abstractmethod
     def get_reader(self) -> Iterable[Mapping[str, str]]:
         pass
@@ -87,7 +97,12 @@ class CSVFormatter(BaseFormatter):
 
     def get_reader(self) -> Iterable[Mapping[str, str]]:
         def _reader():
+            checked = False
             for item in csv.DictReader(self._istream):
+                if checked is False:
+                    self.validate_headers(item.keys())
+                    checked = True
+
                 item = {k: item[k] for k in self._headers}
                 yield item
 
