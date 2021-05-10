@@ -195,16 +195,34 @@ class TypedFieldConverter(BaseConverter):
 
         # The following converters parses string value respresentation from
         # stdin and converts to a field value
+        # {type: (cast_function, error message)
         self._input_converters = {
-            str: lambda x: str(x),
-            bool: lambda x: bool(int(x)),
-            int: int,
-            tuple: self._parse_tuple,
-            date: lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
-            time: lambda x: datetime.strptime(x, '%H:%M:%S').time(),
-            datetime: lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
-            DaylightSavingMomentMode1: lambda x: DaylightSavingMomentMode1.strptime(x, '%m-%d %H:%M'),
-            DaylightSavingMomentMode2: self._parse_daylight_saving_moment_mode2
+            str: (lambda x: str(x), 'string'),
+            bool: (lambda x: bool(int(x)), 'boolean, 0 or 1'),
+            int: (int, 'integer'),
+            tuple: (self._parse_tuple, 'comma separated values'),
+            date: (
+                lambda x: datetime.strptime(x, '%Y-%m-%d').date(),
+                'date string, e.g. "2020-02-01"'
+            ),
+            time: (
+                lambda x: datetime.strptime(x, '%H:%M:%S').time(),
+                'time string, e.g. "07:40:00"'
+            ),
+            datetime: (
+                lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
+                'datetime string, e.g. "2020-02-01 07:40:00"'
+            ),
+            DaylightSavingMomentMode1: (
+                lambda x: DaylightSavingMomentMode1.strptime(x, '%m-%d %H:%M'),
+                'datetime moment, e.g. "02-01 07:40"'
+            ),
+            DaylightSavingMomentMode2: (
+                self._parse_daylight_saving_moment_mode2,
+                '7 comma-separated values, '
+                '[month, week_of_month, day_of_week, hour, minute, is_daylight, buffer_size], '
+                'e.g "2,1,1,7,40,1,4096"'
+            )
         }
 
         # The following functions converts field values to their string
@@ -236,20 +254,31 @@ class TypedFieldConverter(BaseConverter):
         writer.flush()
 
     def to_record_dict(self, data: Mapping[str, str]) -> Mapping[str, Any]:
-        return {fname: self._parse_value(fval, self._field_types.get(fname, str))
+        return {fname: self._parse_value(fname, fval, self._field_types.get(fname, str))
                 for fname, fval in data.items()}
 
     def to_string_dict(self, record: Mapping[str, Any]) -> Mapping[str, str]:
         return {fname: self._unparse_value(fval, self._field_types.get(fname, str))
                 for fname, fval in record.items()}
 
-    def _parse_value(self, value: str, field_datatype) -> Optional[Any]:
+    def _parse_value(self, field_name: str, value: str, field_datatype) -> Optional[Any]:
         if value == '':
             return None
-        if issubclass(field_datatype, Enum):
-            return field_datatype[value]
 
-        return self._input_converters[field_datatype](value)
+        error_msg = ''
+        try:
+            if issubclass(field_datatype, Enum):
+                error_msg = 'one of values: {}'.format(
+                    ','.join(x for x in dir(field_datatype) if not x.startswith('_'))
+                )
+                return field_datatype[value]
+
+            cast, error_msg = self._input_converters[field_datatype]
+            return cast(value)
+        except (ValueError, TypeError, KeyError):
+            raise FireError(
+                "Bad value of {}={} but must be: {}".format(field_name, value, error_msg)
+            )
 
     def _unparse_value(self, value: Optional[Any], field_datatype) -> str:
         if value is None:
@@ -322,7 +351,7 @@ class ModelConverter(TypedFieldConverter):
         self._validate_field_names(self._model_fields.keys(), record)
 
         # Convert dict with text values to a model with typed values
-        return {fname: self._parse_value(fval, self._model_fields[fname].field_datatype)
+        return {fname: self._parse_value(fname, fval, self._model_fields[fname].field_datatype)
                 for fname, fval in record.items()}
 
     def to_string_dict(self, model_dict: Mapping[str, Any]) -> Mapping[str, str]:
