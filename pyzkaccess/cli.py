@@ -121,7 +121,7 @@ class EventsPollFormatter(CSVFormatter):
     for 'ascii_table' mode
     """
     class ASCIITableWriter(BaseFormatter.WriterInterface):
-        FIELD_FORMAT = '{:>15}{:>5}{:>15}{:>15}{:>5}{:>25}{:>15}'
+        FIELD_FORMAT = '{:<15}{:<5}{:<15}{:<15}{:<5}{:<25}{:<15}'
 
         def write(self, record: Mapping[str, str]) -> None:
             if self._writer is None:
