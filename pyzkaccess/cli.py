@@ -126,6 +126,7 @@ class ASCIITableFormatter(BaseFormatter):
                 self._writer = prettytable.PrettyTable(field_names=self._headers, align='l')
 
             self._ostream.write(self._writer.get_string())
+            self._ostream.write('\n')
             self._ostream.flush()
 
     def get_writer(self) -> BaseFormatter.WriterInterface:
@@ -1021,6 +1022,10 @@ class CLI:
             "plcommpro.dll"
     """
     def __init__(self):
+        if isinstance(pyzkaccess.ctypes_.WinDLL, Mock):
+            sys.stderr.write("WARN: PyZKAccess doesn't work on non-Windows system. "
+                             "Actually you can see CLI help contents only\n")
+
         self.__call__()
 
     def __call__(
@@ -1035,10 +1040,6 @@ class CLI:
             raise FireError("Unknown format '{}', available are: {}".format(
                 format, list(sorted(io_formats.keys()))
             ))
-
-        if isinstance(pyzkaccess.ctypes_.WinDLL, Mock):
-            sys.stderr.write("WARN: PyZKAccess doesn't work on non-Windows system. "
-                             "Actually you can see CLI help contents only\n")
 
         global opt_io_format
         opt_io_format = format
