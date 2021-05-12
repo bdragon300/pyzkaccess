@@ -135,6 +135,10 @@ class ZKAccess:
         res.seek(0)
         return res
 
+    def cancel_alarm(self):
+        """Move a device from alarm state to a normal state"""
+        self.sdk.control_device(ControlOperation.cancel_alarm.value, 0, 0, 0, 0)
+
     @property
     def doors(self) -> DoorList:
         """Door object list, depends on device model.

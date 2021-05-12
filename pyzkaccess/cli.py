@@ -970,6 +970,10 @@ class ZKCommand:
         """
         data_out.write(self._zk.download_file(remote_filename).read().decode())
 
+    def cancel_alarm(self):
+        """Move a device from alarm mode to normal mode. Returns nothing"""
+        self._zk.cancel_alarm()
+
     @property
     def doors(self) -> Doors:
         """Select doors to operate. This command gives access to

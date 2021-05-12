@@ -198,6 +198,16 @@ class TestZKAccess:
         assert res.getvalue() == file_data
         self.sdk.get_device_file_data.assert_called_once_with('test_file.dat', buffer_size)
 
+    def test_cancel_alarm__should_call_sdk(self):
+        self.sdk.control_device.return_value = 0
+        obj = ZKAccess(connstr=self.connstr)
+
+        obj.cancel_alarm()
+
+        self.sdk.control_device.assert_called_once_with(
+            ControlOperation.cancel_alarm.value, 0, 0, 0, 0
+        )
+
     @pytest.mark.parametrize('model,doors_count', ((ZK400, 4), (ZK200, 2), (ZK100, 1)))
     def test_doors_prop__should_return_object_sequence(self, model, doors_count):
         obj = ZKAccess(connstr=self.connstr, device_model=model)

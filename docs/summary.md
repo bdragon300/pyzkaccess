@@ -15,8 +15,7 @@ environment. *nix are also supported by Wine.
 - [x] Searching for active C3 devices by scanning a local network
 - [x] Restarting a device
 - [x] Downloading/uploading files from PC to/from a device
-- [ ] Restoring device settings from SD card backup
-- [ ] Cancelling alarm function
+- [x] Cancelling alarm function
 - [ ] Emergency resetting device network settings
 
 Here are the controllers we're taking about:
