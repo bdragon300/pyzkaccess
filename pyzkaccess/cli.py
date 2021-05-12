@@ -1,5 +1,6 @@
 import abc
 import csv
+import io
 import os
 import re
 import sys
@@ -948,6 +949,26 @@ class ZKCommand:
             gen.send(None)
         except StopIteration:
             pass
+
+    def upload_file(self, remote_filename: str):
+        """Upload data to a file with given name on a device. By
+        default, this command reads data from stdin, use `--file`
+        cli option to set a file
+
+        Args:
+            remote_filename: name of file on a device to write
+        """
+        self._zk.upload_file(remote_filename, io.BytesIO(data_in.read().encode()))
+
+    def download_file(self, remote_filename: str):
+        """Download a file with given name from a device. By
+        default, this command prints data to stdin, use `--file`
+        cli option to set a file
+
+        Args:
+            remote_filename: name of file on a device to download
+        """
+        data_out.write(self._zk.download_file(remote_filename).read().decode())
 
     @property
     def doors(self) -> Doors:
