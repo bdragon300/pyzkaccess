@@ -1,4 +1,5 @@
-from unittest.mock import patch
+import io
+from unittest.mock import patch, call
 
 import pytest
 
@@ -131,6 +132,71 @@ class TestZKAccess:
         res = obj.table('User')
 
         assert isinstance(res, QuerySetStub)
+
+    def test_upload_file__should_upload_file(self):
+        self.sdk.set_device_file_data.return_value = None
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+        data_stream = io.BytesIO(b'file_data!')
+
+        obj.upload_file('test_file.dat', data_stream)
+
+        self.sdk.set_device_file_data.assert_called_once_with('test_file.dat', b'file_data!', 10)
+
+    def test_upload_file__should_preserve_stream_pointer_position(self):
+        self.sdk.set_device_file_data.return_value = None
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+        data_stream = io.BytesIO(b'file_data!')
+        data_stream.seek(3)
+
+        obj.upload_file('test_file.dat', data_stream)
+
+        self.sdk.set_device_file_data.assert_called_once_with('test_file.dat', b'e_data!', 7)
+        assert data_stream.tell() == 3
+
+    def test_download_file__should_download_file_with_default_buffer_size(self):
+        file_data = b'file_data!'
+        self.sdk.get_device_file_data.return_value = file_data
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+
+        res = obj.download_file('test_file.dat')
+
+        assert isinstance(res, io.BytesIO)
+        assert res.getvalue() == file_data
+        self.sdk.get_device_file_data.assert_called_once_with('test_file.dat', 4096)
+
+    @pytest.mark.parametrize('data_size', (4096, 8191))
+    def test_download_file__if_buffer_got_overflowed__should_repeat_with_double_buffer_size(
+            self, data_size
+    ):
+        def se(*a, **kw):
+            return file_data[:a[1]]
+
+        file_data = b'a' * data_size
+        self.sdk.get_device_file_data.side_effect = se
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+        expect_calls = [
+            call('test_file.dat', 4096),
+            call('test_file.dat', 8192)
+        ]
+
+        res = obj.download_file('test_file.dat')
+
+        self.sdk.get_device_file_data.assert_has_calls(expect_calls)
+        assert isinstance(res, io.BytesIO)
+        assert res.tell() == 0
+        assert len(res.getvalue()) == len(file_data)
+
+    @pytest.mark.parametrize('buffer_size', (5, 4096))
+    def test_download_file__if_buffer_size_explicitly_set__should_call_sdk_once(self, buffer_size):
+        file_data = b'a' * buffer_size
+        self.sdk.get_device_file_data.return_value = file_data
+        obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
+
+        res = obj.download_file('test_file.dat', buffer_size)
+
+        assert isinstance(res, io.BytesIO)
+        assert res.getvalue() == file_data
+        self.sdk.get_device_file_data.assert_called_once_with('test_file.dat', buffer_size)
 
     @pytest.mark.parametrize('model,doors_count', ((ZK400, 4), (ZK200, 2), (ZK100, 1)))
     def test_doors_prop__should_return_object_sequence(self, model, doors_count):

@@ -1,7 +1,11 @@
 __all__ = [
     'ZKSDK'
 ]
-from typing import Sequence, Mapping, Any, Generator, Optional
+
+import io
+import os
+import sys
+from typing import Sequence, Mapping, Any, Generator, Optional, BinaryIO
 
 import pyzkaccess.ctypes_ as ctypes
 from .exceptions import ZKSDKError
@@ -401,6 +405,46 @@ class ZKSDK:
         err = self.dll.DeleteDeviceData(self.handle, query_table, query_records, '')
         if err < 0:
             raise ZKSDKError('DeleteDeviceData failed', err)
+
+    def get_device_file_data(self, remote_filename: str, buffer_size: int) -> bytes:
+        """Download file with given remote filename from a device
+
+        SDK: GetDeviceFileData()
+
+        Args:
+            remote_filename: file name to download
+            buffer_size: buffer size in bytes for incoming file data
+
+        Returns:
+            bytes: bytes with file data
+        """
+        buf = ctypes.create_string_buffer(buffer_size)
+        query_filename = remote_filename.encode()
+
+        err = self.dll.GetDeviceFileData(self.handle, buf, buffer_size, query_filename, '')
+        if err < 0:
+            raise ZKSDKError('GetDeviceFileData failed', err)
+
+        return buf.value
+
+    def set_device_file_data(self, remote_filename: str, file_data: bytes, size: int) -> None:
+        """Upload file with given remote filename to a device
+
+        SDK: SetDeviceFileData()
+
+        Args:
+            remote_filename (str): file name to upload
+            file_data (bytes): file data bytes
+            size (int): data size in bytes to write
+
+        Returns:
+
+        """
+        query_filename = remote_filename.encode()
+
+        err = self.dll.SetDeviceFileData(self.handle, query_filename, file_data[:size], size, '')
+        if err < 0:
+            raise ZKSDKError('SetDeviceFileData failed', err)
 
     def __del__(self):
         self.disconnect()
