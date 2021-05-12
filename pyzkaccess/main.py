@@ -1,7 +1,11 @@
 __all__ = [
     'ZKAccess'
 ]
-from typing import Optional, Sequence, Union, Type
+
+import io
+import os
+import sys
+from typing import Optional, Sequence, Union, Type, BinaryIO
 
 import pyzkaccess.ctypes_ as ctypes
 import pyzkaccess.sdk
@@ -86,6 +90,50 @@ class ZKAccess:
         """
         table = self._get_table(table)
         return self.queryset_class(self.sdk, table, self.query_buffer_size)
+
+    def upload_file(self, remote_filename: str, data: BinaryIO) -> None:
+        """Upload a file with given name to a device
+
+        Args:
+            remote_filename (str): filename to upload
+            data (BinaryIO): file data binary stream
+        """
+        pos = data.tell()
+        data.seek(0, os.SEEK_END)
+        size = data.tell() - pos
+        data.seek(pos)
+
+        self.sdk.set_device_file_data(remote_filename, data.read(), size)
+
+        data.seek(pos)
+
+    def download_file(self, remote_filename: str, buffer_size: Optional[int] = None) -> BinaryIO:
+        """Download file with given name from a device.
+
+        Args:
+            remote_filename (str): filename to download from a device
+            buffer_size (int, optional): size of buffer for downloading
+                file data. If omitted, then it will be guessed
+                automatically
+
+        Returns:
+            BinaryIO: file data binary stream
+        """
+        estimated_size = buffer_size
+        if buffer_size is None:
+            estimated_size = 1 * 1024 * 1024  # Start from 4kb
+
+        data = self.sdk.get_device_file_data(remote_filename, estimated_size)
+        while buffer_size is None and len(data) >= estimated_size:
+            # Read data size == buffer_size means in most cases
+            # that buffer got overflowed and it's needed to
+            # increase buffer size and read again
+            estimated_size *= 2
+            data = self.sdk.get_device_file_data(remote_filename, estimated_size)
+
+        res = io.BytesIO(data)
+        res.seek(0)
+        return res
 
     @property
     def doors(self) -> DoorList:

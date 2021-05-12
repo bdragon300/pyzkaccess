@@ -1,3 +1,5 @@
+import ctypes
+import io
 from unittest.mock import patch, call, ANY
 
 import pytest
@@ -561,6 +563,68 @@ class TestZKSDK:
 
         with pytest.raises(ZKSDKError) as e:
             self.t.get_device_data_count('table1')
+
+        assert e.value.err == errno
+        assert self.t.handle is not None
+
+    def test_get_device_file_data__should_return_file_data(self):
+        def se(*a, **kw):
+            a[1].value = b'test_data!'
+            return 0
+
+        self.t.handle = handle = 12345
+        self.dll_mock.GetDeviceFileData.side_effect = se
+        expect = b'test_data!'
+
+        res = self.t.get_device_file_data("test_file.dat", 4096)
+
+        assert res == expect
+        self.dll_mock.GetDeviceFileData.assert_called_once_with(
+            handle, ANY, ANY, b'test_file.dat', ''
+        )
+
+    def test_get_device_file_data__if_error_occured__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.GetDeviceFileData.return_value = errno
+
+        with pytest.raises(ZKSDKError) as e:
+            self.t.get_device_file_data('test_file.dat', 4096)
+
+        assert e.value.err == errno
+        assert self.t.handle is not None
+
+    def test_set_device_file_data__should_send_file_data(self):
+        self.t.handle = handle = 12345
+        self.dll_mock.SetDeviceFileData.return_value = 0
+        data = b'test_data!'
+
+        self.t.set_device_file_data('test_file.dat', data, 10)
+
+        self.dll_mock.SetDeviceFileData.assert_called_once_with(
+            handle, b'test_file.dat', data, 10, ''
+        )
+
+    def test_set_device_file_data__if_size_less_than_data__should_send_only_this_part(self):
+        self.t.handle = handle = 12345
+        self.dll_mock.SetDeviceFileData.return_value = 0
+        data = b'test_data!'
+        expect = b'test_'
+
+        self.t.set_device_file_data('test_file.dat', data, 5)
+
+        self.dll_mock.SetDeviceFileData.assert_called_once_with(
+            handle, b'test_file.dat', expect, 5, ''
+        )
+
+    def test_set_device_file_data__if_error_occured__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.SetDeviceFileData.return_value = errno
+        data = b'test_data!'
+
+        with pytest.raises(ZKSDKError) as e:
+            self.t.set_device_file_data('test_file.dat', data, 10)
 
         assert e.value.err == errno
         assert self.t.handle is not None
