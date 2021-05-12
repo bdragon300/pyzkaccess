@@ -14,7 +14,7 @@ environment. *nix are also supported by Wine.
 - [x] Getting/setting door parameters such as smart card modes, intervals, entry modes, etc.
 - [x] Searching for active C3 devices by scanning a local network
 - [x] Restarting a device
-- [ ] Downloading/uploading files from PC to/from a device
+- [x] Downloading/uploading files from PC to/from a device
 - [ ] Restoring device settings from SD card backup
 - [ ] Cancelling alarm function
 - [ ] Emergency resetting device network settings
