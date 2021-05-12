@@ -16,7 +16,7 @@ environment. *nix are also supported by Wine.
 - [x] Restarting a device
 - [x] Downloading/uploading files from PC to/from a device
 - [x] Cancelling alarm function
-- [ ] Emergency resetting device network settings
+- [x] Change IP address by broadcast method
 
 Here are the controllers we're taking about:
 

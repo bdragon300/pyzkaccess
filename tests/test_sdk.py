@@ -4,7 +4,7 @@ from unittest.mock import patch, call, ANY
 
 import pytest
 
-from pyzkaccess.enums import ControlOperation
+from pyzkaccess.enums import ControlOperation, ChangeIPProtocol
 from pyzkaccess.exceptions import ZKSDKError
 from collections import OrderedDict
 
@@ -678,6 +678,30 @@ class TestZKSDK:
 
         assert e.value.err == errno
         assert self.t.handle is not None
+
+    def test_modify_ip_address__should_call_sdk(self):
+        self.t.handle = 12345
+        self.dll_mock.ModifyIPAddress.return_value = 0
+
+        self.t.modify_ip_address(
+            '00:17:61:01:88:27', '192.168.1.100', '255.255.255.0', ChangeIPProtocol.udp.value
+        )
+
+        self.dll_mock.ModifyIPAddress.assert_called_once_with(
+            b'UDP', b'255.255.255.0', b'MAC=00:17:61:01:88:27,IPAddress=192.168.1.100'
+        )
+
+    def test_modify_ip_address__if_error_occurred__should_raise_error(self):
+        errno = -2
+        self.t.handle = 12345
+        self.dll_mock.ModifyIPAddress.return_value = errno
+
+        with pytest.raises(ZKSDKError) as e:
+            self.t.modify_ip_address(
+                '00:17:61:01:88:27', '192.168.1.100', '255.255.255.0', ChangeIPProtocol.udp.value
+            )
+
+        assert e.value.err == errno
 
     def test_object_deletion_by_gc__should_disconnect(self):
         handle = 12345

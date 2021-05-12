@@ -8,12 +8,13 @@ from pyzkaccess.aux_input import AuxInput, AuxInputList
 from pyzkaccess.device import ZK400, ZK200, ZK100, ZKDevice
 from pyzkaccess.device_data.queryset import QuerySet
 from pyzkaccess.door import Door, DoorList
-from pyzkaccess.enums import ControlOperation
+from pyzkaccess.enums import ControlOperation, ChangeIPProtocol
 from pyzkaccess.event import EventLog
 from pyzkaccess.param import DeviceParameters
 from pyzkaccess.reader import Reader, ReaderList
 from pyzkaccess.relay import Relay, RelayList
 from pyzkaccess.tables import User
+from pyzkaccess.exceptions import ZKSDKError
 
 
 class TestZKAccess:
@@ -385,6 +386,18 @@ class TestZKAccess:
 
         self.sdk.control_device.assert_called_once_with(ControlOperation.restart.value, 0, 0, 0, 0)
         assert obj.connstr == self.connstr
+
+    def test_change_ip_address__shoudl_call_sdk_function(self):
+        self.sdk.modify_ip_address.return_value = None
+
+        ZKAccess.change_ip(
+            '00:17:61:01:88:27', '192.168.1.100', '255.255.255.0', ChangeIPProtocol.udp, 'path'
+        )
+
+        self.sdk.modify_ip_address.assert_called_once_with(
+            '00:17:61:01:88:27', '192.168.1.100', '255.255.255.0', 'UDP'
+        )
+
 
     def test_context_manager__should_return_self(self):
         obj = ZKAccess(connstr=self.connstr)

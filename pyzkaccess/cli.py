@@ -19,7 +19,7 @@ from pyzkaccess import ZKAccess, ZK100, ZK200, ZK400
 from pyzkaccess.device_data.model import models_registry, Model
 from pyzkaccess.device_data.queryset import QuerySet
 from pyzkaccess.door import Door
-from pyzkaccess.enums import PassageDirection, VerifyMode
+from pyzkaccess.enums import PassageDirection, VerifyMode, ChangeIPProtocol
 from pyzkaccess.param import DaylightSavingMomentMode1, DaylightSavingMomentMode2
 
 device_models = {'ZK100': ZK100, 'ZK200': ZK200, 'ZK400': ZK400}
@@ -1124,12 +1124,13 @@ class CLI:
         Args:
             broadcast_address: Address for broadcast IP packets. Default: 255.255.255.255
         """
+        # FIXME: error -2 when no devices found
         headers = ['mac', 'ip', 'serial_number', 'model', 'version']
         formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out, headers)
         converter = TextConverter(formatter)
 
         def _search_devices():
-            devices = ZKAccess.search_devices(broadcast_address)
+            devices = ZKAccess.search_devices(broadcast_address) # FIXME: dllpath
             for device in devices:
                 values = [
                     device.mac, device.ip, device.serial_number, device.model.name, device.version
@@ -1137,6 +1138,26 @@ class CLI:
                 yield dict(zip(headers, values))
 
         converter.write_records(_search_devices())
+
+    def change_ip(
+            self, mac_address: str, new_ip: str, *, broadcast_address: str = '255.255.255.255'
+    ):
+        """
+        Classmethod that changes IP address on a device without
+        making a connection to it -- by sending broadcast packets to
+        the given broadcast address. For security reasons, network
+        settings can be changed by this command on devices with
+        no password only.
+
+        Args:
+            mac_address: MAC address of a device
+            new_ip: new IP address to be set on a device
+            broadcast_address: broadcast network address to send
+                broadcast packets to
+        """
+        ZKAccess.change_ip(
+            mac_address, new_ip, broadcast_address, ChangeIPProtocol.udp, self._dllpath
+        )
 
 
 class WriteFile(wrapt.ObjectProxy):

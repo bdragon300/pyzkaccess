@@ -6,6 +6,7 @@ __all__ = [
     'PassageDirection',
     'HolidayLoop',
     'InOutFunRelayGroup',
+    'ChangeIPProtocol',
     'INOUTFUN_INPUT',
     'INOUTFUN_OUTPUT',
     'EVENT_TYPES',
@@ -77,6 +78,12 @@ class InOutFunRelayGroup(Enum):
     """
     lock = 0
     aux = 1
+
+
+class ChangeIPProtocol(Enum):
+    """Protocol to work with during emergency resetting ip address on a device"""
+    udp = 'UDP'
+    ethernet = 'Ethernet'
 
 
 INOUTFUN_INPUT = DocDict({

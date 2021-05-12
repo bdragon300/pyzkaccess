@@ -2,10 +2,7 @@ __all__ = [
     'ZKSDK'
 ]
 
-import io
-import os
-import sys
-from typing import Sequence, Mapping, Any, Generator, Optional, BinaryIO
+from typing import Sequence, Mapping, Any, Generator, Optional
 
 import pyzkaccess.ctypes_ as ctypes
 from .exceptions import ZKSDKError
@@ -449,6 +446,31 @@ class ZKSDK:
         err = self.dll.SetDeviceFileData(self.handle, query_filename, file_data[:size], size, '')
         if err < 0:
             raise ZKSDKError('SetDeviceFileData failed', err)
+
+    def modify_ip_address(self,
+                          mac_address: str,
+                          new_ip_address: str,
+                          broadcast_address: str,
+                          protocol: str,
+                          ) -> None:
+        """Change IP address on a device using broadcast method.
+        For security reasons, network settings can only be changed on
+        devices with no password.
+
+        Args:
+            protocol (str): protocol name to use
+            mac_address (str): mac address of a device
+            new_ip_address (str): new ip address that will be set on
+                a device with given mac address
+            broadcast_address (str): network broadcast address
+        """
+        protocol = protocol.encode()
+        query_parameters = 'MAC={},IPAddress={}'.format(mac_address, new_ip_address).encode()
+        broadcast_address = broadcast_address.encode()
+
+        err = self.dll.ModifyIPAddress(protocol, broadcast_address, query_parameters)
+        if err < 0:
+            raise ZKSDKError('ModifyIPAddress failed', err)
 
     def __del__(self):
         self.disconnect()

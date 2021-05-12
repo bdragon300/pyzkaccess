@@ -9,12 +9,13 @@ from typing import Optional, Sequence, Union, Type, BinaryIO
 
 import pyzkaccess.ctypes_ as ctypes
 import pyzkaccess.sdk
+from pyzkaccess.exceptions import ZKSDKError
 from .aux_input import AuxInput, AuxInputList
 from .device import ZKModel, ZK400, ZKDevice
 from .device_data.queryset import QuerySet
 from .device_data.model import Model, models_registry
 from .door import Door, DoorList
-from .enums import ControlOperation
+from .enums import ControlOperation, ChangeIPProtocol
 from .event import EventLog
 from .param import DeviceParameters, DoorParameters
 from .reader import Reader, ReaderList
@@ -326,6 +327,41 @@ class ZKAccess:
         sdk = pyzkaccess.sdk.ZKSDK(dllpath)
         devices = sdk.search_device(broadcast_address, cls.buffer_size)
         return tuple(ZKDevice(line) for line in devices)
+
+    @classmethod
+    def change_ip(cls,
+                  mac_address: str,
+                  new_ip_address: str,
+                  broadcast_address: str = '255.255.255.255',
+                  protocol: ChangeIPProtocol = ChangeIPProtocol.udp,
+                  dllpath: str = 'plcommpro.dll'
+    ) -> None:
+        """
+        Classmethod that changes IP address on a device by sending
+        broadcast packets to the given broadcast address. For security
+        reasons, network settings can only be changed on devices with
+        no password.
+
+        The default broadcast address may not work in some cases, so
+        it's better to specify your local network broadcast address.
+        For example, if your ip is `192.168.22.123` and netmask is
+        `255.255.255.0` or `/24` so address will be `192.168.22.255`.
+
+        Args:
+            mac_address (str): MAC address of a device
+            new_ip_address (str): new IP address to be set on a device
+            broadcast_address (str, default=255.255.255.255): broadcast
+                network address
+            protocol (ChangeIPProtocol, default=ChangeIPProtocol.udp): a
+                protocol to use for sending broadcast packets
+            dllpath (str, default=plcommpro.dll): path to a PULL
+                SDK DLL
+
+        Returns:
+            bool: True if operation was successful
+        """
+        sdk = pyzkaccess.sdk.ZKSDK(dllpath)
+        sdk.modify_ip_address(mac_address, new_ip_address, broadcast_address, protocol.value)
 
     def connect(self, connstr: str) -> None:
         """Connect to a device using connection string, ex:
