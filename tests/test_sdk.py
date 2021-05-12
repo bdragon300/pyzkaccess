@@ -1,3 +1,4 @@
+import ctypes
 import io
 from unittest.mock import patch, call, ANY
 
@@ -579,7 +580,7 @@ class TestZKSDK:
 
         assert res == expect
         self.dll_mock.GetDeviceFileData.assert_called_once_with(
-            handle, ANY, 4096, b'test_file.dat', ''
+            handle, ANY, ANY, b'test_file.dat', ''
         )
 
     def test_get_device_file_data__if_error_occured__should_raise_error(self):

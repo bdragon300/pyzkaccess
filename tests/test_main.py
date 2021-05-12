@@ -162,9 +162,9 @@ class TestZKAccess:
 
         assert isinstance(res, io.BytesIO)
         assert res.getvalue() == file_data
-        self.sdk.get_device_file_data.assert_called_once_with('test_file.dat', 4096)
+        self.sdk.get_device_file_data.assert_called_once_with('test_file.dat', 1 * 1024 * 1024)
 
-    @pytest.mark.parametrize('data_size', (4096, 8191))
+    @pytest.mark.parametrize('data_size', (1 * 1024 * 1024, 2 * 1024 * 1024 - 1))
     def test_download_file__if_buffer_got_overflowed__should_repeat_with_double_buffer_size(
             self, data_size
     ):
@@ -175,8 +175,8 @@ class TestZKAccess:
         self.sdk.get_device_file_data.side_effect = se
         obj = ZKAccess(connstr=self.connstr, device_model=ZK400)
         expect_calls = [
-            call('test_file.dat', 4096),
-            call('test_file.dat', 8192)
+            call('test_file.dat', 1 * 1024 * 1024),
+            call('test_file.dat', 2 * 1024 * 1024)
         ]
 
         res = obj.download_file('test_file.dat')

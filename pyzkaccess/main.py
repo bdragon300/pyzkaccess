@@ -121,7 +121,7 @@ class ZKAccess:
         """
         estimated_size = buffer_size
         if buffer_size is None:
-            estimated_size = 4096  # Start from 4kb
+            estimated_size = 1 * 1024 * 1024  # Start from 4kb
 
         data = self.sdk.get_device_file_data(remote_filename, estimated_size)
         while buffer_size is None and len(data) >= estimated_size:

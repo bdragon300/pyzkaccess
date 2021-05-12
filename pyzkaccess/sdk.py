@@ -421,7 +421,11 @@ class ZKSDK:
         buf = ctypes.create_string_buffer(buffer_size)
         query_filename = remote_filename.encode()
 
-        err = self.dll.GetDeviceFileData(self.handle, buf, buffer_size, query_filename, '')
+        # buffer size is passing by pointer
+        c_buffer_size = ctypes.c_int(buffer_size)
+        err = self.dll.GetDeviceFileData(
+            self.handle, buf, ctypes.byref(c_buffer_size), query_filename, ''
+        )
         if err < 0:
             raise ZKSDKError('GetDeviceFileData failed', err)
 
