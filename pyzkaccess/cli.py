@@ -1115,8 +1115,7 @@ class CLI:
 
         return zkcmd
 
-    @staticmethod
-    def search_devices(*, broadcast_address: str = '255.255.255.255'):
+    def search_devices(self, *, broadcast_address: str = '255.255.255.255'):
         """
         Search devices online by scanning an IP local network with given
         broadcast address
@@ -1129,7 +1128,7 @@ class CLI:
         converter = TextConverter(formatter)
 
         def _search_devices():
-            devices = ZKAccess.search_devices(broadcast_address) # FIXME: dllpath
+            devices = ZKAccess.search_devices(broadcast_address, dllpath=self._dllpath)
             for device in devices:
                 values = [
                     device.mac, device.ip, device.serial_number, device.model.name, device.version
