@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 import pytest
 
 from pyzkaccess.common import DocValue
-from pyzkaccess.enum import PassageDirection, VerifyMode
+from pyzkaccess.enums import PassageDirection, VerifyMode
 from pyzkaccess.event import Event, EventLog
 
 

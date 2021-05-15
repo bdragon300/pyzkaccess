@@ -9,8 +9,9 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pyzkaccess',
-    description='Python interface to ZKTeco ZKAccess C3-100/200/400 controllers',
-    version='0.2',
+    description='Library and CLI tool '
+                'for working with ZKTeco ZKAccess C3-100/200/400 controllers',
+    version='1.0',
     author='Igor Derkach',
     author_email='gosha753951@gmail.com',
     url='https://github.com/bdragon300/pyzkaccess',
@@ -19,19 +20,25 @@ setup(
     packages=setuptools.find_packages(exclude=['tests', 'docs']),
     long_description=long_description,
     long_description_content_type='text/markdown',
+    entry_points={"console_scripts": ["pyzkaccess=pyzkaccess.cli:main"]},
     classifiers=[
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Operating System :: Microsoft :: Windows',
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Intended Audience :: Developers',
+        'Intended Audience :: Telecommunications Industry',
+        'Intended Audience :: Customer Service',
         'Topic :: System :: Hardware'
     ],
     # Also tox.ini
     install_requires=[
-        'wrapt'
+        'wrapt',
+        'fire',
+        'prettytable'
     ],
 )

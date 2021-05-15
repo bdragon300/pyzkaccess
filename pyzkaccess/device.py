@@ -8,39 +8,39 @@ __all__ = [
 from typing import Mapping, Optional
 
 from .common import DocDict
-from .enum import RelayGroup
+from .enums import RelayGroup
 
 
 class ZKModel:
     """Base class for concrete ZK model Contains model-specific
-    definitions
+    definitions.
     """
-    #: Name of model
     name = None
+    """Device model name"""
 
-    #: Relays count
     relays = None
+    """Relays count"""
 
-    #: Definition of relay numbers (count must be equal to `relays`)
     relays_def = None
+    """Definition of relay numbers (count must be equal to `relays`)"""
 
-    #: Definition of relay groups (count must be equal to `relays`)
     groups_def = None
+    """Definition of relay groups (count must be equal to `relays`)"""
 
-    #: Definition of reader numbers
     readers_def = None
+    """Definition of reader numbers"""
 
-    #: Definition of door numbers
     doors_dev = None
+    """Definition of door numbers"""
 
-    #: Definition of aux input numbers
     aux_inputs_def = None
+    """Definition of aux input numbers"""
 
-    #: Anti-passback rules available on concrete device model
     anti_passback_rules = None
+    """Anti-passback rules available on concrete device model"""
 
-    #: Interlock rules available on concrete device model
     interlock_rules = None
+    """Interlock rules available on concrete device model"""
 
 
 class ZK400(ZKModel):
@@ -152,11 +152,15 @@ class ZKDevice:
         self.version = params['version']  # type: Optional[str]
 
     def parse(self, device_line: str) -> Mapping[str, str]:
-        """
-        Parse and validate raw device string
-        :param device_line: event string
-        :return: dictionary where keys are slots and values are
-         appropriate values extracted from string
+        """Parse and validate raw device string
+
+        Args:
+            device_line (str): event string to parse
+
+        Returns:
+            Mapping[str, str]: dictionary where keys are slots and
+                values are appropriate values extracted from string
+
         """
         device_line = device_line.replace('\r\n', '')
 

@@ -5,7 +5,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from pyzkaccess.device import ZK400
-from pyzkaccess.enum import SensorType, VerifyMode
+from pyzkaccess.enums import SensorType, VerifyMode
 from pyzkaccess.param import (
     DaylightSavingMomentMode1,
     DaylightSavingMomentMode2,
@@ -24,8 +24,8 @@ daylight_saving_mode2_properties = (
         [1, 6], [0, -1, 7]
     ),
     (
-        'day_of_week', ('WeekOfMonth3', 'WeekOfMonth8'), int, ['1', '7'], ['0', '-1', '8'],
-        [1, 7], [0, -1, 8]
+        'day_of_week', ('WeekOfMonth3', 'WeekOfMonth8'), int, ['0', '1', '7'], ['-1', '8'],
+        [0, 1, 7], [-1, 8]
     ),
     (
         'hour', ('WeekOfMonth4', 'WeekOfMonth9'), int, ['0', '23'], ['-1', '24'],
@@ -47,8 +47,8 @@ device_params_read_only = (
     ('aux_out_count', 'AuxOutCount', int, ['2'], ['asdf', ''], [2], ['asdf', '']),
     # reboot
     (
-        'fingerprint_version', '~ZKFPVersion', int, ['9', '10'], ['8', '11', 'asdf', ''],
-        [9, 10], [8, 11, 'asdf', '']
+        'fingerprint_version', '~ZKFPVersion', int, ['9', '10'], ['8', '11', 'asdf'],
+        [9, 10], [8, 11, 'asdf']
     ),
 )
 
@@ -184,37 +184,23 @@ def prop_write_test_combinations(test_cases, correct):
 
 
 class TestDaylightSavingMomentMode1:
-    def test_init__should_initialize_attributes(self):
-        obj = DaylightSavingMomentMode1(2, 4, 15, 35)
+    def test_new__should_initialize_object(self):
+        assert DaylightSavingMomentMode1(6, 5, 4, 3) == datetime(1970, 6, 5, 4, 3, 0)
 
-        assert obj.month == 2
-        assert obj.day == 4
-        assert obj.hour == 15
-        assert obj.minute == 35
+    def test_repr__should_print_formatted_string(self):
+        obj = DaylightSavingMomentMode1(6, 5, 4, 3)
 
-    @pytest.mark.parametrize('init_kwargs', (
-        {'month': 13, 'day': 4, 'hour': 15, 'minute': 35},
-        {'month': 0, 'day': 4, 'hour': 15, 'minute': 35},
-        {'month': 2, 'day': 32, 'hour': 15, 'minute': 35},
-        {'month': 2, 'day': 0, 'hour': 15, 'minute': 35},
-        {'month': 2, 'day': 4, 'hour': -1, 'minute': 35},
-        {'month': 2, 'day': 4, 'hour': 24, 'minute': 35},
-        {'month': 2, 'day': 4, 'hour': 15, 'minute': -1},
-        {'month': 2, 'day': 4, 'hour': 15, 'minute': 60},
-    ))
-    def test_init__if_parameters_out_of_range__should_raise_error(self, init_kwargs):
-        with pytest.raises(ValueError):
-            _ = DaylightSavingMomentMode1(**init_kwargs)
+        assert repr(obj) == '06-05 04:03'
 
-    def test_str__should_return_string_representation(self):
-        obj = DaylightSavingMomentMode1(2, 4, 15, 35)
+    def test_to_datetime__should_return_the_copied_datetime_object(self):
+        obj = DaylightSavingMomentMode1(6, 5, 4, 3).to_datetime()
 
-        assert str(obj) == '2-4-15-35'
+        assert obj == datetime(1970, 6, 5, 4, 3, 0)
 
-    def test_repr__should_return_name_of_class(self):
-        obj = DaylightSavingMomentMode1(2, 4, 15, 35)
+    def test_from_datetime__should_return_new_object(self):
+        dt = datetime(1970, 6, 5, 4, 3, 0)
 
-        assert repr(obj).startswith('DaylightSavingMomentMode1(')
+        assert DaylightSavingMomentMode1.from_datetime(dt) == datetime(1970, 6, 5, 4, 3, 0)
 
 
 class TestDaylightSavingMomentMode2:
@@ -426,6 +412,13 @@ class TestDeviceParameters:
         with pytest.raises((ValueError, TypeError)):
             setattr(obj, prop, prop_value)
 
+    def test_read_fingerprint_version__on_empty_value_should_return_zero(self):
+        sdk = Mock()
+        sdk.get_device_param.return_value = {'~ZKFPVersion': ''}
+        obj = DeviceParameters(sdk, ZK400)
+
+        assert obj.fingerprint_version == 0
+
     def test_write_reboot_writeonly_prop__if_write_1__should_set_value_on_a_device(self):
         sdk = Mock()
         sdk.set_device_param.return_value = None
@@ -453,7 +446,7 @@ class TestDeviceParameters:
 
     def test_read_spring_daylight_time_mode1_prop__should_return_object(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'DaylightSavingTime': '1-2-3-4'}
+        sdk.get_device_param.return_value = {'DaylightSavingTime': 16843008}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.spring_daylight_time_mode1
@@ -462,23 +455,34 @@ class TestDeviceParameters:
                                                      buffer_size=4096)
         assert isinstance(res, DaylightSavingMomentMode1)
         assert res.month == 1
-        assert res.day == 2
-        assert res.hour == 3
-        assert res.minute == 4
+        assert res.day == 1
+        assert res.hour == 1
+        assert res.minute == 0
+
+    def test_read_spring_daylight_time_mode1_prop_on_empty_value__should_return_none(self):
+        sdk = Mock()
+        sdk.get_device_param.return_value = {'DaylightSavingTime': '0'}
+        obj = DeviceParameters(sdk, ZK400)
+
+        res = obj.spring_daylight_time_mode1
+
+        sdk.get_device_param.assert_called_once_with(parameters=('DaylightSavingTime', ),
+                                                     buffer_size=4096)
+        assert res is None
 
     def test_write_spring_daylight_time_mode1_prop__should_return_object(self):
         sdk = Mock()
         sdk.set_device_param.return_value = None
         obj = DeviceParameters(sdk, ZK400)
-        test_obj = DaylightSavingMomentMode1(1, 2, 3, 4)
+        test_obj = DaylightSavingMomentMode1(1, 1, 1, 0)
 
         obj.spring_daylight_time_mode1 = test_obj
 
-        sdk.set_device_param.assert_called_once_with(parameters={'DaylightSavingTime': '1-2-3-4'})
+        sdk.set_device_param.assert_called_once_with(parameters={'DaylightSavingTime': 16843008})
 
     def test_read_fall_daylight_time_mode1_prop__should_return_object(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'StandardTime': '1-2-3-4'}
+        sdk.get_device_param.return_value = {'StandardTime': 16843008}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.fall_daylight_time_mode1
@@ -487,19 +491,30 @@ class TestDeviceParameters:
                                                      buffer_size=4096)
         assert isinstance(res, DaylightSavingMomentMode1)
         assert res.month == 1
-        assert res.day == 2
-        assert res.hour == 3
-        assert res.minute == 4
+        assert res.day == 1
+        assert res.hour == 1
+        assert res.minute == 0
+
+    def test_read_fall_daylight_time_mode1_prop__on_empty_value__should_return_none(self):
+        sdk = Mock()
+        sdk.get_device_param.return_value = {'StandardTime': '0'}
+        obj = DeviceParameters(sdk, ZK400)
+
+        res = obj.fall_daylight_time_mode1
+
+        sdk.get_device_param.assert_called_once_with(parameters=('StandardTime', ),
+                                                     buffer_size=4096)
+        assert res is None
 
     def test_write_fall_daylight_time_mode1_prop__should_return_object(self):
         sdk = Mock()
         sdk.set_device_param.return_value = None
         obj = DeviceParameters(sdk, ZK400)
-        test_obj = DaylightSavingMomentMode1(1, 2, 3, 4)
+        test_obj = DaylightSavingMomentMode1(1, 1, 1, 0)
 
         obj.fall_daylight_time_mode1 = test_obj
 
-        sdk.set_device_param.assert_called_once_with(parameters={'StandardTime': '1-2-3-4'})
+        sdk.set_device_param.assert_called_once_with(parameters={'StandardTime': 16843008})
 
     def test_read_spring_daylight_time_mode2_prop__should_return_object(self):
         sdk = Mock()

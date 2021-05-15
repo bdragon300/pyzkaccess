@@ -5,6 +5,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Python Versioning](https://www.python.org/dev/peps/pep-0440/#public-version-identifiers).
 
+## [1.0]
+
+### Added
+- Make a device data tables interface. Including making queries, changing and deleting records
+- Add command-line interface
+- Add alarm cancel function
+- Add a device IP change function using a network broadcast method
+- Add event type `206: Device start`
+- Add python 3.9 support
+
+### Changed
+- Use Jekyll and pdoc3 instead of portray for documentation
+- Upload github-pages to a separate branch
+- Change docstrings format to Google style
+- Fix empty relays list in `Door` objects with index in `DoorsList` > 0
+- Fix `spring_daylight_time_mode1` and `fall_daylight_time_mode1` parameters value format
+- Print one event by line and remove items collapsing in `EventLog` string representation
+- Fix "no value" values handling in some paremeters
+- Fix `search_devices` raises error when no devices found
+- Rename `pyzkaccess.py` to `main.py` and `ctypes.py` to `ctypes_.py` in order to avoid 
+  possible import issues
+- Change type of warning to `ImportWarning` when non-Windows platform is used
+
+### Removed
+- Remove documentation html contents from repo
+
 ## [0.2]
 ### Added
 - Add codecov

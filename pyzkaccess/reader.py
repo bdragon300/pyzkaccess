@@ -11,10 +11,11 @@ from .sdk import ZKSDK
 
 
 class ReaderInterface(metaclass=ABCMeta):
-    #: Event types which are fully or partially related to a reader
-    #: See EVENT_TYPES enum and SDK docs
     event_types = frozenset((0, 1, 2, 3, 4, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26,
                              27, 29, 30, 31, 32, 33, 34, 35, 36, 101, 103, 203))
+    """Event types which are fully or partially related to a reader.
+    See EVENT_TYPES enum and SDK docs
+    """
 
     @property
     def events(self) -> EventLog:

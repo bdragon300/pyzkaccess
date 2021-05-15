@@ -1,8 +1,9 @@
 from copy import copy, deepcopy
+from datetime import datetime, time, date
 
 import pytest
 
-from pyzkaccess.common import DocValue, DocDict
+from pyzkaccess.common import DocValue, DocDict, ZKDatetimeUtils
 
 
 class TestDocValue:
@@ -64,3 +65,124 @@ class TestDocDict:
         assert obj['2'].__doc__ == 'second value'
         assert type(obj['2']) == DocValue
         assert obj.keys() == {1, '2'}
+
+
+class TestZKDatetimeUtils:
+    @pytest.mark.parametrize('value,expect', (
+        (347748895, datetime(2010, 10, 26, 20, 54, 55)),
+        ('347748895', datetime(2010, 10, 26, 20, 54, 55)),
+        (0, datetime(2000, 1, 1, 0, 0, 0)),
+        ('0', datetime(2000, 1, 1, 0, 0, 0)),
+        (1, datetime(2000, 1, 1, 0, 0, 1)),
+        ('1', datetime(2000, 1, 1, 0, 0, 1)),
+    ))
+    def test_zkctime_to_datetime__should_convert_datetime(self, value, expect):
+        assert ZKDatetimeUtils.zkctime_to_datetime(value) == expect
+
+    def test_zkctime_to_datetime__if_value_is_negative__should_raise_error(self):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.zkctime_to_datetime(-1)
+
+    @pytest.mark.parametrize('value,expect', (
+        (datetime(2010, 10, 26, 20, 54, 55), 347748895),
+        (datetime(2000, 1, 1, 0, 0, 0), 0),
+        (datetime(2000, 1, 1, 0, 0, 1), 1),
+    ))
+    def test_datetime_to_zkctime__should_convert_datetime(self, value, expect):
+        assert ZKDatetimeUtils.datetime_to_zkctime(value) == expect
+
+    def test_datetime_to_zkctime__if_date_less_than_2000_year__should_raise_error(self):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.datetime_to_zkctime(datetime(1999, 12, 31, 23, 59, 59))
+
+    @pytest.mark.parametrize('value,expect', (
+        ('2000-02-02 15:09:10', datetime(2000, 2, 2, 15, 9, 10)),
+        ('1999-12-31 23:59:59', datetime(1999, 12, 31, 23, 59, 59))
+    ))
+    def test_time_string_to_datetime__should_convert_datetime(self, value, expect):
+        assert ZKDatetimeUtils.time_string_to_datetime(value) == expect
+
+    @pytest.mark.parametrize('value', (None, 0, object()))
+    def test_time_string_to_datetime__if_type_is_invalid__should_raise_error(self, value):
+        with pytest.raises(TypeError):
+            ZKDatetimeUtils.time_string_to_datetime(value)
+
+    @pytest.mark.parametrize('value', ('asdf', '', '2000-02-02 15:09:'))
+    def test_time_string_to_datetime__if_value_is_invalid__should_raise_error(self, value):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.time_string_to_datetime(value)
+
+    @pytest.mark.parametrize('value,expect', (
+        (54396110, (time(8, 30), time(12, 30))),
+        ('54396110', (time(8, 30), time(12, 30))),
+        (0, (time(0, 0), time(0, 0))),
+        ('0', (time(0, 0), time(0, 0))),
+    ))
+    def test_zktimerange_to_times__should_convert_to_time_ranges(self, value, expect):
+        assert ZKDatetimeUtils.zktimerange_to_times(value) == expect
+
+    def test_zktimerange_to_times__if_value_less_that_zero__should_raise_error(self):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.zktimerange_to_times(-1)
+
+    @pytest.mark.parametrize('value,expect', (
+        ((time(8, 30), time(12, 30)), 54396110),
+        ((time(0, 0), time(0, 0)), 0),
+        ((datetime(2020, 4, 12, 8, 30), time(12, 30)), 54396110),
+        ((time(0, 0), datetime(2020, 4, 12, 0, 0)), 0),
+    ))
+    def test_times_to_zktimerange__should_convert_to_zktimerange(self, value, expect):
+        assert ZKDatetimeUtils.times_to_zktimerange(*value) == expect
+
+    def test_zkdate_to_date__should_convert_to_date(self):
+        assert ZKDatetimeUtils.zkdate_to_date('20200412') == date(2020, 4, 12)
+
+    def test_zkdate_to_date__on_empty_value__should_return_none(self):
+        assert ZKDatetimeUtils.zkdate_to_date('0') is None
+
+    @pytest.mark.parametrize('value', (0, None, object()))
+    def test_zkdate_to_date__on_bad_value_type__should_raise_error(self, value):
+        with pytest.raises(TypeError):
+            ZKDatetimeUtils.zkdate_to_date(value)
+
+    def test_zkdate_to_date__on_bad_value__should_raise_error(self):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.zkdate_to_date('')
+
+    @pytest.mark.parametrize('value', (date(2020, 4, 12), datetime(2020, 4, 12)))
+    def test_date_to_zkdate__should_convert_to_zkdate(self, value):
+        assert ZKDatetimeUtils.date_to_zkdate(value) == '20200412'
+
+    @pytest.mark.parametrize('value,expect', (
+        (16842752, datetime(1970, 1, 1, 0, 0, 0)),
+        (16842753, datetime(1970, 1, 1, 0, 1, 0)),
+        (16843008, datetime(1970, 1, 1, 1, 0, 0)),
+        (16908544, datetime(1970, 1, 2, 1, 0, 0)),
+        (33620224, datetime(1970, 2, 1, 1, 0, 0)),
+        (67174656, datetime(1970, 4, 1, 1, 0, 0)),
+    ))
+    def test_zktimemoment_to_datetime__should_convert_to_datetime(self, value, expect):
+        assert ZKDatetimeUtils.zktimemoment_to_datetime(value) == expect
+
+    def test_zktimemoment_to_datetime__on_empty_value__should_return_none(self):
+        assert ZKDatetimeUtils.zktimemoment_to_datetime(0) is None
+
+    @pytest.mark.parametrize('value', (None, object()))
+    def test_zktimemoment_to_datetime__on_bad_value_type__should_raise_error(self, value):
+        with pytest.raises(TypeError):
+            ZKDatetimeUtils.zktimemoment_to_datetime(value)
+
+    def test_zktimemoment_to_datetime__on_bad_value__should_raise_error(self):
+        with pytest.raises(ValueError):
+            ZKDatetimeUtils.zktimemoment_to_datetime('')
+
+    @pytest.mark.parametrize('value,expect', (
+        (datetime(1970, 1, 1, 0, 0, 0), 16842752),
+        (datetime(1970, 1, 1, 0, 1, 0), 16842753),
+        (datetime(1970, 1, 1, 1, 0, 0), 16843008),
+        (datetime(1970, 1, 2, 1, 0, 0), 16908544),
+        (datetime(1970, 2, 1, 1, 0, 0), 33620224),
+        (datetime(1970, 4, 1, 1, 0, 0), 67174656),
+    ))
+    def test_datetime_to_zktimemoment__should_convert_to_zktimemoment(self, value, expect):
+        assert ZKDatetimeUtils.datetime_to_zktimemoment(value) == expect

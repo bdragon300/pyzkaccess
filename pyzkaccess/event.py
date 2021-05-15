@@ -9,14 +9,13 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Optional, List, Iterable, Union, Sequence
 
-from .common import DocValue
-from .enum import VerifyMode, PassageDirection, EVENT_TYPES
+from .common import DocValue, ZKDatetimeUtils
+from .enums import VerifyMode, PassageDirection, EVENT_TYPES
 from .sdk import ZKSDK
 
 
 class Event:
-    """
-    One realtime event occured on the device
+    """One realtime event occured on the device
     Since the device returns event as string we need to parse it to the
     structured view. This class does this.
     """
@@ -30,13 +29,15 @@ class Event:
         'verify_mode'
     )
 
-    def __init__(self, s):
+    def __init__(self, s: str):
         """
-        :param s: Event string to be parsed.
+        Args:
+            s (str): Event string to be parsed.
+
         """
         parsed = self.parse(s)
 
-        self.time = datetime.strptime(parsed[0], '%Y-%m-%d %H:%M:%S')  # type: datetime
+        self.time = ZKDatetimeUtils.time_string_to_datetime(parsed[0])  # type: datetime
         self.pin = parsed[1]   # type: str
         self.card = parsed[2]  # type: str
         self.door = int(parsed[3])  # type: int
@@ -54,10 +55,14 @@ class Event:
 
     @staticmethod
     def parse(event_line: str) -> Sequence[str]:
-        """
-        Parse raw event string
-        :param event_line: event string
-        :return: parsed string parts of event string
+        """Parse raw event string
+
+        Args:
+            event_line (str): event string to parse
+
+        Returns:
+            Sequence[str]: parsed string parts of event string
+
         """
         event_line = event_line.replace('\r\n', '')
 
@@ -113,7 +118,11 @@ class EventLog:
     def refresh(self) -> int:
         """Make a request to a device for new records and append to the
         end if any.
-        :return: count of records which was added
+
+        Args:
+
+        Returns:
+            int: count of records which was added
         """
         # ZKAccess always returns single event with code 255
         # on every log query if no other events occured. So, skip it
@@ -127,40 +136,53 @@ class EventLog:
         return count
 
     def after_time(self, after_time: datetime) -> Iterable[Event]:
-        """
-        Return events which was occured after given time
-        :param after_time: datetime object to filter (included)
-        :return:
+        """Return events which was occured after given time
+
+        Args:
+            after_time (datetime): datetime object to filter (included)
+
+        Returns:
+            Iterable[Event]: events
         """
         return filter(lambda x: x.time >= after_time, self._filtered_events(self.data))
 
     def before_time(self, before_time: datetime) -> Iterable[Event]:
-        """
-        Return events which was occured before given time
-        :param before_time: datetime object to filter (excluded)
-        :return:
+        """Return events which was occured before given time
+
+        Args:
+            before_time (datetime): datetime object to filter (excluded)
+
+        Returns:
+            Iterable[Event]: events
         """
         return filter(lambda x: x.time < before_time, self._filtered_events(self.data))
 
     def between_time(self, from_time: datetime, to_time: datetime) -> Iterable[Event]:
-        """
-        Return events which was occured between two given time moments
-        :param from_time: datetime object to filter (included)
-        :param to_time: datetime object to filter (excluded)
-        :return:
+        """Return events which was occured between two given time moments
+
+        Args:
+            from_time (datetime): datetime object to filter (included)
+            to_time (datetime): datetime object to filter (excluded)
+
+        Returns:
+            Iterable[Event]: events
         """
         return filter(lambda x: from_time <= x.time < to_time, self._filtered_events(self.data))
 
     def poll(self, timeout: float = 60, polling_interval: float = 1) -> List[Event]:
-        """
-        Wait for new events by making periodically requests to a device.
+        """Wait for new events by making periodically requests to a device.
         If events was appeared then return them. If no event was
         appeared until timeout was expired then return empty iterable.
-        :param timeout: timeout in seconds. Default: 60 seconds
-        :param polling_interval: interval to make a requests in seconds.
-         Default: every 1 second
-        :return: iterable with new events if any or empty iterable if
-         timeout has expired
+
+        Args:
+            timeout (float, default=60): timeout in seconds
+            polling_interval (float, default=1): interval to make a requests
+                in seconds
+
+        Returns:
+            Iterable[Event]: events iterable with new events if any
+                or empty iterable if timeout has expired
+
         """
         deadline = datetime.now().timestamp() + timeout
         while datetime.now().timestamp() < deadline:
@@ -174,8 +196,7 @@ class EventLog:
         return []
 
     def only(self, **filters) -> 'EventLog':
-        """
-        Return new EventLog instance with given filters applied.
+        """Return new EventLog instance with given filters applied.
         Kwargs names must be the same as Event slots.
 
         Event log returned by this method will contain entries in
@@ -187,16 +208,24 @@ class EventLog:
         on previous call will be ORed, i.e. their values will be
         concatenated.
 
-        In other words:
+        In other words::
 
-        ```log.only(a=2, b=['x', 'y'])` => filtering(entry.a == 2 AND entry.b in ('x', 'y'))```
+            # filtering(entry.a == 2 AND entry.b in ('x', 'y'))
+            log.only(a=2, b=['x', 'y'])
+            # filtering(entry.a in (2, 3) AND entry.b in ('x', 'y', 5) and entry.c == 1)
+            log.only(a=2, b=['x', 'y']).only(a=3, b=5, c=1)
 
-        ```log.only(a=2, b=['x', 'y']).only(a=3, b=5, c=1) =>
-            filtering(entry.a in (2, 3) AND entry.b in ('x', 'y', 5) and entry.c == 1)```
+        Example::
 
-        Ex: `new_log = log.only(door=1, event_type=221)`
-        :param filters:
-        :return: new fitlered EventLog instance
+            new_log = log.only(door=1, event_type=221)
+
+        Args:
+            **filters (Union[str, Sequence[str]]): filter values or list
+                of them
+
+        Returns:
+            EventLog: new fitlered EventLog instance
+
         """
         only_filters = self._merge_filters(self.only_filters, filters)
         obj = self.__class__(self._sdk,
@@ -212,13 +241,17 @@ class EventLog:
 
     @staticmethod
     def _merge_filters(initial: dict, fltr: dict) -> dict:
-        """
-        Merge two filter dicts, fltr updates initial. Key-values  which
+        """Merge two filter dicts, fltr updates initial. Key-values  which
         does not exist in initial will be copied. Value of existent
         keys are combined (values always are lists).
-        :param initial: updating initial filter dict
-        :param fltr: filter dict which updates initial
-        :return: merged filter dict
+
+        Args:
+          initial (dict): updating initial filter dict
+          fltr (dict): filter dict which updates initial
+
+        Returns:
+          dict: merged filter dict
+
         """
         seq_types = (tuple, list, set, frozenset)
         res = deepcopy(initial)
@@ -234,11 +267,15 @@ class EventLog:
         return res
 
     def _filtered_events(self, data: Iterable[Event]) -> Iterable[Event]:
-        """
-        Apply current filters to given events and return only events
+        """Apply current filters to given events and return only events
         which meet them
-        :param data: unfiltered events
-        :return: filtered events
+
+        Args:
+          data (Iterable[Event]): unfiltered events
+
+        Returns:
+          Iterable[Event]: filtered events
+
         """
         if not self.only_filters:
             yield from data
@@ -278,10 +315,8 @@ class EventLog:
         return iter(self._filtered_events(self.data))
 
     def __str__(self):
-        items_str = ', '.join(str(x) for x in self[:3])
-        if len(self) > 6:
-            items_str += ', ..., ' + ', '.join(str(x) for x in self[3:])
-        return 'EventLog[{}]({})'.format(len(self), items_str)
+        items_str = ', \n'.join(str(x) for x in self)
+        return 'EventLog[{}](\n{}\n)'.format(len(self), items_str)
 
     def __repr__(self):
         return self.__str__()
