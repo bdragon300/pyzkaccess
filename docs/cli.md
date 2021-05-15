@@ -8,13 +8,13 @@ Commands for a connected device:
 $ pyzkaccess connect <ip> <subcommand|group> [parameters] [<subcommand> [parameters] ...]
 ```
 
-* Commands not related to a particular device:
+Commands not related to a particular device:
 ```console
 $ pyzkaccess <command> [parameters]
 ```
 
-By default, all input consumes from stdin, and all output prints on stdout. You can specify a file
-instead by setting `--file` parameter.
+By default, all input data is consumed from stdin, and all output is printed to stdout. You can 
+specify a file instead by setting `--file` parameter.
 
 CLI gives access to most of PyZKAccess features. Also, it is supported the ascii tables in console 
 or CSV format.
