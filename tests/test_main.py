@@ -345,6 +345,21 @@ class TestZKAccess:
         res = ZKAccess.search_devices('192.168.1.255')
         assert res == expect
 
+    def test_search_devices__if_no_devices_found_error_raise__should_return_empty_tuple(self):
+        self.sdk.search_device.side_effect = ZKSDKError("Empty command response", -2)
+        expect = ()
+
+        res = ZKAccess.search_devices('192.168.1.255')
+        assert res == expect
+
+    def test_search_devices__if_other_error_raised__should_reraise_it(self):
+        self.sdk.search_device.side_effect = ZKSDKError("Empty command response", -5)
+
+        with pytest.raises(ZKSDKError) as e:
+            res = ZKAccess.search_devices('192.168.1.255')
+
+        assert e.value.err == -5
+
     def test_connect__should_call_sdk_function(self):
         connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
         obj = ZKAccess()

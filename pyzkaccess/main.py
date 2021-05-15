@@ -325,7 +325,15 @@ class ZKAccess:
 
         """
         sdk = pyzkaccess.sdk.ZKSDK(dllpath)
-        devices = sdk.search_device(broadcast_address, cls.buffer_size)
+        try:
+            devices = sdk.search_device(broadcast_address, cls.buffer_size)
+        except ZKSDKError as e:
+            # If no devices found, the -2 error is raised by SDK
+            # Return just empty list in this case
+            if e.err == -2:
+                return ()
+            raise
+
         return tuple(ZKDevice(line) for line in devices)
 
     @classmethod

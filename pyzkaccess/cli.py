@@ -1124,7 +1124,6 @@ class CLI:
         Args:
             broadcast_address: Address for broadcast IP packets. Default: 255.255.255.255
         """
-        # FIXME: error -2 when no devices found
         headers = ['mac', 'ip', 'serial_number', 'model', 'version']
         formatter = BaseFormatter.get_formatter(opt_io_format)(data_in, data_out, headers)
         converter = TextConverter(formatter)
