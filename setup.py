@@ -9,9 +9,9 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pyzkaccess',
-    description='Library and command-line utility '
+    description='Library and CLI tool '
                 'for working with ZKTeco ZKAccess C3-100/200/400 controllers',
-    version='0.2',
+    version='1.0',
     author='Igor Derkach',
     author_email='gosha753951@gmail.com',
     url='https://github.com/bdragon300/pyzkaccess',

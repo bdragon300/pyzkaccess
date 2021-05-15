@@ -50,7 +50,7 @@ $ pyzkaccess connect 192.168.1.201 table User where --card=16268812
 +----------+------------+-------+----------+-----+------------+-----------------+
 ```
 
-Also, you can update or delete records from csv file. Or even delete all records from a query:
+Also, you can update or delete records from a csv file. Or even delete all records from a query:
 
 ```console
 $ cat users1.csv | pyzkaccess --format=csv connect 192.168.1.201 table User upsert
