@@ -315,10 +315,8 @@ class EventLog:
         return iter(self._filtered_events(self.data))
 
     def __str__(self):
-        items_str = ', '.join(str(x) for x in self[:3])
-        if len(self) > 6:
-            items_str += ', ..., ' + ', '.join(str(x) for x in self[3:])
-        return 'EventLog[{}]({})'.format(len(self), items_str)
+        items_str = ', \n'.join(str(x) for x in self)
+        return 'EventLog[{}](\n{}\n)'.format(len(self), items_str)
 
     def __repr__(self):
         return self.__str__()
