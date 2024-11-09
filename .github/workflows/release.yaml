@@ -2,9 +2,7 @@ name: Release
 on:
   push:
     tags:
-      - "v?.?"
-    branches:
-      - master
+      - "v[0-9]+.[0-9]+"
 
 jobs:
   commit_checks:
