@@ -1,60 +1,83 @@
-__all__ = [
-    'models_registry',
-    'Field',
-    'ModelMeta',
-    'Model'
-]
+# pylint: disable=cyclic-import
+__all__ = ["models_registry", "Field", "ModelMeta", "Model"]
 
 from enum import Enum
-from typing import Mapping, MutableMapping, Callable, Optional, Type, TypeVar, Any
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generic,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Type,
+    TypeVar,
+    cast,
+    overload,
+)
 
-models_registry = {}  # type: MutableMapping[str, Type[Model]]
+from pyzkaccess.sdk import ZKSDK
+
+if TYPE_CHECKING:
+    from pyzkaccess.main import ZKAccess
+
+models_registry: MutableMapping[str, Type["Model"]] = {}
 
 
-FieldDataT = TypeVar('FieldDataT')
+_FieldDataT = TypeVar("_FieldDataT")
 
 
-class Field:
-    """This class is used to define a field in Model. The property
-    it assignes to will be used to access to an appropriate table field.
-    In other words it provides object access to that field.
+class Field(Generic[_FieldDataT]):
+    """This class is for internal use. It defines a field and its
+    options in data table model definition.
 
-    Every field in device tables stores as a string, but some of
-    them have a certain data format which could be represented
-    with python types. Also some of them may have value restrictions.
-    All of these parameters may be specified in Field definition as
-    data type, convertion and validation callbacks. By default a
-    field is treated as string with no restrictions.
-
+    The main aim of this class is to validate, decode and cast the
+    raw string field value coming from the device to a python type.
+    In contrary, it validates, casts the python type to a raw string
+    and encodes it to write it to the device on demand.
     """
-    def __init__(self,
-                 raw_name: str,
-                 field_datatype: Type = str,
-                 get_cb: Optional[Callable[[str], Any]] = None,
-                 set_cb: Optional[Callable[[Any], Any]] = None,
-                 validation_cb: Optional[Callable[[FieldDataT], bool]] = None):
-        """On getting a field value from Model record, the process is:
-         1. Retrieve raw field value of `raw_name`. If nothing then
-            just return None
-         2. If `get_cb` is set then call it and use its result as value
-         3. If value is not instance of `field_datatype` then try to
-            cast it to this type
-         4. Return value as field value
 
-        On setting a field value in Model record, the process is:
-         1. Check if value has `field_datatype` type, raise an error
-            if not
-         2. If `validation_cb` is set then call it, if result is false
-            then raise an error
-         3. Extract Enum value if value is Enum
-         4. If `set_cb` is set then call it and use its result as value
-         5. Write `str(value)` to raw field value of `raw_name`
+    @overload
+    def __init__(self, raw_name: str, field_datatype: Type[_FieldDataT]): ...
+
+    @overload
+    def __init__(self, raw_name: str, field_datatype: Type[_FieldDataT], get_cb: Optional[Callable[[str], Any]]): ...
+
+    @overload
+    def __init__(
+        self,
+        raw_name: str,
+        field_datatype: Type[_FieldDataT],
+        get_cb: Optional[Callable[[str], Any]],
+        set_cb: Optional[Callable[[Any], Any]],
+    ): ...
+
+    @overload
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        raw_name: str,
+        field_datatype: Type[_FieldDataT],
+        get_cb: Optional[Callable[[str], Any]],
+        set_cb: Optional[Callable[[Any], Any]],
+        validation_cb: Optional[Callable[[_FieldDataT], bool]],
+    ): ...
+
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        raw_name: str,
+        field_datatype: Type[_FieldDataT],
+        get_cb: Optional[Callable[[str], Any]] = None,
+        set_cb: Optional[Callable[[Any], Any]] = None,
+        validation_cb: Optional[Callable[[_FieldDataT], bool]] = None,
+    ):
+        """Construct a Model field.
 
         Args:
             raw_name (str): field name in device table which this field
                 associated to
-            field_datatype (Type): type of data of this field. `str` by
-                default
+            field_datatype (Type[FieldDataT]): type of data of this field.
             get_cb (Callable[[str], Any], optional): callback that is
                 called on field get before a raw string value will be
                 converted to `field_datatype`
@@ -69,7 +92,7 @@ class Field:
 
         """
         self._raw_name = raw_name
-        self._field_datatype = field_datatype
+        self._field_datatype: Type[_FieldDataT] = field_datatype
         self._get_cb = get_cb
         self._set_cb = set_cb
         self._validation_cb = validation_cb
@@ -82,7 +105,7 @@ class Field:
         return self._raw_name
 
     @property
-    def field_datatype(self) -> Type:
+    def field_datatype(self) -> Type[_FieldDataT]:
         """Field data type"""
         return self._field_datatype
 
@@ -102,12 +125,10 @@ class Field:
 
         """
         if not isinstance(value, self._field_datatype):
-            raise TypeError(
-                'Bad value type {}, must be {}'.format(type(value), self._field_datatype)
-            )
+            raise TypeError(f"Bad value type {type(value)}, must be {self._field_datatype}")
 
-        if not(self._validation_cb is None or self._validation_cb(value)):
-            raise ValueError('Value {} does not meet to field restrictions'.format(value))
+        if not (self._validation_cb is None or self._validation_cb(value)):
+            raise ValueError(f"Value {value} does not meet to field restrictions")
 
         if isinstance(value, Enum):
             value = value.value
@@ -117,7 +138,7 @@ class Field:
 
         return str(value)
 
-    def to_field_value(self, value: str) -> FieldDataT:
+    def to_field_value(self, value: str) -> Optional[_FieldDataT]:
         """Convert raw string value to a value of `field_datatype`.
         This function typically calls on field get.
 
@@ -129,30 +150,55 @@ class Field:
             value (str): raw string representation
 
         Returns:
-            value of `field_datatype`
+            Optional[_FieldDataT]: value of `field_datatype`
 
         """
+        new_value = value
         if self._get_cb is not None:
-            value = self._get_cb(value)
-        if not isinstance(value, self._field_datatype) and value is not None:
-            value = self._field_datatype(value)
+            new_value = self._get_cb(value)
+        if not isinstance(new_value, self._field_datatype) and new_value is not None:
+            return self._field_datatype(new_value)  # type: ignore
 
-        return value
+        return new_value
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._raw_name)
 
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
+    def __get__(self, instance: Optional["Model"], _: Any) -> Optional[_FieldDataT]:
+        """Model field getter. It does the following:
 
-        value = instance._raw_data.get(self._raw_name)  # type: Optional[str]
+        1. Retrieve raw field value of `raw_name`. If nothing then
+           just return None
+        2. If `get_cb` is set then call it and use its result as value
+        3. If value is not instance of `field_datatype` then try to
+           cast it to this type
+        4. Return value as field value
+
+        """
+        if instance is None:
+            return self  # type: ignore
+
+        value: Optional[str] = instance._raw_data.get(self._raw_name)
         if value is not None:
-            value = self.to_field_value(value)
+            return self.to_field_value(value)
 
         return value
 
-    def __set__(self, instance, value):
+    def __set__(self, instance: Optional["Model"], value: Any) -> None:
+        """Model field setter. If value is set to None, then raw value
+        is marked "removed" and the instance is marked dirty.
+
+        Otherwise it does the following:
+
+        1. Check if value has `field_datatype` type, raise an error
+           if not
+        2. If `validation_cb` is set then call it, if result is false
+           then raise an error
+        3. Extract Enum value if value is Enum
+        4. If `set_cb` is set then call it and use its result as value
+        5. Write `str(value)` to raw field value of `raw_name`
+        6. Mark instance as dirty
+        """
         if instance is None:
             return
 
@@ -164,7 +210,7 @@ class Field:
         instance._raw_data[self._raw_name] = raw_value  # noqa
         instance._dirty = True
 
-    def __delete__(self, instance):
+    def __delete__(self, instance: Optional["Model"]) -> None:
         if instance is None:
             return
 
@@ -174,46 +220,49 @@ class Field:
 
 
 class ModelMeta(type):
-    def __new__(mcs, name, bases, attrs):
-        attrs['_fields_mapping'] = {}
-        attrs.setdefault('__annotations__', {})  # python >= 3.6
+    def __new__(mcs: Type["ModelMeta"], name: str, bases: tuple, attrs: dict) -> Any:
+        attrs["_fields_mapping"] = {}
+        attrs.setdefault("__annotations__", {})  # python >= 3.6
         for attr_name, attr in attrs.items():
             if isinstance(attr, Field):
-                attrs['_fields_mapping'][attr_name] = attr.raw_name
+                attrs["_fields_mapping"][attr_name] = attr.raw_name
                 # Set field doc and annotations to correct render field
                 # in documentation
-                attrs[attr_name].__doc__ = '{}.{}'.format(name, attr_name)
-                attrs['__annotations__'][attr_name] = attr.field_datatype
+                attrs[attr_name].__doc__ = f"{name}.{attr_name}"
+                attrs["__annotations__"][attr_name] = attr.field_datatype
 
         klass = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
-        models_registry[name] = klass  # noqa
+        models_registry[name] = cast(Type["Model"], klass)
         return klass
 
 
+_ModelT = TypeVar("_ModelT", bound="Model")
+
+
 class Model(metaclass=ModelMeta):
-    """Base class for models that represent device data tables.
+    """Model base class. Derived classes must define fields and set table_name.
 
-    A concrete model contains device table name and field definitions.
-    Also it provides interface to access to these fields in a concrete
-    row and to manipulate that row.
-
+    Model has a "dirty" flag inside. Dirty instance means that it has the changes
+    that are not saved to the device. The opposite is "clean" instance.
     """
-    table_name = None
+
+    table_name: ClassVar[str]
     """Raw table name on device"""
 
-    _fields_mapping = None
+    _fields_mapping: ClassVar[Mapping[str, str]]
 
-    def __init__(self, **fields):
+    def __init__(self, **fields: Any) -> None:
         """Accepts initial fields data in kwargs"""
-        self._sdk = None
+        self._sdk: Optional["ZKSDK"] = None
         self._dirty = True
-        self._raw_data = {}  # type: Mapping[str, str]
+        self._raw_data: MutableMapping[str, str] = {}
 
+        assert self._fields_mapping is not None, f"No fields mapping in model {self.__class__.__name__}"
         fm = self._fields_mapping
         if fields:
             unknown_fields = fields.keys() - fm.keys()
             if unknown_fields:
-                raise TypeError('Unknown fields: {}'.format(tuple(unknown_fields)))
+                raise TypeError(f"Unknown fields: {tuple(unknown_fields)}")
 
             self._raw_data = {
                 fm[field]: getattr(self.__class__, field).to_raw_value(fields.get(field))
@@ -222,23 +271,23 @@ class Model(metaclass=ModelMeta):
             }
 
     @property
-    def dict(self) -> Mapping[str, FieldDataT]:
+    def dict(self) -> Dict[str, _FieldDataT]:
         return {field: getattr(self, field) for field in self._fields_mapping.keys()}
 
     @property
-    def raw_data(self) -> Mapping[str, str]:
+    def raw_data(self) -> Dict[str, str]:
         """Return the raw data that we read from or write to a device"""
-        return {field: self._raw_data.get(field, '') for field in self._fields_mapping.values()}
+        return {field: self._raw_data.get(field, "") for field in self._fields_mapping.values()}
 
     @classmethod
     def fields_mapping(cls) -> Mapping[str, str]:
         """Mapping between model fields and their raw fields"""
         return cls._fields_mapping
 
-    def delete(self):
-        """Delete this record from a table"""
+    def delete(self) -> None:
+        """Delete this record from a table. Marks an instance as "dirty"."""
         if self._sdk is None:
-            raise TypeError('Unable to delete a manually created data table record')
+            raise TypeError("Unable to delete a manually created data table record")
 
         gen = self._sdk.delete_device_data(self.table_name)
         gen.send(None)
@@ -250,10 +299,10 @@ class Model(metaclass=ModelMeta):
 
         self._dirty = True
 
-    def save(self):
-        """Save changes in this record"""
+    def save(self) -> None:
+        """Save changes in this record. Marks an instance as "clean"."""
         if self._sdk is None:
-            raise TypeError('Unable to save a manually created data table record')
+            raise TypeError("Unable to save a manually created data table record")
 
         gen = self._sdk.set_device_data(self.table_name)
         gen.send(None)
@@ -265,16 +314,16 @@ class Model(metaclass=ModelMeta):
 
         self._dirty = False
 
-    def with_raw_data(self, raw_data: Mapping[str, str], dirty: bool = True) -> 'Model':
+    def with_raw_data(self: _ModelT, raw_data: MutableMapping[str, str], dirty: bool = True) -> _ModelT:
         self._raw_data = raw_data
         self._dirty = dirty
         return self
 
-    def with_sdk(self, sdk) -> 'Model':
+    def with_sdk(self: _ModelT, sdk: "ZKSDK") -> _ModelT:
         self._sdk = sdk
         return self
 
-    def with_zk(self, zk) -> 'Model':
+    def with_zk(self: _ModelT, zk: "ZKAccess") -> _ModelT:
         """Bind current object with ZKAccess connection
 
         Args:
@@ -287,15 +336,12 @@ class Model(metaclass=ModelMeta):
         self._sdk = zk.sdk
         return self
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
 
         return self._raw_data == other._raw_data and self.table_name == other.table_name
 
-    def __repr__(self):
-        data = ', '.join(
-            '{}={}'.format(f, self.raw_data.get(k))
-            for f, k in sorted(self.fields_mapping().items())
-        )
-        return '{}{}({})'.format('*' if self._dirty else '', self.__class__.__name__, data)
+    def __repr__(self) -> str:
+        data = ", ".join(f"{f}={self.raw_data.get(k)}" for f, k in sorted(self.fields_mapping().items()))
+        return f"{'*' if self._dirty else ''}{self.__class__.__name__}({data})"

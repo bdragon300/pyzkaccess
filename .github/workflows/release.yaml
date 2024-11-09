@@ -1,0 +1,118 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v?.?"
+    branches:
+      - master
+
+jobs:
+  commit_checks:
+    uses: ./.github/workflows/commit.yaml
+    secrets:  # https://stackoverflow.com/questions/78298827/why-is-codecov-upload-step-in-github-actions-not-finding-the-token
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}
+  build_docs:
+    needs: commit_checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 'latest'
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    - uses: abatilo/actions-poetry@v2
+    - name: Setup Pages
+      id: pages
+      uses: actions/configure-pages@v5
+    - name: Install dependencies
+      run: poetry install
+    - name: Install task
+      run: curl -sL https://taskfile.dev/install.sh | sh
+    - name: Build markdown with Jekyll
+      uses: actions/jekyll-build-pages@v1
+      with:
+        source: ./docs
+        destination: ./_jekyll
+    - name: Build documentation
+      run: "./bin/task build_docs -- -c lunr_search=\"{'fuzziness': 1, 'index_docstrings': True}\""
+    - run: cp -r ./_jekyll/* build/docs/
+    - name: Upload static files as artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: build/docs
+
+  deploy_docs:
+    needs: build_docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v4
+
+  build_exe:
+    needs: commit_checks
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+        architecture: 'x86'
+    - uses: abatilo/actions-poetry@v2
+    - name: Install dependencies
+      run: poetry install
+    - name: Install pyinstaller
+      # Pyinstaller restricts the maximum Python version to use, so install it separately
+      run: poetry run pip install pyinstaller
+    - name: Build executable
+      run: poetry run pyinstaller --name pyzkaccess --onefile pyzkaccess/cli.py
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyzkaccess.exe
+        path: dist/pyzkaccess.exe
+        if-no-files-found: error
+
+  testpypi_publish:
+    needs: commit_checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    - uses: abatilo/actions-poetry@v2
+    - name: Install dependencies
+      run: |
+        pip install yq
+        poetry install
+    - run: poetry config repositories.testpypi https://test.pypi.org/legacy/
+    - name: Substitute dynamic version
+      run: tomlq -it --arg now $(date +%s) '.tool.poetry.version += "-" + $now' pyproject.toml
+    - name: Publish package
+      run: poetry publish -r testpypi --build
+      env:
+        POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TESTPYPI_TOKEN }}
+
+  pypi_publish:
+    needs: testpypi_publish
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+    - uses: abatilo/actions-poetry@v2
+    - name: Install dependencies
+      run: poetry install
+    - name: Publish package
+      run: poetry publish --build
+      env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}

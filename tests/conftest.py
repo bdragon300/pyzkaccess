@@ -12,6 +12,7 @@ def generator_sends_collector():
             test_function(callback=generator_sends_collector(items))
             assert items == [1, 2, 3]
     """
+
     def w(collect_list):
         def collector(*a, **kw):
             item = yield

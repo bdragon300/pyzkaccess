@@ -6,99 +6,62 @@ import pytest
 
 from pyzkaccess.device import ZK400
 from pyzkaccess.enums import SensorType, VerifyMode
-from pyzkaccess.param import (
-    DaylightSavingMomentMode1,
-    DaylightSavingMomentMode2,
-    DeviceParameters,
-    DoorParameters
-)
+from pyzkaccess.param import DaylightSavingMomentMode1, DaylightSavingMomentMode2, DeviceParameters, DoorParameters
 
-# (property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values)
+# property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values
 daylight_saving_mode2_properties = (
-    (
-        'month', ('WeekOfMonth1', 'WeekOfMonth6'), int, ['1', '12'], ['0', '-1', '13'],
-        [1, 12], [0, -1, 13]
-    ),
-    (
-        'week_of_month', ('WeekOfMonth2', 'WeekOfMonth7'), int, ['1', '6'], ['0', '-1', '7'],
-        [1, 6], [0, -1, 7]
-    ),
-    (
-        'day_of_week', ('WeekOfMonth3', 'WeekOfMonth8'), int, ['0', '1', '7'], ['-1', '8'],
-        [0, 1, 7], [-1, 8]
-    ),
-    (
-        'hour', ('WeekOfMonth4', 'WeekOfMonth9'), int, ['0', '23'], ['-1', '24'],
-        [0, 23], [-1, 24]
-    ),
-    (
-        'minute', ('WeekOfMonth5', 'WeekOfMonth10'), int, ['0', '59'], ['-1', '60'],
-        [0, 59], [-1, 60]
-    ),
+    ("month", ("WeekOfMonth1", "WeekOfMonth6"), int, ["1", "12"], ["0", "-1", "13"], [1, 12], [0, -1, 13]),
+    ("week_of_month", ("WeekOfMonth2", "WeekOfMonth7"), int, ["1", "6"], ["0", "-1", "7"], [1, 6], [0, -1, 7]),
+    ("day_of_week", ("WeekOfMonth3", "WeekOfMonth8"), int, ["0", "1", "7"], ["-1", "8"], [0, 1, 7], [-1, 8]),
+    ("hour", ("WeekOfMonth4", "WeekOfMonth9"), int, ["0", "23"], ["-1", "24"], [0, 23], [-1, 24]),
+    ("minute", ("WeekOfMonth5", "WeekOfMonth10"), int, ["0", "59"], ["-1", "60"], [0, 59], [-1, 60]),
 )
 
 
-# (property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values)
+# property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values
 device_params_read_only = (
-    ('serial_number', '~SerialNumber', str, ['asdf', ''], [], ['asdf', ''], []),
-    ('lock_count', 'LockCount', int, ['2'], ['asdf', ''], [2], ['asdf', '']),
-    ('reader_count', 'ReaderCount', int, ['2'], ['asdf', ''], [2], ['asdf', '']),
-    ('aux_in_count', 'AuxInCount', int, ['2'], ['asdf', ''], [2], ['asdf', '']),
-    ('aux_out_count', 'AuxOutCount', int, ['2'], ['asdf', ''], [2], ['asdf', '']),
+    ("serial_number", "~SerialNumber", str, ["asdf", ""], [], ["asdf", ""], []),
+    ("lock_count", "LockCount", int, ["2"], ["asdf", ""], [2], ["asdf", ""]),
+    ("reader_count", "ReaderCount", int, ["2"], ["asdf", ""], [2], ["asdf", ""]),
+    ("aux_in_count", "AuxInCount", int, ["2"], ["asdf", ""], [2], ["asdf", ""]),
+    ("aux_out_count", "AuxOutCount", int, ["2"], ["asdf", ""], [2], ["asdf", ""]),
     # reboot
-    (
-        'fingerprint_version', '~ZKFPVersion', int, ['9', '10'], ['8', '11', 'asdf'],
-        [9, 10], [8, 11, 'asdf']
-    ),
+    ("fingerprint_version", "~ZKFPVersion", int, ["9", "10"], ["8", "11", "asdf"], [9, 10], [8, 11, "asdf"]),
 )
 
 
-# (property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values)
+# property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values
 device_params_read_write = (
-    ('communication_password', 'ComPwd', str, ['asdf', ''], [], ['asdf', ''], []),
+    ("communication_password", "ComPwd", str, ["asdf", ""], [], ["asdf", ""], []),
     (
-        'ip_address', 'IPAddress', str, ['192.168.1.201'], ['', 'asdf', '1.2.3'],
-        ['192.168.1.201'], ['', 'asdf', '1.2.3']
+        "ip_address",
+        "IPAddress",
+        str,
+        ["192.168.1.201"],
+        ["", "asdf", "1.2.3"],
+        ["192.168.1.201"],
+        ["", "asdf", "1.2.3"],
     ),
+    ("netmask", "NetMask", str, ["192.168.1.255"], ["", "asdf", "1.2.3"], ["192.168.1.201"], ["", "asdf", "1.2.3"]),
     (
-        'netmask', 'NetMask', str, ['192.168.1.255'], ['', 'asdf', '1.2.3'],
-        ['192.168.1.201'], ['', 'asdf', '1.2.3']
+        "gateway_ip_address",
+        "GATEIPAddress",
+        str,
+        ["192.168.1.201"],
+        ["", "asdf", "1.2.3"],
+        ["192.168.1.201"],
+        ["", "asdf", "1.2.3"],
     ),
-    (
-        'gateway_ip_address', 'GATEIPAddress', str, ['192.168.1.201'], ['', 'asdf', '1.2.3'],
-        ['192.168.1.201'], ['', 'asdf', '1.2.3']
-    ),
-    ('rs232_baud_rate', 'RS232BaudRate', int, ['32165'], ['asdf', ''], [32165], ['asdf', '']),
-    (
-        'watchdog_enabled', 'WatchDog', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '', 1]
-    ),
-    (
-        'door4_to_door2', 'Door4ToDoor2', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '', 1]
-    ),
-    (
-        'backup_hour', 'BackupTime', int, ['2'], ['asdf', '', '-1', '0', '25'],
-        [2], ['asdf', '', -1, 0, 25]
-    ),
-    ('reader_direction', 'InBIOTowWay', str, ['1', '0'], [], ['1', '0'], []),
-    (
-        'display_daylight_saving', '~DSTF', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '', 1]
-    ),
-    (
-        'enable_daylight_saving', 'DaylightSavingTimeOn', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '', 1]
-    ),
-    ('daylight_saving_mode', 'DLSTMode', int, ['1', '0'], ['asdf', ''], [0, 1], ['asdf', '']),
-    (
-        'anti_passback_rule', 'AntiPassback', int, ['16', '0', '128'], ['asdf', ''],
-        [16, 0, 128], ['asdf', '']
-    ),
-    (
-        'interlock', 'InterLock', int, ['0', '5'], ['asdf', '', '-1', '241'],
-        [0, 5], ['asdf', '', -1, 241]
-    ),
+    ("rs232_baud_rate", "RS232BaudRate", int, ["32165"], ["asdf", ""], [32165], ["asdf", ""]),
+    ("watchdog_enabled", "WatchDog", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", "", 1]),
+    ("door4_to_door2", "Door4ToDoor2", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", "", 1]),
+    ("backup_hour", "BackupTime", int, ["2"], ["asdf", "", "-1", "0", "25"], [2], ["asdf", "", -1, 0, 25]),
+    ("reader_direction", "InBIOTowWay", str, ["1", "0"], [], ["1", "0"], []),
+    ("display_daylight_saving", "~DSTF", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", "", 1]),
+    ("enable_daylight_saving", "DaylightSavingTimeOn", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", "", 1]),
+    ("daylight_saving_mode", "DLSTMode", int, ["1", "0"], ["asdf", ""], [0, 1], ["asdf", ""]),
+    ("anti_passback_rule", "AntiPassback", int, ["16", "0", "128"], ["asdf", ""], [16, 0, 128], ["asdf", ""]),
+    ("interlock", "InterLock", int, ["0", "5"], ["asdf", "", "-1", "241"], [0, 5], ["asdf", "", -1, 241]),
     # datetime
     # spring_daylight_time_mode1
     # fall_daylight_time_mode1
@@ -107,49 +70,45 @@ device_params_read_write = (
 )
 
 
-# (property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values)
+# property, parameter_name, property_type, correct_sdk_values, wrong_sdk_values, correct_prop_values, wrong_prop_values
 door_params_read_write = (
-    ('duress_password', 'ForcePassWord', str, ['', '1234'], ['asdf'], ['', '1234'], ['asdf', 1234]),
+    ("duress_password", "ForcePassWord", str, ["", "1234"], ["asdf"], ["", "1234"], ["asdf", 1234]),
+    ("emergency_password", "SupperPassWord", str, ["", "1234"], ["asdf"], ["", "1234"], ["asdf", 1234]),
+    ("lock_on_close", "CloseAndLock", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", "", 1]),
     (
-        'emergency_password', 'SupperPassWord', str, ['', '1234'], ['asdf'],
-        ['', '1234'], ['asdf', 1234]
+        "sensor_type",
+        "SensorType",
+        SensorType,
+        ["0", "2"],
+        ["asdf", "", "-1", "3"],
+        [SensorType.normal_closed],
+        ["asdf", "", -1, 3, 2],
+    ),
+    ("lock_driver_time", "Drivertime", int, ["0", "255"], ["asdf", "", "-1", "256"], [0, 255], ["asdf", "", -1, 256]),
+    (
+        "magnet_alarm_duration",
+        "Detectortime",
+        int,
+        ["0", "255"],
+        ["asdf", "", "-1", "256"],
+        [0, 255],
+        ["asdf", "", -1, 256],
     ),
     (
-        'lock_on_close', 'CloseAndLock', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '', 1]
+        "verify_mode",
+        "VerifyType",
+        VerifyMode,
+        ["0", "1", "3", "4", "6", "10", "11", "200"],
+        ["asdf", "", "-1", "2", "100", "201"],
+        [VerifyMode.card_and_finger],
+        ["asdf", "", -1, 2, 100, 201],
     ),
-    (
-        'sensor_type', 'SensorType', SensorType, ['0', '2'], ['asdf', '', '-1', '3'],
-        [SensorType.normal_closed], ['asdf', '', -1, 3, 2]
-    ),
-    (
-        'lock_driver_time', 'Drivertime', int, ['0', '255'], ['asdf', '', '-1', '256'],
-        [0, 255], ['asdf', '', -1, 256]
-    ),
-    (
-        'magnet_alarm_duration', 'Detectortime', int, ['0', '255'], ['asdf', '', '-1', '256'],
-        [0, 255], ['asdf', '', -1, 256]
-    ),
-    (
-        'verify_mode', 'VerifyType', VerifyMode,
-        ['0', '1', '3', '4', '6', '10', '11', '200'], ['asdf', '', '-1', '2', '100', '201'],
-        [VerifyMode.card_and_finger], ['asdf', '', -1, 2, 100, 201]
-    ),
-    (
-        'multi_card_open', 'MultiCardOpenDoor', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '']
-    ),
-    (
-        'first_card_open', 'FirstCardOpenDoor', bool, ['1', '0'], ['asdf', ''],
-        [True, False], ['asdf', '']
-    ),
-    ('active_time_tz', 'ValidTZ', int, ['0', '128'], ['asdf', ''], [0, 128], ['asdf', '']),
-    ('open_time_tz', 'KeepOpenTimeZone', int, ['0', '128'], ['asdf', ''], [0, 128], ['asdf', '']),
-    ('punch_interval', 'Intertime', int, ['0', '128'], ['asdf', ''], [0, 128], ['asdf', '']),
-    (
-        'cancel_open_day', 'CancelKeepOpenDay', int, ['0', '128'], ['asdf', ''],
-        [0, 128], ['asdf', '']
-    )
+    ("multi_card_open", "MultiCardOpenDoor", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", ""]),
+    ("first_card_open", "FirstCardOpenDoor", bool, ["1", "0"], ["asdf", ""], [True, False], ["asdf", ""]),
+    ("active_time_tz", "ValidTZ", int, ["0", "128"], ["asdf", ""], [0, 128], ["asdf", ""]),
+    ("open_time_tz", "KeepOpenTimeZone", int, ["0", "128"], ["asdf", ""], [0, 128], ["asdf", ""]),
+    ("punch_interval", "Intertime", int, ["0", "128"], ["asdf", ""], [0, 128], ["asdf", ""]),
+    ("cancel_open_day", "CancelKeepOpenDay", int, ["0", "128"], ["asdf", ""], [0, 128], ["asdf", ""]),
 )
 
 
@@ -190,7 +149,7 @@ class TestDaylightSavingMomentMode1:
     def test_repr__should_print_formatted_string(self):
         obj = DaylightSavingMomentMode1(6, 5, 4, 3)
 
-        assert repr(obj) == '06-05 04:03'
+        assert repr(obj) == "06-05 04:03"
 
     def test_to_datetime__should_return_the_copied_datetime_object(self):
         obj = DaylightSavingMomentMode1(6, 5, 4, 3).to_datetime()
@@ -213,12 +172,12 @@ class TestDaylightSavingMomentMode2:
         assert obj.buffer_size == 4096
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(daylight_saving_mode2_properties, correct=True)
+        "prop,param,prop_type,sdk_value,prop_value",
+        prop_read_test_combinations(daylight_saving_mode2_properties, correct=True),
     )
-    @pytest.mark.parametrize('is_daylight,param_idx', ((True, 0), (False, 1)))
+    @pytest.mark.parametrize("is_daylight,param_idx", ((True, 0), (False, 1)))
     def test_read_readwrite_property__should_return_value_of_correct_type(
-            self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
+        self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
     ):
         sdk = Mock()
         param = param[param_idx]
@@ -227,17 +186,17 @@ class TestDaylightSavingMomentMode2:
 
         res = getattr(obj, prop)
 
-        sdk.get_device_param.assert_called_once_with(parameters=(param, ), buffer_size=4096)
-        assert type(res) == prop_type
+        sdk.get_device_param.assert_called_once_with(parameters=(param,), buffer_size=4096)
+        assert type(res) is prop_type
         assert res == prop_value
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(daylight_saving_mode2_properties, correct=False)
+        "prop,param,prop_type,sdk_value,prop_value",
+        prop_read_test_combinations(daylight_saving_mode2_properties, correct=False),
     )
-    @pytest.mark.parametrize('is_daylight,param_idx', ((True, 0), (False, 1)))
+    @pytest.mark.parametrize("is_daylight,param_idx", ((True, 0), (False, 1)))
     def test_read_readwrite_property__if_wrong_value_returned__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
+        self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
     ):
         sdk = Mock()
         param = param[param_idx]
@@ -248,12 +207,12 @@ class TestDaylightSavingMomentMode2:
             _ = getattr(obj, prop)
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(daylight_saving_mode2_properties, correct=True)
+        "prop,param,prop_type,prop_value,sdk_value",
+        prop_write_test_combinations(daylight_saving_mode2_properties, correct=True),
     )
-    @pytest.mark.parametrize('is_daylight,param_idx', ((True, 0), (False, 1)))
+    @pytest.mark.parametrize("is_daylight,param_idx", ((True, 0), (False, 1)))
     def test_write_readwrite_property__should_set_value_on_a_device(
-            self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
+        self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
     ):
         sdk = Mock()
         param = param[param_idx]
@@ -265,12 +224,12 @@ class TestDaylightSavingMomentMode2:
         sdk.set_device_param.assert_called_once_with(parameters={param: sdk_value})
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(daylight_saving_mode2_properties, correct=False)
+        "prop,param,prop_type,prop_value,sdk_value",
+        prop_write_test_combinations(daylight_saving_mode2_properties, correct=False),
     )
-    @pytest.mark.parametrize('is_daylight,param_idx', ((True, 0), (False, 1)))
+    @pytest.mark.parametrize("is_daylight,param_idx", ((True, 0), (False, 1)))
     def test_write_readwrite_property__if_wrong_value_passed__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
+        self, prop, param, prop_type, sdk_value, prop_value, is_daylight, param_idx
     ):
         sdk = Mock()
         sdk.set_device_param.return_value = None
@@ -281,23 +240,23 @@ class TestDaylightSavingMomentMode2:
 
     def test_str__should_return_name_of_class(self):
         def se(parameters, buffer_size):
-            return {parameters[0]: '1'}
+            return {parameters[0]: "1"}
 
         sdk = Mock()
         sdk.get_device_param.side_effect = se
         obj = DaylightSavingMomentMode2(sdk, False, 4096)
 
-        assert str(obj).startswith('DaylightSavingMomentMode2(')
+        assert str(obj).startswith("DaylightSavingMomentMode2(")
 
     def test_repr__should_return_name_of_class(self):
         def se(parameters, buffer_size):
-            return {parameters[0]: '1'}
+            return {parameters[0]: "1"}
 
         sdk = Mock()
         sdk.get_device_param.side_effect = se
         obj = DaylightSavingMomentMode2(sdk, False, 4096)
 
-        assert repr(obj).startswith('DaylightSavingMomentMode2(')
+        assert repr(obj).startswith("DaylightSavingMomentMode2(")
 
 
 class TestDeviceParameters:
@@ -309,11 +268,10 @@ class TestDeviceParameters:
         assert obj.device_model == ZK400
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(device_params_read_only, correct=True)
+        "prop,param,prop_type,sdk_value,prop_value", prop_read_test_combinations(device_params_read_only, correct=True)
     )
     def test_read_readonly_property__should_return_value_of_correct_type(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         sdk.get_device_param.return_value = {param: sdk_value}
@@ -321,16 +279,15 @@ class TestDeviceParameters:
 
         res = getattr(obj, prop)
 
-        sdk.get_device_param.assert_called_once_with(parameters=(param, ), buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=(param,), buffer_size=4096)
         assert isinstance(res, prop_type)
         assert res == prop_value
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(device_params_read_only, correct=False)
+        "prop,param,prop_type,sdk_value,prop_value", prop_read_test_combinations(device_params_read_only, correct=False)
     )
     def test_read_readonly_property__if_wrong_value_returned__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         sdk.get_device_param.return_value = {param: sdk_value}
@@ -340,11 +297,10 @@ class TestDeviceParameters:
             _ = getattr(obj, prop)
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(device_params_read_only, correct=True)
+        "prop,param,prop_type,prop_value,sdk_value", prop_write_test_combinations(device_params_read_only, correct=True)
     )
     def test_write_readonly_property__for_read_only_properties__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         obj = DeviceParameters(sdk, ZK400)
@@ -353,11 +309,10 @@ class TestDeviceParameters:
             setattr(obj, prop, prop_value)
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(device_params_read_write, correct=True)
+        "prop,param,prop_type,sdk_value,prop_value", prop_read_test_combinations(device_params_read_write, correct=True)
     )
     def test_read_readwrite_property__should_return_value_of_correct_type(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         sdk.get_device_param.return_value = {param: sdk_value}
@@ -365,16 +320,16 @@ class TestDeviceParameters:
 
         res = getattr(obj, prop)
 
-        sdk.get_device_param.assert_called_once_with(parameters=(param, ), buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=(param,), buffer_size=4096)
         assert isinstance(res, prop_type)
         assert res == prop_value
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(device_params_read_write, correct=False)
+        "prop,param,prop_type,sdk_value,prop_value",
+        prop_read_test_combinations(device_params_read_write, correct=False),
     )
     def test_read_readwrite_property__if_wrong_value_returned__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         sdk.get_device_param.return_value = {param: sdk_value}
@@ -384,11 +339,11 @@ class TestDeviceParameters:
             _ = getattr(obj, prop)
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(device_params_read_write, correct=True)
+        "prop,param,prop_type,prop_value,sdk_value",
+        prop_write_test_combinations(device_params_read_write, correct=True),
     )
     def test_write_readwrite_property__should_set_value_on_a_device(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         sdk.set_device_param.return_value = None
@@ -399,11 +354,11 @@ class TestDeviceParameters:
         sdk.set_device_param.assert_called_once_with(parameters={param: sdk_value})
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(device_params_read_write, correct=False)
+        "prop,param,prop_type,prop_value,sdk_value",
+        prop_write_test_combinations(device_params_read_write, correct=False),
     )
     def test_write_readwrite_property__if_wrong_value_passed__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value
+        self, prop, param, prop_type, sdk_value, prop_value
     ):
         sdk = Mock()
         sdk.set_device_param.return_value = None
@@ -414,7 +369,7 @@ class TestDeviceParameters:
 
     def test_read_fingerprint_version__on_empty_value_should_return_zero(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'~ZKFPVersion': ''}
+        sdk.get_device_param.return_value = {"~ZKFPVersion": ""}
         obj = DeviceParameters(sdk, ZK400)
 
         assert obj.fingerprint_version == 0
@@ -426,9 +381,9 @@ class TestDeviceParameters:
 
         obj.reboot = True
 
-        sdk.set_device_param.assert_called_once_with(parameters={'Reboot': '1'})
+        sdk.set_device_param.assert_called_once_with(parameters={"Reboot": "1"})
 
-    @pytest.mark.parametrize('value', (0, '1', [], '', object))
+    @pytest.mark.parametrize("value", (0, "1", [], "", object))
     def test_write_reboot_writeonly_prop__if_write_wrong_value__should_raise_error(self, value):
         sdk = Mock()
         sdk.set_device_param.return_value = None
@@ -446,13 +401,12 @@ class TestDeviceParameters:
 
     def test_read_spring_daylight_time_mode1_prop__should_return_object(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'DaylightSavingTime': 16843008}
+        sdk.get_device_param.return_value = {"DaylightSavingTime": 16843008}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.spring_daylight_time_mode1
 
-        sdk.get_device_param.assert_called_once_with(parameters=('DaylightSavingTime', ),
-                                                     buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=("DaylightSavingTime",), buffer_size=4096)
         assert isinstance(res, DaylightSavingMomentMode1)
         assert res.month == 1
         assert res.day == 1
@@ -461,13 +415,12 @@ class TestDeviceParameters:
 
     def test_read_spring_daylight_time_mode1_prop_on_empty_value__should_return_none(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'DaylightSavingTime': '0'}
+        sdk.get_device_param.return_value = {"DaylightSavingTime": "0"}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.spring_daylight_time_mode1
 
-        sdk.get_device_param.assert_called_once_with(parameters=('DaylightSavingTime', ),
-                                                     buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=("DaylightSavingTime",), buffer_size=4096)
         assert res is None
 
     def test_write_spring_daylight_time_mode1_prop__should_return_object(self):
@@ -478,17 +431,16 @@ class TestDeviceParameters:
 
         obj.spring_daylight_time_mode1 = test_obj
 
-        sdk.set_device_param.assert_called_once_with(parameters={'DaylightSavingTime': 16843008})
+        sdk.set_device_param.assert_called_once_with(parameters={"DaylightSavingTime": 16843008})
 
     def test_read_fall_daylight_time_mode1_prop__should_return_object(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'StandardTime': 16843008}
+        sdk.get_device_param.return_value = {"StandardTime": 16843008}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.fall_daylight_time_mode1
 
-        sdk.get_device_param.assert_called_once_with(parameters=('StandardTime', ),
-                                                     buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=("StandardTime",), buffer_size=4096)
         assert isinstance(res, DaylightSavingMomentMode1)
         assert res.month == 1
         assert res.day == 1
@@ -497,13 +449,12 @@ class TestDeviceParameters:
 
     def test_read_fall_daylight_time_mode1_prop__on_empty_value__should_return_none(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'StandardTime': '0'}
+        sdk.get_device_param.return_value = {"StandardTime": "0"}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.fall_daylight_time_mode1
 
-        sdk.get_device_param.assert_called_once_with(parameters=('StandardTime', ),
-                                                     buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=("StandardTime",), buffer_size=4096)
         assert res is None
 
     def test_write_fall_daylight_time_mode1_prop__should_return_object(self):
@@ -514,7 +465,7 @@ class TestDeviceParameters:
 
         obj.fall_daylight_time_mode1 = test_obj
 
-        sdk.set_device_param.assert_called_once_with(parameters={'StandardTime': 16843008})
+        sdk.set_device_param.assert_called_once_with(parameters={"StandardTime": 16843008})
 
     def test_read_spring_daylight_time_mode2_prop__should_return_object(self):
         sdk = Mock()
@@ -531,16 +482,16 @@ class TestDeviceParameters:
     def test_write_spring_daylight_time_mode2_prop__should_copy_all_fields_to_a_device(self):
         def se(parameters, buffer_size):
             choices = {
-                'WeekOfMonth1': 2,
-                'WeekOfMonth2': 3,
-                'WeekOfMonth3': 4,
-                'WeekOfMonth4': 5,
-                'WeekOfMonth5': 6,
-                'WeekOfMonth6': 7,
-                'WeekOfMonth7': 8,
-                'WeekOfMonth8': 9,
-                'WeekOfMonth9': 10,
-                'WeekOfMonth10': 11,
+                "WeekOfMonth1": 2,
+                "WeekOfMonth2": 3,
+                "WeekOfMonth3": 4,
+                "WeekOfMonth4": 5,
+                "WeekOfMonth5": 6,
+                "WeekOfMonth6": 7,
+                "WeekOfMonth7": 8,
+                "WeekOfMonth8": 9,
+                "WeekOfMonth9": 10,
+                "WeekOfMonth10": 11,
             }
             return {parameters[0]: choices[parameters[0]]}
 
@@ -552,13 +503,15 @@ class TestDeviceParameters:
 
         obj.spring_daylight_time_mode2 = test_obj
 
-        sdk.set_device_param.assert_has_calls((
-            call(parameters={'WeekOfMonth1': '2'}),
-            call(parameters={'WeekOfMonth2': '3'}),
-            call(parameters={'WeekOfMonth3': '4'}),
-            call(parameters={'WeekOfMonth4': '5'}),
-            call(parameters={'WeekOfMonth5': '6'}),
-        ))
+        sdk.set_device_param.assert_has_calls(
+            (
+                call(parameters={"WeekOfMonth1": "2"}),
+                call(parameters={"WeekOfMonth2": "3"}),
+                call(parameters={"WeekOfMonth3": "4"}),
+                call(parameters={"WeekOfMonth4": "5"}),
+                call(parameters={"WeekOfMonth5": "6"}),
+            )
+        )
 
     def test_read_fall_daylight_time_mode2_prop__should_return_object(self):
         sdk = Mock()
@@ -575,16 +528,16 @@ class TestDeviceParameters:
     def test_write_fall_daylight_time_mode2_prop__should_copy_all_fields_to_a_device(self):
         def se(parameters, buffer_size):
             choices = {
-                'WeekOfMonth1': 2,
-                'WeekOfMonth2': 3,
-                'WeekOfMonth3': 4,
-                'WeekOfMonth4': 5,
-                'WeekOfMonth5': 6,
-                'WeekOfMonth6': 2,
-                'WeekOfMonth7': 3,
-                'WeekOfMonth8': 4,
-                'WeekOfMonth9': 5,
-                'WeekOfMonth10': 6,
+                "WeekOfMonth1": 2,
+                "WeekOfMonth2": 3,
+                "WeekOfMonth3": 4,
+                "WeekOfMonth4": 5,
+                "WeekOfMonth5": 6,
+                "WeekOfMonth6": 2,
+                "WeekOfMonth7": 3,
+                "WeekOfMonth8": 4,
+                "WeekOfMonth9": 5,
+                "WeekOfMonth10": 6,
             }
             return {parameters[0]: choices[parameters[0]]}
 
@@ -596,17 +549,19 @@ class TestDeviceParameters:
 
         obj.fall_daylight_time_mode2 = test_obj
 
-        sdk.set_device_param.assert_has_calls((
-            call(parameters={'WeekOfMonth6': '2'}),
-            call(parameters={'WeekOfMonth7': '3'}),
-            call(parameters={'WeekOfMonth8': '4'}),
-            call(parameters={'WeekOfMonth9': '5'}),
-            call(parameters={'WeekOfMonth10': '6'}),
-        ))
+        sdk.set_device_param.assert_has_calls(
+            (
+                call(parameters={"WeekOfMonth6": "2"}),
+                call(parameters={"WeekOfMonth7": "3"}),
+                call(parameters={"WeekOfMonth8": "4"}),
+                call(parameters={"WeekOfMonth9": "5"}),
+                call(parameters={"WeekOfMonth10": "6"}),
+            )
+        )
 
     def test_read_datetime_prop__should_correctly_calculate_datetime(self):
         sdk = Mock()
-        sdk.get_device_param.return_value = {'DateTime': '347748895'}
+        sdk.get_device_param.return_value = {"DateTime": "347748895"}
         obj = DeviceParameters(sdk, ZK400)
 
         res = obj.datetime
@@ -620,7 +575,7 @@ class TestDeviceParameters:
 
         obj.datetime = datetime(2010, 10, 26, 20, 54, 55)
 
-        sdk.set_device_param.assert_called_once_with(parameters={'DateTime': '347748895'})
+        sdk.set_device_param.assert_called_once_with(parameters={"DateTime": "347748895"})
 
 
 class TestDoorParameters:
@@ -633,17 +588,19 @@ class TestDoorParameters:
         assert obj.door_number == 2
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(door_params_read_write, correct=True)
+        "prop,param,prop_type,sdk_value,prop_value", prop_read_test_combinations(door_params_read_write, correct=True)
     )
-    @pytest.mark.parametrize('door_number,param_prefix', (
-        (1, 'Door1'),
-        (2, 'Door2'),
-        (3, 'Door3'),
-        (4, 'Door4'),
-    ))
+    @pytest.mark.parametrize(
+        "door_number,param_prefix",
+        (
+            (1, "Door1"),
+            (2, "Door2"),
+            (3, "Door3"),
+            (4, "Door4"),
+        ),
+    )
     def test_read_readwrite_property__should_return_value_of_correct_type(
-            self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
+        self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
     ):
         sdk = Mock()
         full_param = param_prefix + param
@@ -652,22 +609,24 @@ class TestDoorParameters:
 
         res = getattr(obj, prop)
 
-        sdk.get_device_param.assert_called_once_with(parameters=(full_param, ), buffer_size=4096)
+        sdk.get_device_param.assert_called_once_with(parameters=(full_param,), buffer_size=4096)
         assert isinstance(res, prop_type)
         assert res == prop_value
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,sdk_value,prop_value',
-        prop_read_test_combinations(door_params_read_write, correct=False)
+        "prop,param,prop_type,sdk_value,prop_value", prop_read_test_combinations(door_params_read_write, correct=False)
     )
-    @pytest.mark.parametrize('door_number,param_prefix', (
-        (1, 'Door1'),
-        (2, 'Door2'),
-        (3, 'Door3'),
-        (4, 'Door4'),
-    ))
+    @pytest.mark.parametrize(
+        "door_number,param_prefix",
+        (
+            (1, "Door1"),
+            (2, "Door2"),
+            (3, "Door3"),
+            (4, "Door4"),
+        ),
+    )
     def test_read_readwrite_property__if_wrong_value_returned__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
+        self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
     ):
         sdk = Mock()
         full_param = param_prefix + param
@@ -678,17 +637,19 @@ class TestDoorParameters:
             _ = getattr(obj, prop)
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(door_params_read_write, correct=True)
+        "prop,param,prop_type,prop_value,sdk_value", prop_write_test_combinations(door_params_read_write, correct=True)
     )
-    @pytest.mark.parametrize('door_number,param_prefix', (
-        (1, 'Door1'),
-        (2, 'Door2'),
-        (3, 'Door3'),
-        (4, 'Door4'),
-    ))
+    @pytest.mark.parametrize(
+        "door_number,param_prefix",
+        (
+            (1, "Door1"),
+            (2, "Door2"),
+            (3, "Door3"),
+            (4, "Door4"),
+        ),
+    )
     def test_write_readwrite_property__should_set_value_on_a_device(
-            self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
+        self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
     ):
         sdk = Mock()
         sdk.set_device_param.return_value = None
@@ -700,17 +661,19 @@ class TestDoorParameters:
         sdk.set_device_param.assert_called_once_with(parameters={full_param: sdk_value})
 
     @pytest.mark.parametrize(
-        'prop,param,prop_type,prop_value,sdk_value',
-        prop_write_test_combinations(door_params_read_write, correct=False)
+        "prop,param,prop_type,prop_value,sdk_value", prop_write_test_combinations(door_params_read_write, correct=False)
     )
-    @pytest.mark.parametrize('door_number,param_prefix', (
-        (1, 'Door1'),
-        (2, 'Door2'),
-        (3, 'Door3'),
-        (4, 'Door4'),
-    ))
+    @pytest.mark.parametrize(
+        "door_number,param_prefix",
+        (
+            (1, "Door1"),
+            (2, "Door2"),
+            (3, "Door3"),
+            (4, "Door4"),
+        ),
+    )
     def test_write_readwrite_property__if_wrong_value_passed__should_raise_error(
-            self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
+        self, prop, param, prop_type, sdk_value, prop_value, door_number, param_prefix
     ):
         sdk = Mock()
         sdk.set_device_param.return_value = None

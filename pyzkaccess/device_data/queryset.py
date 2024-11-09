@@ -1,32 +1,41 @@
-__all__ = [
-    'QuerySet'
-]
+# pylint: disable=protected-access
+__all__ = ["QuerySet"]
 
 import math
 from copy import copy
 from typing import (
-    Type,
-    Union,
-    Optional,
-    Iterator,
-    Generator,
-    Mapping,
     Any,
-    Sequence,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Set,
+    Type,
     TypeVar,
-    Iterable
+    Union,
+    cast,
+    overload,
 )
 
-from .model import Model, Field
+from pyzkaccess.device_data.model import Field, Model
+from pyzkaccess.sdk import ZKSDK
+
+_ModelT = TypeVar("_ModelT", bound=Model)
+_QuerySetT = TypeVar("_QuerySetT", bound="QuerySet")
+RecordType = Union[Model, Mapping[str, Any]]
 
 
-class QuerySet:
-    """Interface to perform queries to data tables, iterate
-    over results and insert/delete records in tables
-    
-    QuerySet using "fluent interface" in most of its methods. Many
-    ORMs use this approach, so working with tables and records may look
-    familiar.
+class QuerySet(Generic[_ModelT]):
+    """Interface to make queries to data tables, iterate
+    over results and write the data to tables
+
+    QuerySet follows the "fluent interface" pattern in most of
+    its methods. This means you can chain them together in a
+    single line of code.
 
     Example::
 
@@ -35,138 +44,140 @@ class QuerySet:
             print(record.password)
 
     For table and fields you can use either objects or their names.
-    For example, the following code has the same meaning as the previous
-    one::
+    For example, the following is equal to the previous one::
 
         from zkaccess.tables import User
         records = zk.table(User).where(card='123456').only_fields(User.card, User.password).unread()
         for record in records:
             print(record.password)
-
-    Also QuerySet can do upsert/delete operations
-
     """
+
     _estimate_record_buffer = 256
 
-    def __init__(self, sdk, table: Type[Model], buffer_size: Optional[int] = None):
-        """
+    def __init__(self, sdk: "ZKSDK", table: Type[_ModelT], buffer_size: Optional[int] = None) -> None:
+        """QuerySet constructor. Typically, you don't need to create
+        QuerySet objects manually, but use `table` method of ZKAccess
+        object instead.
+
         Args:
             sdk (ZKSDK): ZKSDK object
-            table (Type[Model]): model class
+            table (Type[_ModelT]): model class
             buffer_size (int, optional): size of c-string buffer to
                 keep query results from a device. If omitted, then
                 buffer size will be guessed automatically
         """
         self._sdk = sdk
         self._table_cls = table
-        self._cache = None
-        self._results_iter = None
+        self._cache: Optional[List[Mapping[str, str]]] = None
+        self._results_iter: Optional[Iterator[Mapping[str, str]]] = None
 
         # Query parameters
         self._buffer_size = buffer_size
-        self._only_fields = set()
-        self._filters = {}
+        self._only_fields: Set[Field] = set()
+        self._filters: MutableMapping[str, str] = {}
         self._only_unread = False
 
-    def only_fields(self, *fields: Union[Field, str]) -> 'QuerySet':
-        """Query given fields only from a table. Arguments can be
+    def select(self: _QuerySetT, *fields: Union[Field, str]) -> _QuerySetT:
+        """Select fields to be fetched from a table. Arguments can be
         field instances or their names
 
         Example::
 
-            zk.table(Table1).only_fields('field1', Table1.field2)
+            zk.table(Table1).select('field1', Table1.field2)
 
         Args:
             *fields (Union[Field, str]): fields to select
 
         Returns:
-            QuerySet: new `QuerySet` object with conditions
+            QuerySet: a copy of current object with new fields rule
         """
-        qs = self.copy()
+        qs: _QuerySetT = self.copy()
         only_fields = set()
         fields_mapping = self._table_cls.fields_mapping()
         for field in fields:
             if isinstance(field, str):
                 if field not in fields_mapping.keys():
-                    raise ValueError('No such field {}.{}'.format(self._table_cls.__name__, field))
-                field = getattr(self._table_cls, field)
+                    raise ValueError(f"No such field {self._table_cls.__name__}.{field}")
+                field_obj = getattr(self._table_cls, field)
 
             elif isinstance(field, Field):
+                field_obj = field
                 reverse_mapping = {v: k for k, v in fields_mapping.items()}
                 field_name = reverse_mapping.get(field.raw_name)
                 if field_name is None or getattr(self._table_cls, field_name, None) is not field:
-                    raise ValueError('No such field {}.{}'.format(self._table_cls.__name__, field))
+                    raise ValueError(f"No such field {self._table_cls.__name__}.{field}")
 
             else:
-                raise TypeError('Field must be either a table field object or a field name')
+                raise TypeError("Field must be either a table field object or a field name")
 
-            only_fields.add(field)
+            only_fields.add(field_obj)
 
         qs._only_fields.update(only_fields)
         return qs
 
-    def where(self, **kwargs) -> 'QuerySet':
-        """Return a new QuerySet instance with given fields filters.
-        If current QuerySet already has some filters with the same
-        fields as given, they will be rewritten with new values.
+    def only_fields(self: _QuerySetT, *fields: Union[Field, str]) -> _QuerySetT:
+        """Alias for `select` method"""
+        return self.select(*fields)
 
-        Only "equal" compare operation is available.
+    def where(self: _QuerySetT, **kwargs: Any) -> _QuerySetT:
+        """Add a filter to a query.
 
-        In example below filters will be
-            `card == '111' AND super_authorize == False`::
+        It's similar to SQL WHERE clause. Filters in one call will be ANDed.
+        Filters in repeatable calls will be ANDed as well. The same filter value
+        in repeated calls will be replaced to the value in the last call.
+
+        Supports only the equality operation due to SDK limitations.
+
+        Here the filters will be `card == '111' AND super_authorize == False`::
 
             zk.table('User').where(card='123456').where(card='111', super_authorize=False)
 
         Args:
-            **kwargs (Mapping[str, Any]): field conditions
+            **kwargs (Any): field filters
 
         Returns:
-            QuerySet: new QuerySet object with conditions
+            QuerySet: a copy of current object with filters
 
         """
         if not kwargs:
-            raise TypeError('Empty arguments')
+            raise TypeError("Empty arguments")
 
-        qs = self.copy()
+        qs: _QuerySetT = self.copy()
         filters = {}
         for key, fval in kwargs.items():
             field = getattr(self._table_cls, key, None)
             if field is None:
-                raise TypeError('No such field {}.{}', self._table_cls.__name__, key)
+                raise TypeError(f"No such field {self._table_cls.__name__}.{key}")
             filters[field.raw_name] = field.to_raw_value(fval)
 
         qs._filters.update(filters)
 
         return qs
 
-    def unread(self) -> 'QuerySet':
+    def unread(self: _QuerySetT) -> _QuerySetT:
         """Return only unread records instead of all.
 
-        Some tables on device has a pointer which is set to the last
-        record on each query. If no records have been inserted to
-        a table since last read, the "unread" query will return nothing
-
-        Args:
+        The ZK device stores a pointer to the last read record in each table.
+        Once a table is read, the pointer is moved to the last record.
+        We use this to track the unread records.
 
         Returns:
-            QuerySet: new QuerySet object with conditions
+            QuerySet: a copy of current object with unread flag
 
         """
         qs = self.copy()
         qs._only_unread = True
         return qs
 
-    _ModelArgT = TypeVar('_ModelArgT', Model, Mapping[str, Any])
-
-    def upsert(self, records: Union[Iterable[_ModelArgT], _ModelArgT]) -> None:
-        """Update/insert given records (or upsert) to a table.
+    def upsert(self, records: Union[Iterable[RecordType], RecordType]) -> None:
+        """Upsert (update or insert) operation.
 
         Every table on a device has primary key. Typically, it is "pin"
         field.
 
         Upsert means that when you try to upsert a record with primary
-        key field which does not contain in table, then this record
-        will be inserted. Otherwise it will be updated.
+        key value which does not contain in table, then this record
+        will be inserted. Otherwise it will be updated with the data you provide.
 
         Examples::
 
@@ -176,25 +187,20 @@ class QuerySet:
             zk.table(User).upsert([User(pin='0', card='123456'), User(pin='1', card='654321')])
 
         Args:
-            records (Union[Iterable[_ModelArgT], _ModelArgT]): record
+            records (Union[Iterable[RecordType], RecordType]): record
                 dict, Model instance or a sequence of those
-
-        Returns:
-            None
-
         """
         if not isinstance(records, (Iterable, Model, Mapping)):
-            raise TypeError('Argument must be a iterable, Model or mapping')
+            raise TypeError("Argument must be a iterable, Model or mapping")
 
         gen = self._sdk.set_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
 
-    def delete(self, records: Union[Iterable[_ModelArgT], _ModelArgT]) -> None:
+    def delete(self, records: Union[Iterable[RecordType], RecordType]) -> None:
         """Delete given records from a table.
-        
-        Every table on a device has primary key. Typically, it is "pin"
-        field. Deletion of record is performed by a field which is
-        primary key for this table. Other fields seems are ignored.
+
+        This function deletes records from a table by primary key from every
+        passed record. Typically, the primary key is "pin" field.
 
         Examples::
 
@@ -204,44 +210,34 @@ class QuerySet:
             zk.table(User).delete([User(pin='0', card='123456'), User(pin='1', card='654321')])
 
         Args:
-            records (Union[Sequence[_ModelArgT], _ModelArgT]): record
+            records (Union[Sequence[RecordType], RecordType]): record
                 dict, Model instance or a sequence of those
-
-        Returns:
-            None
-
         """
         if not isinstance(records, (Iterable, Model, Mapping)):
-            raise TypeError('Argument must be a iterable, Model or mapping')
+            raise TypeError("Argument must be a iterable, Model or mapping")
 
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, records)
 
     def delete_all(self) -> None:
-        """Make a query to a table using this QuerySet and delete all
-        matched records.
+        """Delete records satisfied to a query.
 
         Query in example below deletes records with `password='123'`::
 
             zk.table('User').where(password='123').delete_all()
-
-        Args:
-
-        Returns:
-            None
-
         """
         gen = self._sdk.delete_device_data(self._table_cls.table_name)
         self._bulk_operation(gen, self)
 
     def count(self) -> int:
-        """Return just a number of records in table without considering
-        filters.
+        """Return total count of records in the table.
 
-        Unlike len(qs) this method does not fetch data, but makes
-        simple request, like `SELECT COUNT(*)` in SQL.
+        Unlike len(qs) that counts the records in a QuerySet,
+        this function just returns the *total size* of records in
+        device table ignoring all filters.
 
-        Args:
+        This function is faster than enumerating all records,
+        because it uses a special SDK call for this.
 
         Returns:
             int: data table size
@@ -249,34 +245,43 @@ class QuerySet:
         """
         return self._sdk.get_device_data_count(self._table_cls.table_name)
 
-    def _bulk_operation(self,
-                        gen: Generator[None, Optional[Mapping[str, str]], None],
-                        records: Union[Iterable[_ModelArgT], _ModelArgT]):
+    def _bulk_operation(
+        self, gen: Generator[None, Optional[Mapping[str, str]], None], records: Union[Iterable[RecordType], RecordType]
+    ) -> None:
         gen.send(None)
+        records_iter: Iterable[RecordType]
         if isinstance(records, (Mapping, Model)):
-            records = (records, )
+            records_iter = cast(Iterable[RecordType], (records,))
+        else:
+            records_iter = records
 
-        for record in records:
+        for record in records_iter:
             if isinstance(record, Model):
-                record = record.raw_data
+                data = record.raw_data
             elif isinstance(record, Mapping):
-                record = self._table_cls(**record).raw_data
+                data = self._table_cls(**record).raw_data
             else:
-                raise TypeError('Records must be either a data table object or a mapping')
+                raise TypeError("Records must be either a data table object or a mapping")
 
-            gen.send(record)
+            gen.send(data)
 
         try:
             gen.send(None)
         except StopIteration:
             pass
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_ModelT]:
         if self._cache is None:
             self._fetch_data()
         return self._iterator_class(self)
 
-    def __getitem__(self, item):
+    @overload
+    def __getitem__(self, item: int) -> _ModelT: ...
+
+    @overload
+    def __getitem__(self: _QuerySetT, item: slice) -> Iterator[_ModelT]: ...
+
+    def __getitem__(self, item: Union[int, slice]) -> Union[_ModelT, Iterator[_ModelT]]:
         if self._cache is None:
             self._fetch_data()
 
@@ -286,19 +291,22 @@ class QuerySet:
         try:
             return next(self._iterator_class(self, item))
         except StopIteration:
-            raise IndexError("list index is out of range") from None
+            raise IndexError("List index is out of range") from None
 
-    def __len__(self):
-        """Return a size of queryset. In order to get this size, all
-        records will be preliminary fetched
+    def __len__(self) -> int:
+        """Return a size of queryset. This operation could be slow, because
+        we have to fetch the all queryset records from a device to count them.
         """
         # Fill out cache
         # https://stackoverflow.com/questions/37189968/how-to-have-list-consume-iter-without-calling-len
-        [_ for _ in self]  # noqa
+        [_ for _ in self]  # noqa; pylint: disable=pointless-statement,unnecessary-comprehension
+
+        if self._cache is None:
+            return 0
 
         return len(self._cache)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return True if this queryset contains any records. If query
         was not executed, fetch matched records first
         """
@@ -324,22 +332,17 @@ class QuerySet:
         if self._only_fields:
             fields = list(sorted(f.raw_name for f in self._only_fields))
 
-        self._results_iter = iter(self._sdk.get_device_data(
-            self._table_cls.table_name,
-            fields,
-            self._filters,
-            buffer_size,
-            self._only_unread
-        ))
+        self._results_iter = iter(
+            self._sdk.get_device_data(self._table_cls.table_name, fields, self._filters, buffer_size, self._only_unread)
+        )
 
-    def _iter_cache(
-            self, start: int, stop: Optional[int], step: int
-    ) -> Generator[Mapping[str, Any], None, None]:
+    def _iter_cache(self, start: int, stop: Optional[int], step: int) -> Generator[Mapping[str, Any], None, None]:
         if stop is not None and start >= stop:
             return
 
-        for i in self._cache[start:stop:step]:
-            yield i
+        assert self._cache is not None
+        assert self._results_iter is not None
+        yield from self._cache[start:stop:step]
 
         i = len(self._cache)
         while stop is None or i < stop:
@@ -352,7 +355,7 @@ class QuerySet:
                 yield item
             i += 1
 
-    def copy(self) -> 'QuerySet':
+    def copy(self: _QuerySetT) -> _QuerySetT:
         """Return a copy of current QuerySet with empty cache"""
         res = self.__class__(self._sdk, self._table_cls, self._buffer_size)
         res._only_fields = copy(self._only_fields)
@@ -361,9 +364,10 @@ class QuerySet:
 
         return res
 
-    class ModelIterator(Iterator):
+    class ModelIterator(Iterator[_ModelT]):
         """Iterator for iterating over QuerySet results"""
-        def __init__(self, qs: 'QuerySet', item: Optional[Union[slice, int]] = None):
+
+        def __init__(self, qs: "QuerySet", item: Optional[Union[slice, int]] = None):
             self._qs = qs
             self._item = item
             self._start, self._stop, self._step = 0, None, 1
@@ -376,21 +380,18 @@ class QuerySet:
                 self._stop = self._item.stop
                 self._step = 1 if self._item.step is None else self._item.step
 
-            self._item_iter = None
+            self._item_iter: Optional[Iterator[Mapping[str, Any]]] = None
 
             if self._step == 0:
-                raise ValueError('slice step cannot be zero')
-            if self._start and self._start < 0 \
-                    or self._stop and self._stop < 0 \
-                    or self._step and self._step < 0:
-                raise ValueError('negative indexes or step does not supported')
+                raise ValueError("Slice step cannot be zero")
+            # pylint: disable=too-many-boolean-expressions
+            if self._start and self._start < 0 or self._stop and self._stop < 0 or self._step and self._step < 0:
+                raise ValueError("Negative indexes or step does not supported")
 
-        def __next__(self):
+        def __next__(self) -> _ModelT:
             if self._item_iter is None:
                 self._item_iter = self._qs._iter_cache(self._start, self._stop, self._step)
 
-            return self._qs._table_cls().with_raw_data(
-                next(self._item_iter), dirty=False
-            ).with_sdk(self._qs._sdk)
+            return self._qs._table_cls().with_raw_data(next(self._item_iter), dirty=False).with_sdk(self._qs._sdk)
 
     _iterator_class = ModelIterator

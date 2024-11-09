@@ -1,0 +1,34 @@
+exclude: 'pyzkaccess/cli.py'  # It will not pass the checks, since it has been written specially for Fire library
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+  - repo: https://github.com/PyCQA/isort
+    rev: "5.12.0"
+    hooks:
+      - id: isort
+  - repo: https://github.com/psf/black
+    rev: "24.8.0"
+    hooks:
+      - id: black
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.12.1
+    hooks:
+      - id: mypy
+  - repo:  https://github.com/PyCQA/pylint
+    rev: v3.2.7
+    hooks:
+      - id: pylint
+        additional_dependencies: ["wrapt>=1.16.0"]
+  - repo: https://github.com/python-poetry/poetry
+    rev: "1.6.1"
+    hooks:
+      - id: poetry-lock
+        args: ["--no-update"]
+      - id: poetry-check
+  - repo: https://github.com/floatingpurr/sync_with_poetry
+    rev: "1.1.0"
+    hooks:
+      - id: sync_with_poetry

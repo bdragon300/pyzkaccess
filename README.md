@@ -2,21 +2,60 @@
 
 [![version](https://img.shields.io/pypi/v/pyzkaccess)](https://pypi.org/project/pyzkaccess/)
 [![pyversions](https://img.shields.io/pypi/pyversions/pyzkaccess)](https://pypi.org/project/pyzkaccess/)
-[![travis](https://img.shields.io/travis/com/bdragon300/pyzkaccess/master)](https://travis-ci.com/github/bdragon300/pyzkaccess)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/bdragon300/pyzkaccess/commit.yaml?branch=master)
 [![codecov](https://codecov.io/gh/bdragon300/pyzkaccess/branch/master/graph/badge.svg)](https://codecov.io/gh/bdragon300/pyzkaccess)
 [![license](https://img.shields.io/github/license/bdragon300/pyzkaccess)](https://github.com/bdragon300/pyzkaccess/blob/master/LICENSE)
 
-**PyZKAccess** is a library and command-line interface for working with ZKTeco ZKAccess 
+**PyZKAccess** is a library and command-line interface for working with ZKTeco ZKAccess
 C3-100/200/400 access controllers.
+
+This package is Windows-only, but it can be used on *nix systems with [Wine](https://www.winehq.org/).
+It built on top of the ZKTeco PULL SDK and fully supports all its features.
+
+This package, once installed, may be used as library for your project or command-line interface.
+It's also distributed as a portable Windows executable, created by [PyInstaller](https://pyinstaller.org/en/stable/) with built-in 32-bit Python
+interpreter.
 
 [Read documentation](https://bdragon300.github.io/pyzkaccess)
 
-# Quick start
+## Features
 
-First, you need to install ZKTeco PULL SDK. See documentation for more info.
+We support all the features the ZKTeco PULL SDK provides:
 
-In order to make requests to your C3 device, you need to know its IP address. Let's scan a 
-local network and find a device:
+- Can be used as a code library or a command-line tool
+- Reading and writing the device data tables
+- Making queries to device data tables
+- CSV format support
+- On-board relays control
+- Read the realtime events of a particular reader, aux input, door or the whole device
+- Manipulation the device parameters such as datetime, network settings, entry modes, backup time, etc.
+- Manipulation the door parameters such as smart card modes, intervals, entry modes, etc.
+- Restart a device
+- Scan the local network for active C3 devices
+- Download/upload files from PC to/from a device
+- Cancel alarm function
+- Reset the device IP address by its MAC address
+
+## Quick start
+
+The quickest way is to use [portable pyzkaccess.exe](https://github.com/bdragon300/pyzkaccess/releases/latest).
+It contains the full `pyzkaccess` package with built-in Python and necessary libraries.
+
+*You can also install the package from PyPI (the __32-bit__ Python>=3.8 version is required) `pip install pyzkaccess`*
+
+Run this to setup the environment:
+
+```console
+pyzkaccess setup
+```
+
+This command will make a quick compatibility check of your system and suggest you to install PULL SDK from the
+official ZKTeco site (*you can also specify your own SDK archive or you can install SDK manually, see
+[docs](https://bdragon300.github.io/pyzkaccess#installation) for more info*).
+
+![pyzkaccess setup](docs/img/setup_screenshot.png)
+
+All set! Now let's find out what ZKAccess devices are available on the local network:
 
 ```console
 $ pyzkaccess search_devices
@@ -27,7 +66,7 @@ $ pyzkaccess search_devices
 +---------------+-------------------+--------+---------------------+--------------------------+
 ```
 
-Now you can connect to a device using its IP and, for example, print list of all Users:
+Let's enumerate all users registered on a device:
 
 ```console
 $ pyzkaccess connect 192.168.1.201 table User
@@ -39,7 +78,7 @@ $ pyzkaccess connect 192.168.1.201 table User
 +----------+------------+-------+----------+-----+------------+-----------------+
 ```
 
-Or select only needed records:
+Or print a particular one:
 
 ```console
 $ pyzkaccess connect 192.168.1.201 table User where --card=16268812
@@ -50,7 +89,7 @@ $ pyzkaccess connect 192.168.1.201 table User where --card=16268812
 +----------+------------+-------+----------+-----+------------+-----------------+
 ```
 
-Also, you can update or delete records from a csv file. Or even delete all records from a query:
+Adding, updating, or deleting records from a device table:
 
 ```console
 $ cat users1.csv | pyzkaccess --format=csv connect 192.168.1.201 table User upsert

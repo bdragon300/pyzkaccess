@@ -1,4 +1,0 @@
-[run]
-omit =
-    pyzkaccess/cli.py
-    setup.py

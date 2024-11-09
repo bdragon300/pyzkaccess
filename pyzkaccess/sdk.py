@@ -1,11 +1,9 @@
-__all__ = [
-    'ZKSDK'
-]
+__all__ = ["ZKSDK"]
 
-from typing import Sequence, Mapping, Any, Generator, Optional
+from typing import Any, Dict, Generator, List, Mapping, Optional, Sequence
 
 import pyzkaccess.ctypes_ as ctypes
-from .exceptions import ZKSDKError
+from pyzkaccess.exceptions import ZKSDKError
 
 
 class ZKSDK:
@@ -13,13 +11,15 @@ class ZKSDK:
     This is a wrapper around DLL functions of SDK, it incapsulates
     working with ctypes, handles errors and holds connection info.
     """
-    def __init__(self, dllpath: str):
-        """
+
+    def __init__(self, dllpath: str) -> None:
+        """ZKSDK constructor
+
         Args:
             dllpath (str): path to a DLL file. E.g. "plcommpro.dll"
 
         """
-        self.handle = None
+        self.handle: Optional[int] = None
         self.dll = ctypes.WinDLL(dllpath)
 
     @property
@@ -30,32 +30,25 @@ class ZKSDK:
     def connect(self, connstr: str) -> None:
         """Connect to a device.
 
-        SDK: Connect()
+        SDK: `Connect()`
 
         Args:
             connstr (str): connection string, see docs
-
-        Returns:
-            None
 
         Raises:
             ZKSDKError: return:
 
         """
-        connstr = connstr.encode()
-        self.handle = self.dll.Connect(connstr)
+        self.handle = self.dll.Connect(connstr.encode())
         if self.handle == 0:
             self.handle = None
             err = self.dll.PullLastError()
-            raise ZKSDKError("Unable to connect a device using connstr {}".format(connstr), err)
+            raise ZKSDKError("Unable to connect a device", err)
 
     def disconnect(self) -> None:
         """Disconnect from a device
 
-        SDK: Disconnect()
-
-        Returns:
-            None
+        SDK: `Disconnect()`
         """
         if not self.handle:
             return
@@ -63,11 +56,13 @@ class ZKSDK:
         self.dll.Disconnect(self.handle)
         self.handle = None
 
-    def control_device(self, operation, p1, p2, p3, p4, options_str='') -> int:
+    def control_device(
+        self, operation: int, p1: int, p2: int, p3: int, p4: int, options_str: Optional[str] = ""
+    ) -> int:
         """Perform an action on a device such as relay switching or reboot.
         For parameter meaning please see SDK docs.
 
-        SDK: ControlDevice()
+        SDK: `ControlDevice()`
 
         Args:
             operation (int): operation id
@@ -85,31 +80,23 @@ class ZKSDK:
             ZKSDKError: on SDK error
 
         """
-        err = self.dll.ControlDevice(
-            self.handle,
-            operation,
-            p1,
-            p2,
-            p3,
-            p4,
-            options_str
-        )
+        err = self.dll.ControlDevice(self.handle, operation, p1, p2, p3, p4, options_str)
         if err < 0:
-            raise ZKSDKError('ControlDevice failed for operation {}'.format(operation), err)
+            raise ZKSDKError(f"ControlDevice failed for operation {operation}", err)
 
         return err
 
-    def get_rt_log(self, buffer_size: int) -> Sequence[str]:
+    def get_rt_log(self, buffer_size: int) -> List[str]:
         """Retrieve unread realtime events from a device
 
-        SDK: GetRTLog()
+        SDK: `GetRTLog()`
 
         Args:
             buffer_size (int): size in bytes of buffer which is filled
                 with contents
 
         Returns:
-            Sequence[str]: event string lines
+            List[str]: event string lines
 
         Raises:
             ZKSDKError: on SDK error
@@ -119,19 +106,19 @@ class ZKSDK:
 
         err = self.dll.GetRTLog(self.handle, buf, buffer_size)
         if err < 0:
-            raise ZKSDKError('GetRTLog failed', err)
+            raise ZKSDKError("GetRTLog failed", err)
 
-        raw = buf.value.decode('utf-8')
-        if raw == '\r\n':
+        raw = buf.value.decode("utf-8")
+        if raw == "\r\n":
             return []
 
-        *lines, _ = raw.split('\r\n')
+        *lines, _ = raw.split("\r\n")
         return lines
 
-    def search_device(self, broadcast_address: str, buffer_size: int) -> Sequence[str]:
+    def search_device(self, broadcast_address: str, buffer_size: int) -> List[str]:
         """Perform network scan in order to collect available ZK devices
 
-        SDK: SearchDevice()
+        SDK: `SearchDevice()`
 
         Args:
             broadcast_address (str): network broadcast address
@@ -139,30 +126,29 @@ class ZKSDK:
                 with contents
 
         Returns:
-            Sequence[str]: device string lines
+            List[str]: device string lines
 
         Raises:
             ZKSDKError: on SDK error
 
         """
         buf = ctypes.create_string_buffer(buffer_size)
-        broadcast_address = broadcast_address.encode()
-        protocol = b'UDP'  # Only UDP works, see SDK docs
+        protocol = b"UDP"  # Only UDP works, see SDK docs
 
-        err = self.dll.SearchDevice(protocol, broadcast_address, buf)
+        err = self.dll.SearchDevice(protocol, broadcast_address.encode(), buf)
         if err < 0:
-            raise ZKSDKError('SearchDevice failed', err)
+            raise ZKSDKError("SearchDevice failed", err)
 
-        raw = buf.value.decode('utf-8')
-        if raw == '\r\n':
+        raw = buf.value.decode("utf-8")
+        if raw == "\r\n":
             return []
         *lines, _ = raw.split("\r\n")
         return lines
 
-    def get_device_param(self, parameters: Sequence[str], buffer_size: int) -> Mapping[str, str]:
+    def get_device_param(self, parameters: Sequence[str], buffer_size: int) -> Dict[str, str]:
         """Fetch given device parameters
 
-        SDK: GetDeviceParam()
+        SDK: `GetDeviceParam()`
 
         Args:
             parameters (Sequence[str]): sequence with parameter names
@@ -171,11 +157,12 @@ class ZKSDK:
                 with contents
 
         Returns:
-             Mapping[str, str]: dict with requested parameters value.
+             Dict[str, str]: dict with requested parameters value.
                 Each value is string
 
         Raises:
             ZKSDKError: on SDK error
+            ValueError: device has returned unexpected set of parameter values
 
         """
         buf = ctypes.create_string_buffer(buffer_size)
@@ -186,35 +173,30 @@ class ZKSDK:
         parameters_copy = list(parameters)
         while parameters_copy:
             query_params = parameters_copy[:30]
-            query = ','.join(query_params).encode()
+            query = ",".join(query_params).encode()
             del parameters_copy[:30]
 
             err = self.dll.GetDeviceParam(self.handle, buf, buffer_size, query)
             if err < 0:
-                raise ZKSDKError('GetDeviceParam failed', err)
+                raise ZKSDKError("GetDeviceParam failed", err)
 
-            for pair in buf.value.decode().split(','):
-                key, val = pair.split('=')
+            for pair in buf.value.decode().split(","):
+                key, val = pair.split("=")
                 results[key] = val
 
         if results.keys() != set(parameters):
-            raise ValueError(
-                'Parameters returned by a device are differ than parameters was requested'
-            )
+            raise ValueError("Parameters returned by a device are differ than parameters was requested")
         return results
 
     def set_device_param(self, parameters: Mapping[str, Any]) -> None:
         """Set given device parameters
 
-        SDK: SetDeviceParam()
+        SDK: `SetDeviceParam()`
 
         Args:
             parameters (Mapping[str, Any]): dict with parameter
                 names and values to be set. Every value will be
                 casted to string
-
-        Returns:
-            None
 
         Raises:
             ZKSDKError: on SDK error
@@ -228,23 +210,24 @@ class ZKSDK:
         keys = list(sorted(parameters.keys()))
         while keys:
             query_keys = keys[:20]
-            query = ','.join('{}={}'.format(k, parameters[k]) for k in query_keys).encode()
+            query = ",".join(f"{k}={parameters[k]}" for k in query_keys).encode()
             del keys[:20]
 
             err = self.dll.SetDeviceParam(self.handle, query)
             if err < 0:
-                raise ZKSDKError('SetDeviceParam failed', err)
+                raise ZKSDKError("SetDeviceParam failed", err)
 
-    def get_device_data(
-            self,
-            table_name: str,
-            fields: Sequence[str],
-            filters: Mapping[str, str],
-            buffer_size: int,
-            new_records_only: bool = False) -> Generator[Mapping[str, str], None, None]:
+    def get_device_data(  # pylint: disable=too-many-locals,missing-param-doc
+        self,
+        table_name: str,
+        fields: Sequence[str],
+        filters: Mapping[str, str],
+        buffer_size: int,
+        new_records_only: bool = False,
+    ) -> Generator[Dict[str, str], None, None]:
         """Retrieve records from a given data table
 
-        SDK: GetDeviceData()
+        SDK: `GetDeviceData()`
 
         Args:
             table_name (str): name of table to retrieve records from
@@ -267,26 +250,25 @@ class ZKSDK:
         buf = ctypes.create_string_buffer(buffer_size)
 
         query_table = table_name.encode()
-        query_fields = '\t'.join(fields).encode() if fields else b'*'
-        query_conditions = '\t'.join('{}={}'.format(k, v) for k, v in filters.items()).encode()
-        query_options = ('NewRecord' if new_records_only else '').encode()
+        query_fields = "\t".join(fields).encode() if fields else b"*"
+        query_conditions = "\t".join(f"{k}={v}" for k, v in filters.items()).encode()
+        query_options = ("NewRecord" if new_records_only else "").encode()
 
-        err = self.dll.GetDeviceData(self.handle, buf, buffer_size, query_table,
-                                     query_fields, query_conditions, query_options)
+        err = self.dll.GetDeviceData(
+            self.handle, buf, buffer_size, query_table, query_fields, query_conditions, query_options
+        )
         if err < 0:
-            raise ZKSDKError('GetDeviceData failed', err)
+            raise ZKSDKError("GetDeviceData failed", err)
 
-        raw = buf.value.decode('utf-8')
+        raw = buf.value.decode("utf-8")
 
-        *lines, _ = raw.split('\r\n')
-        headers = lines.pop(0).split(',')
+        *lines, _ = raw.split("\r\n")
+        headers = lines.pop(0).split(",")
         for line in lines:
-            cols = line.split(',')
+            cols = line.split(",")
             yield {k: v for k, v in zip(headers, cols) if not fields or k in fields}
 
-    def set_device_data(
-            self, table_name: str
-    ) -> Generator[None, Optional[Mapping[str, str]], None]:
+    def set_device_data(self, table_name: str) -> Generator[None, Optional[Mapping[str, str]], None]:
         """Insert records to a given data table. Records are received
         through a generator.
 
@@ -298,7 +280,7 @@ class ZKSDK:
                 g.send(rec)
             g.send(None)   # Invoke sdk call
 
-        SDK: SetDeviceData()
+        SDK: `SetDeviceData()`
 
         Args:
             table_name (str): name of table to write data to
@@ -316,26 +298,24 @@ class ZKSDK:
         query_records = []
         record = yield
         while record is not None:
-            query_records.append(
-                '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
-            )
+            query_records.append("\t".join(f"{k}={v}" for k, v in record.items() if v is not None))
             record = yield
 
         if not query_records:
             return
 
-        query_records = '\r\n'.join(query_records).encode()
-        query_records += b'\r\n'
+        query_records_raw = "\r\n".join(query_records).encode()
+        query_records_raw += b"\r\n"
 
         # `Options` parameter should be null according to SDK docs
-        err = self.dll.SetDeviceData(self.handle, query_table, query_records, '')
+        err = self.dll.SetDeviceData(self.handle, query_table, query_records_raw, "")
         if err < 0:
-            raise ZKSDKError('SetDeviceData failed', err)
+            raise ZKSDKError("SetDeviceData failed", err)
 
     def get_device_data_count(self, table_name: str) -> int:
         """Return records count in a given data table
 
-        SDK: GetDeviceDataCount()
+        SDK: `GetDeviceDataCount()`
 
         Args:
             table_name (str): name of table to get records count from
@@ -350,14 +330,12 @@ class ZKSDK:
         query_table = table_name.encode()
 
         # `Filter` and `Options` parameters should be null according to SDK docs
-        err = self.dll.GetDeviceDataCount(self.handle, query_table, '', '')
+        err = self.dll.GetDeviceDataCount(self.handle, query_table, "", "")
         if err < 0:
-            raise ZKSDKError('GetDeviceDataCount failed', err)
+            raise ZKSDKError("GetDeviceDataCount failed", err)
         return err
 
-    def delete_device_data(
-            self, table_name: str
-    ) -> Generator[None, Optional[Mapping[str, str]], None]:
+    def delete_device_data(self, table_name: str) -> Generator[None, Optional[Mapping[str, str]], None]:
         """Delete given records from a data table. Records are received
         through a generator.
 
@@ -369,7 +347,7 @@ class ZKSDK:
                 g.send(rec)
             g.send(None)   # Invoke sdk call
 
-        SDK: DeleteDeviceData()
+        SDK: `DeleteDeviceData()`
 
         Args:
             table_name (str): name of table to delete data from
@@ -381,96 +359,98 @@ class ZKSDK:
 
         Raises:
             ZKSDKError: on SDK error
-
         """
         query_table = table_name.encode()
         query_records = []
         record = yield
         while record is not None:
-            query_records.append(
-                '\t'.join('{}={}'.format(k, v) for k, v in record.items() if v is not None)
-            )
+            query_records.append("\t".join(f"{k}={v}" for k, v in record.items() if v is not None))
             record = yield
 
         if not query_records:
             return
 
-        query_records = '\r\n'.join(query_records).encode()
-        query_records += b'\r\n'
+        query_records_raw = "\r\n".join(query_records).encode()
+        query_records_raw += b"\r\n"
 
         # `Options` parameter should be null according to SDK docs
-        err = self.dll.DeleteDeviceData(self.handle, query_table, query_records, '')
+        err = self.dll.DeleteDeviceData(self.handle, query_table, query_records_raw, "")
         if err < 0:
-            raise ZKSDKError('DeleteDeviceData failed', err)
+            raise ZKSDKError("DeleteDeviceData failed", err)
 
     def get_device_file_data(self, remote_filename: str, buffer_size: int) -> bytes:
         """Download file with given remote filename from a device
 
-        SDK: GetDeviceFileData()
+        SDK: `GetDeviceFileData()`
 
         Args:
-            remote_filename: file name to download
-            buffer_size: buffer size in bytes for incoming file data
+            remote_filename (str): file name to download
+            buffer_size (int): buffer size in bytes for incoming file data
 
         Returns:
             bytes: bytes with file data
+
+        Raises:
+            ZKSDKError: on SDK error
         """
         buf = ctypes.create_string_buffer(buffer_size)
         query_filename = remote_filename.encode()
 
         # buffer size is passing by pointer
         c_buffer_size = ctypes.c_int(buffer_size)
-        err = self.dll.GetDeviceFileData(
-            self.handle, buf, ctypes.byref(c_buffer_size), query_filename, ''
-        )
+        err = self.dll.GetDeviceFileData(self.handle, buf, ctypes.byref(c_buffer_size), query_filename, "")
         if err < 0:
-            raise ZKSDKError('GetDeviceFileData failed', err)
+            raise ZKSDKError("GetDeviceFileData failed", err)
 
         return buf.value
 
     def set_device_file_data(self, remote_filename: str, file_data: bytes, size: int) -> None:
         """Upload file with given remote filename to a device
 
-        SDK: SetDeviceFileData()
+        SDK: `SetDeviceFileData()`
 
         Args:
             remote_filename (str): file name to upload
             file_data (bytes): file data bytes
             size (int): data size in bytes to write
 
-        Returns:
-
+        Raises:
+            ZKSDKError: on SDK error
         """
         query_filename = remote_filename.encode()
 
-        err = self.dll.SetDeviceFileData(self.handle, query_filename, file_data[:size], size, '')
+        err = self.dll.SetDeviceFileData(self.handle, query_filename, file_data[:size], size, "")
         if err < 0:
-            raise ZKSDKError('SetDeviceFileData failed', err)
+            raise ZKSDKError("SetDeviceFileData failed", err)
 
-    def modify_ip_address(self,
-                          mac_address: str,
-                          new_ip_address: str,
-                          broadcast_address: str,
-                          protocol: str,
-                          ) -> None:
+    def modify_ip_address(
+        self,
+        mac_address: str,
+        new_ip_address: str,
+        broadcast_address: str,
+        protocol: str,
+    ) -> None:
         """Change IP address on a device using broadcast method.
         For security reasons, network settings can only be changed on
         devices with no password.
 
+        SDK: `ModifyIPAddress()`
+
         Args:
-            protocol (str): protocol name to use
             mac_address (str): mac address of a device
             new_ip_address (str): new ip address that will be set on
                 a device with given mac address
             broadcast_address (str): network broadcast address
+            protocol (str): protocol name to use
+
+        Raises:
+            ZKSDKError: on SDK error
         """
-        protocol = protocol.encode()
-        query_parameters = 'MAC={},IPAddress={}'.format(mac_address, new_ip_address).encode()
-        broadcast_address = broadcast_address.encode()
+        query_parameters = f"MAC={mac_address},IPAddress={new_ip_address}".encode()
 
-        err = self.dll.ModifyIPAddress(protocol, broadcast_address, query_parameters)
+        err = self.dll.ModifyIPAddress(protocol.encode(), broadcast_address.encode(), query_parameters)
         if err < 0:
-            raise ZKSDKError('ModifyIPAddress failed', err)
+            raise ZKSDKError("ModifyIPAddress failed", err)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.disconnect()

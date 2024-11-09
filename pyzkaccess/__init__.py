@@ -1,3 +1,4 @@
+# flake8: noqa
 from .aux_input import *
 from .common import *
 from .ctypes_ import *

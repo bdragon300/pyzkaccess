@@ -1,25 +1,37 @@
-# Device data tables
+# Data tables
 
-ZK devices have several tables in non-volatile data storage where a device keeps transaction
-history, input/output events, and where user can manage users, ACLs, local time settings.
+ZK devices have a database inside stored in the persistent memory. This database contains the read-only tables
+(transaction history, input/output events) and writable tables (users, ACLs, timezone settings). You can make a query to
+one table at a time, no joins or something similar are supported.
 
-`pyzkaccess` provides interface to access, making queries and modify these tables. A table record
-is presented as a python object with properties -- a model. Query objects helps to build a query
-and to iterate over the results. Anyway, if you ever worked with any of popular ORM 
-(Object-related mapping), such interface could be pretty familiar to you.
+`pyzkaccess` provides the interface for making queries to these tables. Every table is presented as a model class
+with the same fields. A QuerySet class helps build a query and iterate over the results. Basically, for those who
+worked with ORM packages (Object-related mapping), such approach could be familiar.
 
-Device keeps all data in tables as strings, despite which type a particular field value has. 
-Model provides a convenient way to work with data depening on actual type. For example, 
-`transaction.Time_second` field contains an integer with encoded datetime, but appropriate 
-`Transaction.time` allows to work with that value using usual `datetime` objects.
+The table data is stored on device in string format, sometimes additionally encoded. However the `pyzkaccess`
+knows what the actual type every field should have and how to encode/decode it. Every model, that "wraps" a particular
+device table, provides (and accepts when you write data to device) the decoded value in right Python type.
+
+For example, the `transaction.Time_second` field contains an integer with encoded datetime, but appropriate
+`Transaction.time` exposes the `datetime` objects.
 
 The following sections describe how to work with table records, make queries and update the data.
 
-## Model objects
+## Models
 
-`pyzkaccess` contains pre-defined models that represent built-in tables in ZK devices. 
-Model class represents whole data table, whereas a model object is a particular record in 
-this table. 
+Models are the following:
+
+* `User` - device users, the card number information table
+* `UserAuthorize` - user privilege list
+* `Holiday` - holiday settings
+* `Timezone` - (very detailed) timezone settings
+* `Transaction` - access control transaction history
+* `FirstCard` - first card settings
+* `MultiCard` - multi-card settings
+* `InOutFun` - input/output function settings
+* `TemplateV10` - *SDK docs doesn't give a clue what this table for*
+
+Model class represents whole data table, whereas a model object is a particular record in this table.
 
 In order to create an object, instantiate it with parameters.
 
@@ -46,8 +58,8 @@ print(my_user.dict)
 #  'super_authorize': True}
 ```
 
-Sometimes you may want to get the raw data (with string values) that are sent to a device on saving
-an object. Use `raw_data` property for it:
+Sometimes you may want to get the raw string data (i.e. how it stores on device) that are sent to a device on saving
+an object. Use `raw_data` property for that:
 
 ```python
 from pyzkaccess.tables import User
@@ -57,39 +69,61 @@ print(my_user.raw_data)
 # {'SuperAuthorize': '1', 'Password': '555', 'Pin': '123', 'CardNo': '123456'}
 ```
 
-## Saving changes in objects
+## Reading data
 
-### `model.save()` method
+The `QuerySet` class is intended to build a query to a data table, execute it and obtain results. `QuerySet` supports
+filtering (only equality is supported), limiting to unread records, to the certain fields, slicing the results.
+All query restrictions and features are driven by PULL SDK and are the results of its limitations.
 
-The `save()` method is used to save changes in object. Manually created objects
-(unlike retrieved from a query, see below) must know which connection to use, so also set it
-by `with_zk()`:
+`QuerySet` uses lazy loading, which means it will not make a real request to device until you actually begin to
+read its results.
 
-```python
-from pyzkaccess import ZKAccess
-from pyzkaccess.tables import User
+To make a query, call the `zk.table(model)` method. The returned object will be an empty `QuerySet` bound with a
+particular model class.
 
-zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
-my_user = User(card='123456', pin='123', password='555', super_authorize=True).with_zk(zk)
-my_user.save()
-```
-
-Processing the records obtained from table is pretty simple:
+If you would read such queryset as-is, you'll simply get all records from the table:
 
 ```python
 from pyzkaccess import ZKAccess
 
 zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
-for record in zk.table('User'):
-    record.group = '3'
-    record.save()
+records = zk.table('User')
+for record in records:
+    print(record)  # prints all users from the table
 ```
 
-Any changes will not be actually saved in a record until `save()` will be called.
+To apply filters, use the `where()` method.
 
-### `queryset.upsert()` method
+```python
+from pyzkaccess import ZKAccess
 
-Just saves particular records without considering `QuerySet` state. Returns nothing:
+zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
+records = zk.table('User').where(group='4', super_authorize=True)
+for record in records:
+    print(record)  # prints all superusers in group="4"
+```
+
+There are also available `only_fields()`, `unread()` methods. `count()` method returns the total records count
+in a table without considering all filters. There are also available bulk write operations like `upsert()`, `delete()`,
+`delete_all()` (see below).
+
+Besides the iteration, you can use slicing, indexing, `len()` and `bool()` functions.
+
+```python
+records = zk.table('Model').condition(parameters).condition(parameters)
+print("Result size:", len(records))
+if records:
+    print("Query result is not empty")
+    print("First record:", records[0])
+if len(records) > 3:
+    print("First 3 records:", records[:3])
+```
+
+## Writing data
+
+### Upsert (update or insert)
+
+`QuerySet.upsert()` updates (if found) or inserts a record or records (if not).
 
 ```python
 from pyzkaccess import ZKAccess
@@ -100,23 +134,17 @@ my_user = User(card='123456', pin='123', password='555', super_authorize=True)
 zk.table(User).upsert(my_user)
 ```
 
-`upsert()` function accepts the following values:
-* Model object: `zk.table(User).upsert(User(card='123456', pin='123'))`
-* dict: `zk.table(User).upsert({'card': '123456', 'pin': '123'})`
-* Iterable of objects: `zk.table(User).upsert([User(card='123456', pin='123'), User(...)])`
-* Iterable of dicts: `zk.table(User).upsert([{'card': '123456', 'pin': '123'}, {...}])`
+`upsert()` function can receive the data in different formats:
 
-"Upsert" (update/insert) operation means that if such record already exists then it will get
-updated, otherwise it will get inserted.
+* a model: `zk.table(User).upsert(User(card='123456', pin='123'))`
+* a dict: `zk.table(User).upsert({'card': '123456', 'pin': '123'})`
+* an iterable of models: `zk.table(User).upsert([User(card='123456', pin='123'), User(...)])`
+* an iterable of dicts: `zk.table(User).upsert([{'card': '123456', 'pin': '123'}, {...}])`
 
-## Deleting objects
+### Insert one record
 
-Deleting object is similar to saving.
-
-### `model.delete()` method
-
-Manually created objects (unlike retrieved from a query, see below) must know which connection 
-to use, so also set it by `with_zk()`:
+The `save()` method writes a record to the device. You may need also to pass a `ZKAccess` object by calling the
+`with_zk()` method:
 
 ```python
 from pyzkaccess import ZKAccess
@@ -124,22 +152,23 @@ from pyzkaccess.tables import User
 
 zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
 my_user = User(card='123456', pin='123', password='555', super_authorize=True).with_zk(zk)
-my_user.delete()
+my_user.save()
 ```
 
-For queries:
+### Update an existing record
 
 ```python
 from pyzkaccess import ZKAccess
 
 zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
 for record in zk.table('User'):
-    record.delete()
+    record.group = '3'
+    record.save()
 ```
 
-### `queryset.delete()` method
+### Delete records
 
-Just deletes particular records without considering `QuerySet` state. Returns nothing.
+`QuerySet.delete()` deletes a record or records from a table.
 
 ```python
 from pyzkaccess import ZKAccess
@@ -150,17 +179,39 @@ my_user = User(card='123456', pin='123', password='555', super_authorize=True)
 zk.table(User).delete(my_user)
 ```
 
-`delete()` function accepts the following:
-* Model object: `zk.table(User).delete(User(card='123456', pin='123'))`
-* dict: `zk.table(User).delete({'card': '123456', 'pin': '123'})`
-* Iterable of objects: `zk.table(User).delete([User(card='123456', pin='123'), User(...)])`
-* Iterable of dicts: `zk.table(User).delete([{'card': '123456', 'pin': '123'}, {...}])`
+`delete()` function can receive the data in different formats:
 
+* a model: `zk.table(User).delete(User(card='123456', pin='123'))`
+* a dict: `zk.table(User).delete({'card': '123456', 'pin': '123'})`
+* an iterable of models: `zk.table(User).delete([User(card='123456', pin='123'), User(...)])`
+* an iterable of dicts: `zk.table(User).delete([{'card': '123456', 'pin': '123'}, {...}])`
 
-### `queryset.delete_all()` method
+### Delete one record
 
-This method deletes records that matched to a `QuerySet` object. If results was not fetched yet, 
-fetches them first. Returns nothing.
+```python
+from pyzkaccess import ZKAccess
+from pyzkaccess.tables import User
+
+zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
+first_user = zk.table(User)[0]
+first_user.delete()
+```
+
+You can also call the `delete()` method on a bare model object, you also need to pass a `ZKAccess` object by
+calling the `with_zk()` method:
+
+```python
+from pyzkaccess import ZKAccess
+from pyzkaccess.tables import User
+
+zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
+my_user = User(card='123456', pin='123', password='555', super_authorize=True).with_zk(zk)
+my_user.delete()
+```
+
+### Delete all selected records
+
+This method deletes records that matched to a `QuerySet` object.
 
 The following example deletes all transactions related to card "123456":
 
@@ -168,50 +219,15 @@ The following example deletes all transactions related to card "123456":
 zk.table('User').where(card='123456').delete_all()
 ```
 
-## Making queries
+## Building a query
 
-The `QuerySet` class is intended to build a query to a data table, execute it and obtain results.
-Its operations are limited to the ZK PULL SDK capabilities. `QuerySet` supports filtering (only
-for equal condition), limiting to unread records, to the certain fields, slicing results.
+### Filters
 
-`QuerySet` uses lazy loading, which means that it will not make a query and fetch the results 
-until you started to iterate over it or to get element by index.
+`QuerySet.where()` method applies a filter to a query. Only equality operation is supported (due to PULL SDK
+restrictions). Repeated calls to `where()` are AND'ed. Several fields in one call are also AND'ed. Repeated appearance
+of the same field in different calls will replace the previous value.
 
-The common approach to work with a QuerySet is:
-
-```python
-records = zk.table('Model').limit1(parameters).limit2(parameters)[index_or_slice]
-for record in records:
-    ...
-```
-
-`QuerySet` is binded with a particular Model class, where queries are targeted to. New 
-`QuerySet` is created by `ZKAccess.table(model)` function. As `model` parameter you can pass 
-model's name, or it's class, or it's object.
-
-The following examples works identically, they return empty `QuerySet` object binded with 
-`User` model:
-
-```python
-from pyzkaccess.tables import User
-
-qs = zk.table('User')
-qs = zk.table(User)
-qs = zk.table(User(pin='1', password='123'))
-```
-
-Some `QuerySet` methods return new object, the others not. Let's see what you can do with QuerySets.
-
-### Building a query
-
-#### Filtering
-
-`where()` method returns a new `QuerySet` containing records that match the given filter parameters.
-You can only use equality operation due to PULL SDK restriction. Several fields are AND'ed. 
-Filters in repeated `where()` calls are also AND'ed with fields from previous calls. If this 
-field has already set in previous call, it will be replaced with new value.
-
-The following examples will produce identical queries: 
+The following examples will produce identical queries:
 
 ```python
 qs = zk.table('User').where(group='4', super_authorize=True)
@@ -219,24 +235,23 @@ qs = zk.table('User').where(group='4').where(super_authorize=True)
 qs = zk.table('User').where(group='111').where(group='4', super_authorize=True)
   ```
 
-Resulting query conditions will be `group == '4' AND super_authorize == True`.
+Roughly speaking, the result will be the `group == '4' AND super_authorize == True`.
 
-#### Only new records
+### Getting the unread records
 
-`unread()` method returns a new `QuerySet` containing records that was not read yet.
+The ZK device stores a pointer to the last read record in each table. Once a table is read, the pointer is moved to the
+last record. We use this to track the unread records.
 
-All data tables on ZK device has a pointer which is set to the last record on each read query. If
-no records have been inserted to a table since last read, the "unread" query will return nothing.
+`QuerySet.unread()` method returns a new `QuerySet` containing only the records that has not been read yet since
+the last query.
 
-#### Query only listed fields
+### Select fields to retrieve
 
-`only_fields()` method returns a new `QuerySet` containing records with only specified fields.
-Other fields will be set to None. Fields in repeated `only_fields()` calls will be added to fields
-from previous calls.
+`only_fields()` method returns a new `QuerySet` containing the records with only selected fields.
+Other fields will be set to None. Repeated `only_fields()` call appends the fields selected in the previous
+`only_fields()` calls.
 
-As a field name you can pass either a field name or model field object.
-
-The following examples will produce identical queries: 
+The following examples will produce identical queries:
 
 ```python
 from pyzkaccess.tables import User
@@ -247,21 +262,26 @@ qs = zk.table('User').only_fields('pin').only_fields('password')
 qs = zk.table('User').only_fields(User.pin).only_fields(User.password)
 ```
 
-Resulting records will have only `pin` and `password` field values, retrieved from table, 
-other fields will remain None.
+Every record in the result will have only `pin` and `password` values, other fields will remain None.
 
 ### Data table size
 
-`count()` method returns total records count in records. Calling this method leads to a special
-SDK call. Pay attention that this method does not consider conditions, it just returns total
-records count in a table. It is an analogue of SQL query `SELECT COUNT(*) FROM table;`.
+`count()` method returns the total records count in table, ignoring all filters. This method is backed by a special
+PULL SDK call.
 
 If you want to know count of records contained in `QuerySet`, use `len(qs)`.
 
+```python
+from pyzkaccess import ZKAccess
+
+zk = ZKAccess('protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd=')
+qs = zk.table('User').where(group='4').where(super_authorize=True)
+print('Superusers in group 4:', list(qs), 'Total users count:', qs.count())
+```
+
 ## Retrieving results
 
-`QuerySet` supports iterator protocol and also slicing, indexing. Some examples should help to
-understand the approach:
+`QuerySet` supports iterator protocol, slicing, indexing:
 
 ```python
 # Print superusers
@@ -282,13 +302,3 @@ if qs.count() > 0:
 else:
     print('Transaction table is empty!')
 ```
-
-### len()
-
-When you apply `len()` on a `QuerySet` object, all matched results will be fetched from a device
-and put to the cache. Unlike `count()` method, the `len()` returns actual results size.
-
-### bool()
-
-When you apply `bool()` on a `QuerySet` object, all matched results will be fetched from a device
-and put to the cache. If there is any record was returned, returns `True`, or `False` otherwise.

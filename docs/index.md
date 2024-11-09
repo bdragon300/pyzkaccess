@@ -1,25 +1,27 @@
-# PyZKAccess
+$# PyZKAccess
 
-* [Summary](#summary)  
-* [Installing](#installing)
-* [Usage](#usage)  
-* [Device data tables](#device-data-tables)
-    * [Model objects](#model-objects)
-    * [Saving changes in objects](#saving-changes-in-objects)
-    * [Deleting objects](#deleting-objects)
-    * [Making queries](#making-queries)
+* [Overview](#overview)
+* [Quick start](#quick-start)
+* [Installation](#installation)
+* [Command-line interface](#command-line-interface)
+* [Library usage](#library-usage)
+* [Data tables](#data-tables)
+    * [Models](#models)
+    * [Reading data](#reading-data)
+    * [Writing data](#writing-data)
+    * [Building a query](#building-a-query)
     * [Retrieving results](#retrieving-results)
-* [Command-line interface](#command-line-interface)  
 
 PyZKAccess is a library for working with ZKTeco ZKAccess C3-100/200/400 access controllers.
 
 **[API reference](pyzkaccess)**
 
-{% include_relative summary.md %}
-{% include_relative installing.md %}
+{% include_relative overview.md %}
+{% include_relative quick_start.md %}
+{% include_relative installation.md %}
+{% include_relative cli.md %}
 {% include_relative usage.md %}
 {% include_relative data_tables.md %}
-{% include_relative cli.md %}
 
 # Author
 

@@ -1,0 +1,28 @@
+version: '3'
+
+vars:
+  DOCS_BUILD_DIR: build/docs
+
+tasks:
+  dev_setup:
+    desc: "Setup development environment"
+    preconditions:
+      - sh: command -v poetry
+        msg: "Poetry is not installed. Please install it from https://python-poetry.org/docs/#installation"
+    cmds:
+      - poetry install
+      - poetry run pre-commit install
+
+  build_docs:
+    desc: "Build documentation"
+    cmds:
+      - poetry run pdoc3 -o {{ .DOCS_BUILD_DIR }} --force --template-dir pdoc_tpl --html pyzkaccess {{ .CLI_ARGS }}
+
+  lint:
+    desc: "Run linters"
+    cmds:
+      - poetry run pylint --rcfile pyproject.toml .
+      - poetry run mypy --config-file pyproject.toml .
+      - poetry run black --config pyproject.toml --check .
+      - poetry run flake8 --toml-config pyproject.toml .
+      - poetry run isort --settings pyproject.toml --check .

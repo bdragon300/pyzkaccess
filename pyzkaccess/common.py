@@ -1,159 +1,195 @@
-__all__ = [
-    'UserTuple',
-    'DocValue',
-    'DocDict',
-    'ZKDatetimeUtils'
-]
+__all__ = ["UserTuple", "DocValue", "DocDict", "ZKDatetimeUtils"]
 from copy import copy, deepcopy
-from datetime import datetime, time, date
-from typing import Sequence, Union, Iterable, Tuple, Optional
+from datetime import date, datetime, time
+from typing import Any, Generic, Iterable, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union, overload
 
 from wrapt import ObjectProxy
-from wrapt.wrappers import _ObjectProxyMetaType  # noqa
+from wrapt.wrappers import _ObjectProxyMetaType  # noqa; pylint: disable=import-private-name
+
+_DataT = TypeVar("_DataT")
+_UserTupleT = TypeVar("_UserTupleT", bound="UserTuple")
 
 
-class UserTuple:
+class UserTuple(Sequence[_DataT]):
     """Immutable version of `collections.UserList` from the stdlib"""
-    def __init__(self, initlist: Union[Sequence, Iterable, 'UserTuple'] = None):
-        self.data = tuple()
-        if initlist is not None:
-            # XXX should this accept an arbitrary sequence?
-            if isinstance(initlist, tuple):
-                self.data = initlist
-            elif isinstance(initlist, UserTuple):
-                self.data = copy(initlist.data)
-            else:
-                self.data = tuple(initlist)
 
-    def __repr__(self): return repr(self.data)
-    def __lt__(self, other): return self.data <  self.__cast(other)  # noqa
-    def __le__(self, other): return self.data <= self.__cast(other)
-    def __eq__(self, other): return self.data == self.__cast(other)
-    def __gt__(self, other): return self.data >  self.__cast(other)  # noqa
-    def __ge__(self, other): return self.data >= self.__cast(other)
+    def __init__(self, initlist: Union[Iterable[_DataT], "UserTuple[_DataT]"] = ()):
+        self._data: Tuple[_DataT, ...]
+        if isinstance(initlist, tuple):
+            self._data = initlist
+        elif isinstance(initlist, UserTuple):
+            self._data = copy(initlist._data)
+        else:
+            self._data = tuple(initlist)
 
-    def __cast(self, other):
-        return other.data if isinstance(other, UserTuple) else other
+    @property
+    def data(self) -> Tuple[_DataT, ...]:
+        return self._data
 
-    def __contains__(self, item): return item in self.data
-    def __len__(self): return len(self.data)
+    @data.setter
+    def data(self, value: Iterable[_DataT]) -> None:
+        self._data = tuple(value)
 
-    def __getitem__(self, i):
+    def __repr__(self) -> str:
+        return repr(self._data)
+
+    def __lt__(self, other: Any) -> bool:
+        return self._data < self.__cast(other)  # noqa
+
+    def __le__(self, other: Any) -> bool:
+        return self._data <= self.__cast(other)
+
+    def __eq__(self, other: Any) -> bool:
+        return self._data == self.__cast(other)
+
+    def __gt__(self, other: Any) -> bool:
+        return self._data > self.__cast(other)  # noqa
+
+    def __ge__(self, other: Any) -> bool:
+        return self._data >= self.__cast(other)
+
+    @staticmethod
+    def __cast(other: Any) -> Any:
+        return other._data if isinstance(other, UserTuple) else other  # pylint: disable=protected-access
+
+    def __contains__(self, item: Any) -> bool:
+        return item in self._data
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    @overload
+    def __getitem__(self, i: int) -> _DataT: ...
+
+    @overload
+    def __getitem__(self: _UserTupleT, i: slice) -> _UserTupleT: ...
+
+    def __getitem__(self: _UserTupleT, i: Union[int, slice]) -> Union[_DataT, _UserTupleT]:
         if isinstance(i, slice):
-            return self.__class__(self.data[i])
+            return self.__class__(self._data[i])
+
+        return self._data[i]
+
+    def __add__(self: _UserTupleT, other: Iterable[_DataT]) -> _UserTupleT:
+        if isinstance(other, UserTuple):
+            return self.__class__(self._data + other._data)
+        return self.__class__(self._data + tuple(other))
+
+    def __radd__(self: _UserTupleT, other: Iterable[_DataT]) -> _UserTupleT:
+        if isinstance(other, UserTuple):
+            return self.__class__(other._data + self._data)
+        return self.__class__(tuple(other) + self._data)
+
+    def __iadd__(self: _UserTupleT, other: Iterable[_DataT]) -> _UserTupleT:
+        if isinstance(other, UserTuple):
+            self._data += other._data
         else:
-            return self.data[i]
-
-    def __add__(self, other):
-        if isinstance(other, UserTuple):
-            return self.__class__(self.data + other.data)
-        elif isinstance(other, type(self.data)):
-            return self.__class__(self.data + other)
-        return self.__class__(self.data + list(other))
-
-    def __radd__(self, other):
-        if isinstance(other, UserTuple):
-            return self.__class__(other.data + self.data)
-        elif isinstance(other, type(self.data)):
-            return self.__class__(other + self.data)
-        return self.__class__(list(other) + self.data)
-
-    def __iadd__(self, other):
-        if isinstance(other, UserTuple):
-            self.data += other.data
-        elif isinstance(other, type(self.data)):
-            self.data += other
-        else:
-            self.data += list(other)
+            self._data += tuple(other)
         return self
 
-    def __mul__(self, n):
-        return self.__class__(self.data*n)
+    def __mul__(self: _UserTupleT, n: int) -> _UserTupleT:
+        return self.__class__(self._data * n)
 
     __rmul__ = __mul__
 
-    def __imul__(self, n):
-        self.data *= n
+    def __imul__(self: _UserTupleT, n: int) -> _UserTupleT:
+        self._data *= n
         return self
 
-    def __hash__(self):
-        return hash(self.data)
+    def __hash__(self) -> int:
+        return hash(self._data)
 
-    def __copy__(self):
+    def __copy__(self: _UserTupleT) -> _UserTupleT:
         inst = self.__class__.__new__(self.__class__)
         inst.__dict__.update(self.__dict__)
         # Create a copy and avoid triggering descriptors
-        inst.__dict__["data"] = self.__dict__["data"][:]
+        inst.__dict__["_data"] = self.__dict__["_data"][:]
         return inst
 
-    def copy(self): return self.__class__(self)
-    def count(self, item): return self.data.count(item)
-    def index(self, item, *args): return self.data.index(item, *args)
+    def copy(self: _UserTupleT) -> _UserTupleT:
+        return self.__class__(self)
+
+    def count(self, value: _DataT) -> int:
+        return self._data.count(value)
+
+    def index(self, value: _DataT, *args: Any, **kwargs: Any) -> int:
+        return self._data.index(value, *args, **kwargs)
+
+
+_DocValueValueT = TypeVar("_DocValueValueT", bound=Union[str, int])
+_DocValueT = TypeVar("_DocValueT", bound="DocValue")
 
 
 class DocValueMeta(_ObjectProxyMetaType):
-    def __new__(cls, name, bases, attrs):
+    def __new__(mcs, name: str, bases: tuple, attrs: dict) -> Any:
         # Hack: override class creation for proxy object since
         # ObjectProxy metaclass doesn't allow easily redefine __doc__
-        def get_doc(self):
-            return self._self_doc if self._self_doc else self.__wrapped__.__doc__
+        def get_doc(self: _DocValueT) -> str:
+            return self._self_doc if self._self_doc else self.__wrapped__.__doc__  # pylint: disable=protected-access
 
         doc_prop = property(get_doc, None, None)
 
-        new_class = super().__new__(cls, name, bases, attrs)
-        type.__setattr__(new_class, '__doc__', doc_prop)
-        type.__setattr__(new_class, '__module__', '')
+        new_class = super().__new__(mcs, name, bases, attrs)  # pylint: disable=too-many-function-args
+        type.__setattr__(new_class, "__doc__", doc_prop)
+        type.__setattr__(new_class, "__module__", "")
         return new_class
 
 
-class DocValue(ObjectProxy, metaclass=DocValueMeta):
+class DocValue(ObjectProxy, Generic[_DocValueValueT], metaclass=DocValueMeta):
     """Value of type with custom __doc__ attribute. The main aim is to
     annotate a value of any type including built-in ones
     """
-    def __init__(self, value: Union[str, int], doc: str):
-        """
+
+    def __init__(self, value: _DocValueValueT, doc: str) -> None:
+        """DocValue constructor
+
         Args:
-            value (Union[str, int]): value which was exposed by this
-                object
+            value (_DocValueValueT): value which was exposed by this object
             doc (str): documentation string which will be put to __doc__
         """
         super().__init__(value)
         if not isinstance(value, (str, int)):
-            raise TypeError('Init value type must be int or str')
+            raise TypeError("Init value type must be int or str")
 
         self._self_value = value
         self._self_doc = doc
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__wrapped__.__repr__()
 
     @property
-    def value(self):
+    def value(self) -> _DocValueValueT:
         """Exposed value"""
         return self._self_value
 
     @property
-    def doc(self):
+    def doc(self) -> str:
         """Documentation of a value"""
         return self._self_doc
 
-    def __copy__(self):
+    def __copy__(self: _DocValueT) -> _DocValueT:
         obj = DocValue(copy(self._self_value), copy(self._self_doc))
         return obj
 
-    def __deepcopy__(self, memodict=None):
+    def __deepcopy__(self: _DocValueT, memodict: Optional[dict] = None) -> _DocValueT:
         obj = DocValue(deepcopy(self._self_value), deepcopy(self._self_doc))
         return obj
 
+    def __reduce__(self: _DocValueT) -> Tuple[Type[_DocValueT], Tuple[_DocValueValueT, str]]:
+        return type(self), (self._self_value, self._self_doc)
 
-class DocDict(dict):
+    def __reduce_ex__(self: _DocValueT, _: Any) -> Tuple[Type[_DocValueT], Tuple[_DocValueValueT, str]]:
+        return self.__reduce__()
+
+
+class DocDict(dict, Generic[_DocValueValueT]):
     """DocDict is dictionary, where values are annotated versions
     of keys.
 
     As initial value DocDict accepts a dictionary where dict key is
     an exposed value and dict value is docstring.
 
-        >>> d = DocDict({1: 'Docstring 1', '2': 'Docstring 2'})
+        >>> d = DocDict[int, str]({1: 'Docstring 1', '2': 'Docstring 2'})
         >>> print(repr(d[1]), repr(d['2']))
         1 '2'
         >>> print(type(d[1]), type(d['2']))
@@ -167,18 +203,26 @@ class DocDict(dict):
         >>> print(d[1].__doc__, ',', d['2'].__doc__)
         Docstring 1 , Docstring 2
     """
-    def __init__(self, initdict: dict):
-        super().__init__({k: DocValue(k, v) for k, v in initdict.items()})
+
+    def __init__(self, initdict: Mapping[_DocValueValueT, str]) -> None:
+        super().__init__({k: DocValue[_DocValueValueT](k, v) for k, v in initdict.items()})
 
 
 class ZKDatetimeUtils:
-    """Utility functions to work with date/time types in ZKAccess SDK.
+    """Utility functions to work with datetimes in ZKAccess SDK.
 
-    ZK devices has various ways to work with dates and time. In
-    order to make working with dates more convenient in user's code,
-    these functions converts standard python objects from datetime
-    module into a specific format.
+    ZK device developers reinvented the wheel and used their own
+    weird datetime representation in some tables and parameters.
+    Moreover, they used completely different formats in different
+    places.
+
+    God only knows why they didn't use the ISO datetime or timestamps
+    or something like that.
+
+    This class provides the methods to convert such values to standard
+    Python datetime objects and vice versa.
     """
+
     @staticmethod
     def zkctime_to_datetime(zkctime: Union[str, int]) -> datetime:
         """Convert ZK-specific ctime integer value to a datetime object.
@@ -198,7 +242,7 @@ class ZKDatetimeUtils:
             zkctime = int(zkctime)
 
         if zkctime < 0:
-            raise ValueError('Value must be a positive number')
+            raise ValueError("Value must be a positive number")
 
         return datetime(
             year=zkctime // 32140800 + 2000,
@@ -206,7 +250,7 @@ class ZKDatetimeUtils:
             day=(zkctime // 86400) % 31 + 1,
             hour=(zkctime // 3600) % 24,
             minute=(zkctime // 60) % 60,
-            second=zkctime % 60
+            second=zkctime % 60,
         )
 
     @staticmethod
@@ -226,18 +270,16 @@ class ZKDatetimeUtils:
 
         """
         if dt.year < 2000:
-            raise ValueError('Cannot get zkctime from a date earlier than a midnight of 2000-01-01')
+            raise ValueError("Cannot get zkctime from a date earlier than a midnight of 2000-01-01")
 
-        return sum((
-            sum((
-                (dt.year - 2000) * 12 * 31,
-                (dt.month - 1) * 31,
-                (dt.day - 1)
-            )) * 24 * 60 * 60,
-            dt.hour * 60 * 60,
-            dt.minute * 60,
-            dt.second
-        ))
+        return sum(
+            (
+                sum(((dt.year - 2000) * 12 * 31, (dt.month - 1) * 31, (dt.day - 1))) * 24 * 60 * 60,
+                dt.hour * 60 * 60,
+                dt.minute * 60,
+                dt.second,
+            )
+        )
 
     @staticmethod
     def time_string_to_datetime(dt_string: str) -> datetime:
@@ -251,7 +293,7 @@ class ZKDatetimeUtils:
             datetime: converted datetime object
 
         """
-        return datetime.strptime(dt_string, '%Y-%m-%d %H:%M:%S')
+        return datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
 
     @staticmethod
     def zktimerange_to_times(zktr: Union[str, int]) -> Tuple[time, time]:
@@ -275,10 +317,10 @@ class ZKDatetimeUtils:
             zktr = int(zktr)
 
         if zktr < 0:
-            raise ValueError('time range cannot be a negative number')
+            raise ValueError("time range cannot be a negative number")
 
-        to_num = zktr & 0xffff
-        from_num = (zktr >> 16) & 0xffff
+        to_num = zktr & 0xFFFF
+        from_num = (zktr >> 16) & 0xFFFF
         from_t = time(hour=from_num // 100, minute=from_num % 100)
         to_t = time(hour=to_num // 100, minute=to_num % 100)
 
@@ -320,10 +362,10 @@ class ZKDatetimeUtils:
 
         """
         # Device can return '0' string for date fields
-        if zkd == '0':
+        if zkd == "0":
             return None
 
-        return datetime.strptime(zkd, '%Y%m%d').date()
+        return datetime.strptime(zkd, "%Y%m%d").date()
 
     @staticmethod
     def date_to_zkdate(d: Union[date, datetime]) -> str:
@@ -339,7 +381,7 @@ class ZKDatetimeUtils:
             str: date string
 
         """
-        return d.strftime('%Y%m%d')
+        return d.strftime("%Y%m%d")
 
     @staticmethod
     def zktimemoment_to_datetime(zktm: Union[str, int]) -> Optional[datetime]:
@@ -355,20 +397,16 @@ class ZKDatetimeUtils:
                 integer or as number in string
 
         Returns:
-            datetime: decoded datetime object
+            Optional[datetime]: decoded datetime object
         """
-        if zktm in ('0', 0):
+        if zktm in ("0", 0):
             return None
 
         if isinstance(zktm, str):
             zktm = int(zktm)
 
         return datetime(
-            year=1970,
-            month=(zktm >> 24) & 0xff,
-            day=(zktm >> 16) & 0xff,
-            hour=(zktm >> 8) & 0xff,
-            minute=zktm & 0xff
+            year=1970, month=(zktm >> 24) & 0xFF, day=(zktm >> 16) & 0xFF, hour=(zktm >> 8) & 0xFF, minute=zktm & 0xFF
         )
 
     @staticmethod

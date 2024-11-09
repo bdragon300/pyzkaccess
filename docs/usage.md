@@ -1,8 +1,8 @@
-# Usage
+# Library usage
+
+Let's look how to use this package in your code.
 
 ## Quick start
-
-The default factory ip of C3 devices is `192.168.1.201`.
 
 ```python
 from pyzkaccess import ZKAccess
@@ -31,7 +31,7 @@ zk.restart()
 zk.disconnect()
 ```
 
-## Working with a device
+## Working with library
 
 #### Use as context manager
 
@@ -58,7 +58,10 @@ if found:
         print(zk.parameters.ip_address)
 ```
 
-#### Default model is C3-400. Here is how to use another device model
+#### Using a certain device model
+
+*Default device model is `ZK400` (C3-400).*
+
 ```python
 from pyzkaccess import ZKAccess, ZK200
 
@@ -68,6 +71,7 @@ with ZKAccess(connstr=connstr, device_model=ZK200) as zk:
 ```
 
 #### Set current datetime
+
 ```python
 from pyzkaccess import ZKAccess
 from datetime import datetime
@@ -77,7 +81,8 @@ with ZKAccess(connstr=connstr) as zk:
     zk.parameters.datetime = datetime.now()
 ```
 
-#### Change ip settings
+#### Change IP settings
+
 ```python
 from pyzkaccess import ZKAccess
 
@@ -92,7 +97,8 @@ with ZKAccess(connstr=connstr) as zk:
 
 The main operation we can do with a relay is to switch on it for a given count of seconds (0..255).
 Relay number corresponds to its number on board starting from aux relay group.
-A relay can be accessed by different ways:
+
+Relays can be addressed in different ways:
 
 ```python
 zk.relays.switch_on(5)  # All relays
@@ -107,7 +113,7 @@ zk.relays.by_mask([1, 0, 1, 0, 0, 0, 0, 0]).switch_on(5)  # By mask
 ## Readers
 
 The main operation we can do with a reader is to read its events. Number of reader is denoted on
-board. Readers can be accessed by different ways:
+the board. Readers can be addressed in different ways:
 
 ```python
 zk.readers.events.refresh()  # All readers
@@ -115,12 +121,12 @@ zk.readers[0].events.refresh()  # By index
 zk.readers[1:3].events.refresh()  # By range
 zk.readers[1:3].events.poll()  # Await events for readers 2 and 3
 zk.doors[0].reader.events.refresh()  # By number of door which it belongs to
-``` 
+```
 
 ## Aux inputs
 
-Like for a reader, the main operation for aux input is to read events. The number of aux input
-is also denoted on board. Aux inputs can be accessed by different ways:
+The main operation for aux input is to read events. The number of aux input
+is also denoted on the board. Aux inputs can be addressed in different ways:
 
 ```python
 zk.aux_inputs.events.refresh()  # All aux inputs
@@ -128,40 +134,113 @@ zk.aux_inputs[0].events.refresh()  # By index
 zk.aux_inputs[1:3].events.refresh()  # By range
 zk.aux_inputs[1:3].events.poll()  # Await events for aux inputs 2 and 3
 zk.doors[0].aux_input.events.refresh()  # By number of door which it belongs to
-``` 
+```
 
 ## Events
 
-Events are accessible through `.events` property. C3 controller keeps
-maximum 30 last unread events. Events start to register just after making connection to a device.
+Events are the way to monitor the device in real time. It stores an events log in its RAM, keeping only the
+last 30 records. Events start to register just after making a connection to a device.
 
-Event log should be refreshed manually using `refresh()` method. Due to restriction of 
-maximum 30 entries described above, you should call `refresh()` periodically in order to avoid
-losing new events.
+To get events without losses, you better to call the `EventLog.refresh()` method periodically depending on the pace
+the new events are expected to occur. It requests a device for unread events and stores them in the EventLog object.
+There is also a convenience method `EventLog.poll()` that peridically calls `refresh()` and returns new events if any
+(or if timeout is reached).
 
-Another way to obtain events is `poll()` method which awaits new log entries by doing
-periodical refresh and returns new events if any.
-
-Event log is available in several places. For `ZKAccess` object it keeps all events occured on
-a device. Readers, doors, aut inputs also give access to events which are related to this reader.
-Under the hood these properties use the same event list which keeps all device events, but
-each one apply its own filter to this list.
+You can make a query to events related to a certain object (reader, door, aux input) or to all events on a device.
+Under the hood it just applies a filter to the event log.
 
 ```python
-zk.events  # Event log with all events occured on a device
-zk.events.refresh()  # Get unread events from device
-zk.events.poll()  # Wait until any event will occur
-zk.door.events  # Event log for all doors (exluding auto open door by time for instance)
+zk.events  # Access to event log
+zk.events.refresh()  # Get the unread events from a device
+zk.events.poll()  # Wait until any event will occur (or timeout will be reached)
+zk.door.events  # Event log for all doors (exluding auto open door by time, for instance)
 zk.aux_inputs.events  # Event log related to aux inputs only
 zk.readers.events  # Event log related to readers only
 
 #
 # More complex examples
 #
-# Wait until an some event will occur on Door 1 reader
+# Wait until a some event will occur on Door 1 reader
 zk.door[0].reader.events.poll()
-# Wait until unregistered card (event_type 27) with given number will appear on Door 1 reader 
+# Wait until unregistered card (event_type==27) with given number will appear on Door 1 reader. Or exit by timeout.
 zk.door[0].reader.events.only(card='123456', event_type=27).poll()
 # Take all records from log with given card which was occur after 2010-10-11 14:28:04
 zk.events.only(card='123456').after_time(datetime(2010, 10, 11, 14, 28, 4))
+```
+
+# Parameters
+
+Device parameters are the way to manipulate the device settings. There are two groups of parameters on the device.
+
+The first group is device parameters, which are related to the device itself. They are:
+
+| Name                       | Type                      | Flags      |
+|----------------------------|---------------------------|------------|
+| serial_number              | str                       | read-only  |
+| lock_count                 | int                       | read-only  |
+| reader_count               | int                       | read-only  |
+| aux_in_count               | int                       | read-only  |
+| aux_out_count              | int                       | read-only  |
+| communication_password     | str                       |            |
+| ip_address                 | str                       |            |
+| netmask                    | str                       |            |
+| gateway_ip_address         | str                       |            |
+| rs232_baud_rate            | int                       |            |
+| watchdog_enabled           | bool                      |            |
+| door4_to_door2             | bool                      |            |
+| backup_hour                | int                       |            |
+| reboot                     | bool                      | write-only |
+| reader_direction           | str                       |            |
+| display_daylight_saving    | bool                      |            |
+| enable_daylight_saving     | bool                      |            |
+| daylight_saving_mode       | int                       |            |
+| fingerprint_version        | int                       | read-only  |
+| anti_passback_rule         | int                       |            |
+| interlock                  | int                       |            |
+| spring_daylight_time_mode1 | DaylightSavingMomentMode1 |            |
+| fall_daylight_time_mode1   | DaylightSavingMomentMode1 |            |
+| spring_daylight_time_mode2 | DaylightSavingMomentMode2 |            |
+| fall_daylight_time_mode2   | DaylightSavingMomentMode2 |            |
+| datetime                   | datetime                  |            |
+
+The following code show how to get or set a parameter value, and how to get a description about each one:
+
+```python
+from pyzkaccess import ZKAccess
+
+connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+zk = ZKAccess(connstr=connstr)
+print(zk.parameters.ip_address)  # Get a value
+zk.parameters.ip_address = "192.168.1.2" # Set a value
+print(zk.parameters.ip_address.__doc__)  # Get description
+```
+
+The second group is door parameters, which are related to the door settings. They are:
+
+| Name                  | Type       | Flags |
+|-----------------------|------------|-------|
+| duress_password       | str        |       |
+| emergency_password    | str        |       |
+| lock_on_close         | bool       |       |
+| sensor_type           | SensorType |       |
+| lock_driver_time      | int        |       |
+| magnet_alarm_duration | int        |       |
+| verify_mode           | VerifyMode |       |
+| multi_card_open       | bool       |       |
+| first_card_open       | bool       |       |
+| active_time_tz        | int        |       |
+| open_time_tz          | int        |       |
+| punch_interval        | int        |       |
+| cancel_open_day       | int        |       |
+
+The following code show how to get or set a door parameter value, and how to get a description about each one:
+
+```python
+from pyzkaccess import ZKAccess
+
+connstr = 'protocol=TCP,ipaddress=192.168.1.201,port=4370,timeout=4000,passwd='
+zk = ZKAccess(connstr=connstr)
+print(zk.doors[0].parameters.verify_mode)  # Get a parameter value of the first door
+zk.doors[0].parameters.verify_mode = 1  # Set a parameter value of the first door
+print(zk.doors[0].parameters.verify_mode.__doc__)  # Get a parameter description
 ```
