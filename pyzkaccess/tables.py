@@ -50,8 +50,8 @@ class UserAuthorize(Model):
     doors = Field(
         "AuthorizeDoorId",
         tuple,
-        lambda x: (bool(i) for i in f"{int(x):04b}"[::-1]),
-        lambda x: int("".join(str(int(i)) for i in x[::-1]), 2),
+        lambda x: tuple(bool(int(b)) for b in f"{int(x):04b}"[::-1]),
+        lambda x: sum((1 << i) for i, enabled in enumerate(x) if enabled),
         lambda x: len(x) == 4,
     )
 
