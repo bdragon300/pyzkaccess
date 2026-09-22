@@ -4,7 +4,7 @@
 
 ### Portable executable
 
-The quickest way is to use [portable pyzkaccess.exe](https://github.com/bdragon300/pyzkaccess/releases/latest).
+The quickest way is to use [portable pyzkaccess.exe](https://github.com/bdragon300/pyzkaccess/releases/latest/download/pyzkaccess.exe).
 It contains the full `pyzkaccess` package with built-in Python and necessary libraries.
 Download it and run the `pyzkaccess.exe setup` to install PULL SDK.
 

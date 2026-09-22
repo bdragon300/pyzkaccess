@@ -10,7 +10,7 @@ pyzkaccess setup
 
 It will make a quick compatibility check of your system and suggest you to install PULL SDK from the official ZKTeco site.
 
-![pyzkaccess setup](docs/img/setup_screenshot.png)
+![pyzkaccess setup](img/setup_screenshot.png)
 
 All set! Now let's find out what ZKAccess devices are available on the local network:
 

@@ -1,4 +1,4 @@
-$# PyZKAccess
+# PyZKAccess
 
 * [Overview](#overview)
 * [Quick start](#quick-start)
