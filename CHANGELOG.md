@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Python Versioning](https://www.python.org/dev/peps/pep-0440/#public-version-identifiers).
 
+## [1.2]
+
+### Added
+
+- Add Python `3.13`, `3.14` support
+
+### Changed
+
+- Fix `doors` field getter/setter in `UserAuthorize` table
+
+### Removed
+
+- Drop the python `3.8` support
+
 ## [1.1]
 
 ### Added
