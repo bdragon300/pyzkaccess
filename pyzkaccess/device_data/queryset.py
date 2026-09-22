@@ -364,7 +364,7 @@ class QuerySet(Generic[_ModelT]):
 
         return res
 
-    class ModelIterator(Iterator[_ModelT]):
+    class ModelIterator(Iterator[_ModelT]):  # type: ignore
         """Iterator for iterating over QuerySet results"""
 
         def __init__(self, qs: "QuerySet", item: Optional[Union[slice, int]] = None):

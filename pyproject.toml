@@ -117,11 +117,13 @@ disable = [
     "too-many-return-statements",
     "too-many-try-statements",
     "logging-too-many-args",  # Pylint doesn't recognize logger.info("%s", param)
-    "invalid-metaclass"
+    "invalid-metaclass",
+    "deprecated-typing-alias"
 ]
 enable = ['c-extension-no-member']
 reports = false
 output-format = 'parseable'
+max-positional-arguments = 8
 
 [tool.pylint.basic]
 include-naming-hint = true
