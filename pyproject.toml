@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyzkaccess"
-version = "1.1"
+version = "1.2"
 description = "Library and CLI tool for working with ZKTeco ZKAccess C3-100/200/400 controllers"
 license = "Apache-2.0"
 authors = ["Igor Derkach <gosha753951@gmail.com>"]
