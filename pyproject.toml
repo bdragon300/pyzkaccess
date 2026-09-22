@@ -10,11 +10,12 @@ repository = "https://github.com/bdragon300/pyzkaccess"
 documentation = "https://bdragon300.github.io/pyzkaccess/"
 keywords = ["zkaccess", "zkteco", "c3-100", "c3-200", "c3-400", "access control", "door controller", "zkaccess control"]
 classifiers = [
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: Microsoft :: Windows",
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: Apache Software License",
@@ -29,7 +30,7 @@ packages = [{include = "pyzkaccess"}]
 pyzkaccess = "pyzkaccess.cli:main"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 wrapt = "^1.16.0"
 fire = "^0.7.0"
 prettytable = "^3.11.0"
@@ -70,7 +71,7 @@ ensure_newline_before_comments = true
 include_trailing_comma = true
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 platform = "win32"
 incremental = true
 strict = true
@@ -88,7 +89,7 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.pylint.main]
-py-version = 3.8
+py-version = 3.9
 # cli.py will not pass the checks, since it has been written specially for Fire library
 ignore-paths = ["tests", 'pyzkaccess/cli.py']
 recursive = true  # https://stackoverflow.com/questions/48024049/pylint-raises-error-if-directory-doesnt-contain-init-py-file

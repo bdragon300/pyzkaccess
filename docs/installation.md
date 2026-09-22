@@ -57,7 +57,7 @@ This package requires the **32-bit** [Python version for Windows](https://www.py
 Open up the terminal and install Python:
 
 ```
-wine python-3.8.5.exe`
+wine python-3.9.20.exe`
 ```
 
 *Make sure you ticked the checkbox "Add executable to PATH variable in Python installer."*

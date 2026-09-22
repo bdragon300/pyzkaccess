@@ -41,7 +41,7 @@ We support all the features the ZKTeco PULL SDK provides:
 The quickest way is to use [portable pyzkaccess.exe](https://github.com/bdragon300/pyzkaccess/releases/latest/download/pyzkaccess.exe).
 It contains the full `pyzkaccess` package with built-in Python and necessary libraries.
 
-*You can also install the package from PyPI (the __32-bit__ Python>=3.8 version is required) `pip install pyzkaccess`*
+*You can also install the package from PyPI (the __32-bit__ Python>=3.9 version is required) `pip install pyzkaccess`*
 
 Run this to setup the environment:
 

@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]   # All Python versions supported by pyzkaccess
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]   # All Python versions supported by pyzkaccess
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.9'
     - uses: abatilo/actions-poetry@v2
     - name: Install dependencies
       run: poetry install
